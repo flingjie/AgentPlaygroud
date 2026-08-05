@@ -1,4 +1,4 @@
-"""Predefined level definitions for the 4-level Agent Forge progression."""
+"""Predefined level definitions for the 4-level Agent Playground progression."""
 
 from app.models import LevelInfo
 

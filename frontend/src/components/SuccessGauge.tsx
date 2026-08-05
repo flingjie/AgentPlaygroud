@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { useGame } from '../context/GameContext';
 
 export default function SuccessGauge() {
+  const { t } = useTranslation();
   const { selectedLevel, monteCarloResult } = useGame();
   const target = selectedLevel?.target_success_rate ?? 70;
   const current = monteCarloResult?.success_rate ?? 0;
@@ -13,8 +15,8 @@ export default function SuccessGauge() {
 
   return (
     <div className="space-y-3">
-      <h3 className="font-mono text-xs text-gray-400 uppercase tracking-wider">
-        Success Rate
+      <h3 className="font-mono text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        {t('successGauge.title')}
       </h3>
 
       <div className="flex items-center justify-center">
@@ -26,7 +28,8 @@ export default function SuccessGauge() {
               cy={64}
               r={radius}
               fill="none"
-              stroke="#1e293b"
+              stroke="#e2e8f0"
+              className="dark:stroke-[#1e293b]"
               strokeWidth={10}
             />
             {/* Target marker */}
@@ -35,7 +38,8 @@ export default function SuccessGauge() {
               cy={64}
               r={radius}
               fill="none"
-              stroke="#475569"
+              stroke="#94a3b8"
+              className="dark:stroke-[#475569]"
               strokeWidth={10}
               strokeDasharray={circumference}
               strokeDashoffset={targetOffset}
@@ -64,18 +68,18 @@ export default function SuccessGauge() {
               <>
                 <span
                   className={`text-2xl font-bold font-mono ${
-                    current >= target ? 'text-green-400' : 'text-red-400'
+                    current >= target ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
                   }`}
                 >
                   {current}%
                 </span>
-                <span className="text-xs text-gray-500 font-mono">
-                  target {target}%
+                <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                  {t('successGauge.target', { value: target })}
                 </span>
               </>
             ) : (
-              <span className="text-sm text-gray-600 font-mono">
-                --%
+              <span className="text-sm text-gray-400 dark:text-gray-600 font-mono">
+                {t('successGauge.noData')}
               </span>
             )}
           </div>

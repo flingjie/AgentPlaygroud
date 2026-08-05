@@ -56,7 +56,7 @@ WARNING_TASK_ABANDONED = (
 
 
 class SimulationEngine:
-    """Deterministic simulation engine for Agent Forge.
+    """Deterministic simulation engine for Agent Playground.
 
     All randomness is derived from a seeded ``random.Random`` instance so
     that the same ``AgentBlueprint`` + seed always produces identical output.

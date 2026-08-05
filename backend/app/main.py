@@ -1,11 +1,11 @@
-"""Agent Forge MVP — FastAPI backend."""
+"""Agent Playground MVP — FastAPI backend."""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes import router
 
-app = FastAPI(title="Agent Forge MVP", version="0.1.0")
+app = FastAPI(title="Agent Playground MVP", version="0.1.0")
 
 # ---------------------------------------------------------------------------
 # CORS — allow all origins during MVP development

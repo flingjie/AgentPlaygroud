@@ -1,0 +1,148 @@
+{
+  "common": {
+    "retry": "重试",
+    "loading": "加载中...",
+    "locked": "已锁定",
+    "switchToEnglish": "切换到英文",
+    "switchToChinese": "切换到中文",
+    "switchToLight": "切换到亮色模式",
+    "switchToDark": "切换到暗色模式"
+  },
+  "layout": {
+    "brand": "AGENT_PLAYGROUND",
+    "factory": "工厂",
+    "architect": "架构师",
+    "debugger": "调试器",
+    "architectLocked": "解锁图编辑功能以访问",
+    "graphLocked": "当前关卡未解锁图编辑功能。",
+    "graphLockedHint": "选择更高关卡以解锁架构师视图。"
+  },
+  "factory": {
+    "title": "工厂",
+    "runSimulation": "运行模拟（100次）",
+    "runningMonteCarlo": "蒙特卡洛运行中...",
+    "simulationFailed": "模拟失败"
+  },
+  "levelSelector": {
+    "selectLevel": "选择关卡",
+    "loadingLevels": "加载关卡中...",
+    "noLevels": "暂无可用关卡。",
+    "target": "目标",
+    "budget": "预算",
+    "tokens": "Token",
+    "unlocked": "已解锁",
+    "loop": "循环",
+    "graph": "图"
+  },
+  "levels": {
+    "tutorial": {
+      "name": "教程：初识智能体",
+      "description": "从基础开始，构建一个带有工作区和记忆的简单智能体。无需循环和自定义图——只需配置好运行环境即可运行。"
+    },
+    "intermediate": {
+      "name": "中级：循环实验室",
+      "description": "解锁 ReAct+Reflexion 循环策略，尝试调整重试次数。配置一个3节点的图（规划器、编码器、审查器）来解决更复杂的任务。"
+    },
+    "advanced": {
+      "name": "高级：全栈智能体",
+      "description": "所有工具已解锁。构建一个包含测试验证、Git集成和精细记忆调优的4节点DAG。目标：在10000 token预算内达到95%成功率。"
+    }
+  },
+  "harness": {
+    "title": "运行环境配置",
+    "workspace": "工作区",
+    "workspaceDesc": "智能体的隔离文件系统",
+    "sandbox": "沙箱",
+    "sandboxDesc": "安全的代码执行环境",
+    "git": "Git",
+    "gitDesc": "版本控制与分支管理",
+    "memoryCapacity": "记忆容量"
+  },
+  "loop": {
+    "title": "循环策略",
+    "none": "无",
+    "noneDesc": "单次执行，无重试",
+    "reactReflexion": "ReAct + 反思",
+    "reactReflexionDesc": "带有自我反思和重试的推理循环",
+    "maxRetries": "最大重试次数",
+    "stopOnTestPass": "测试通过时停止"
+  },
+  "tokenBudget": {
+    "title": "Token 预算",
+    "overBudget": "超出预算 {{amount}} tokens"
+  },
+  "successGauge": {
+    "title": "成功率",
+    "target": "目标 {{value}}%",
+    "noData": "--%"
+  },
+  "nodePalette": {
+    "title": "节点面板",
+    "dragHint": "拖拽节点到画布",
+    "planner": "规划器",
+    "coder": "编码器",
+    "reviewer": "审查器",
+    "tester": "测试器"
+  },
+  "graphValidator": {
+    "valid": "图结构有效",
+    "disconnected": "{{id}} 未连接",
+    "multipleSinks": "存在多个终点：{{ids}}",
+    "noEntryPoint": "无入口节点：每个节点都有入边",
+    "multipleEntryPoints": "存在多个入口节点：{{ids}}",
+    "issueCount": "{{count}} 个问题",
+    "issueCount_plural": "{{count}} 个问题"
+  },
+  "debugger": {
+    "noTrace": "暂无推演记录。",
+    "noTraceHint": "从工厂视图运行模拟，或使用下方按钮进行单次测试。",
+    "singleRun": "单次运行",
+    "liveStream": "实时推演",
+    "reRun": "重新运行",
+    "live": "实时",
+    "tokens": "Token",
+    "liveSimulationFailed": "实时模拟失败"
+  },
+  "timeline": {
+    "title": "时间线",
+    "waitingForSteps": "等待步骤...",
+    "noSteps": "暂无记录",
+    "step": "步骤",
+    "node": "节点",
+    "action": "操作",
+    "memory": "记忆",
+    "stepCount": "{{count}} 步",
+    "stepCount_plural": "{{count}} 步"
+  },
+  "memoryMonitor": {
+    "title": "记忆监控",
+    "noData": "暂无数据",
+    "step": "步骤",
+    "memory": "记忆",
+    "memoryUsed": "已用记忆",
+    "dangerWarning": "记忆使用率已达 {{pct}}%——存在上下文溢出风险。请考虑减少记忆负载或增加容量。"
+  },
+  "eventBus": {
+    "title": "事件日志",
+    "waiting": "等待事件...",
+    "errors": "{{count}} 个错误",
+    "errors_plural": "{{count}} 个错误"
+  },
+  "monteCarlo": {
+    "title": "蒙特卡洛结果",
+    "successRate": "成功率",
+    "avgTokens": "平均 Token / 次",
+    "sampleTraces": "采样轨迹",
+    "success": "成功",
+    "failed": "失败",
+    "hallucinatedTool": "幻觉调用",
+    "fileCorrosion": "文件损坏",
+    "memoryStackOverflow": "记忆栈溢出",
+    "contextFull": "上下文溢出",
+    "infiniteLoopTrap": "死循环陷阱",
+    "taskAbandoned": "任务中止"
+  },
+  "architect": {
+    "dropHint": "拖拽节点到此处"
+  }
+}

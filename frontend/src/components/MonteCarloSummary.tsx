@@ -1,5 +1,7 @@
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import type { MonteCarloResult, RunTrace } from '../types';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext';
+import type { MonteCarloResult, RunTrace, FailureReason } from '../types';
 import { CheckCircle2, TrendingUp, Zap } from 'lucide-react';
 
 interface MonteCarloSummaryProps {
@@ -16,19 +18,30 @@ const FAILURE_COLORS: Record<string, string> = {
   TASK_ABANDONED: '#6b7280',
 };
 
-const FAILURE_LABELS: Record<string, string> = {
-  HALLUCINATED_TOOL: 'Hallucinated Tool',
-  FILE_CORROSION: 'File Corrosion',
-  MEMORY_STACK_OVERFLOW: 'Memory Stack Overflow',
-  CONTEXT_FULL: 'Context Full',
-  INFINITE_LOOP_TRAP: 'Infinite Loop Trap',
-  TASK_ABANDONED: 'Task Abandoned',
+const FAILURE_I18N_KEYS: Record<FailureReason, string> = {
+  NONE: 'NONE',
+  HALLUCINATED_TOOL: 'monteCarlo.hallucinatedTool',
+  FILE_CORROSION: 'monteCarlo.fileCorrosion',
+  MEMORY_STACK_OVERFLOW: 'monteCarlo.memoryStackOverflow',
+  CONTEXT_FULL: 'monteCarlo.contextFull',
+  INFINITE_LOOP_TRAP: 'monteCarlo.infiniteLoopTrap',
+  TASK_ABANDONED: 'monteCarlo.taskAbandoned',
 };
+
+function getFailureLabel(reason: string, t: (key: string) => string): string {
+  const key = FAILURE_I18N_KEYS[reason as FailureReason];
+  if (key && key !== 'NONE') return t(key);
+  return reason;
+}
 
 export default function MonteCarloSummary({
   result,
   onViewTrace,
 }: MonteCarloSummaryProps) {
+  const { t } = useTranslation();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   const { success_rate, avg_tokens, failure_distribution } = result;
 
   // Pie data: success vs failure
@@ -36,8 +49,8 @@ export default function MonteCarloSummary({
   const total = success_rate * (success_rate + failTotal) / 100 + failTotal;
   const actualSuccess = Math.round(success_rate / 100 * total);
   const pieData = [
-    { name: 'Success', value: actualSuccess },
-    { name: 'Failed', value: failTotal },
+    { name: t('monteCarlo.success'), value: actualSuccess },
+    { name: t('monteCarlo.failed'), value: failTotal },
   ];
   const PIE_COLORS = ['#4ade80', '#ef4444'];
 
@@ -45,17 +58,25 @@ export default function MonteCarloSummary({
   const barData = Object.entries(failure_distribution)
     .filter(([, count]) => count > 0)
     .map(([reason, count]) => ({
-      reason: FAILURE_LABELS[reason] ?? reason,
+      reason: getFailureLabel(reason, t),
       count,
       color: FAILURE_COLORS[reason] ?? '#6b7280',
     }));
 
+  const tooltipBg = isDark ? '#1e293b' : '#ffffff';
+  const tooltipBorder = isDark ? '#334155' : '#e2e8f0';
+  const tooltipText = isDark ? '#e2e8f0' : '#1e293b';
+  const gridColor = isDark ? '#1e293b' : '#e2e8f0';
+  const axisStroke = isDark ? '#475569' : '#94a3b8';
+  const tickColor = isDark ? '#94a3b8' : '#64748b';
+  const pieStroke = isDark ? '#0f172a' : '#f1f5f9';
+
   return (
-    <div className="p-4 bg-gray-900/30">
+    <div className="p-4 bg-gray-50/30 dark:bg-gray-900/30">
       <div className="flex items-center gap-2 mb-4">
-        <TrendingUp size={16} className="text-blue-400" />
-        <h3 className="font-mono text-xs text-gray-400 uppercase tracking-wider">
-          Monte Carlo Results
+        <TrendingUp size={16} className="text-blue-600 dark:text-blue-400" />
+        <h3 className="font-mono text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {t('monteCarlo.title')}
         </h3>
       </div>
 
@@ -65,16 +86,16 @@ export default function MonteCarloSummary({
           <span
             className={`text-4xl font-bold font-mono ${
               success_rate >= 80
-                ? 'text-green-400'
+                ? 'text-green-600 dark:text-green-400'
                 : success_rate >= 50
-                  ? 'text-yellow-400'
-                  : 'text-red-400'
+                  ? 'text-yellow-500 dark:text-yellow-400'
+                  : 'text-red-500 dark:text-red-400'
             }`}
           >
             {success_rate}%
           </span>
-          <span className="text-xs text-gray-500 font-mono mt-1">
-            Success Rate
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-1">
+            {t('monteCarlo.successRate')}
           </span>
           <div className="w-28 h-28 mt-2">
             <ResponsiveContainer width="100%" height="100%">
@@ -87,7 +108,7 @@ export default function MonteCarloSummary({
                   outerRadius={40}
                   dataKey="value"
                   strokeWidth={2}
-                  stroke="#0f172a"
+                  stroke={pieStroke}
                 >
                   {pieData.map((_, idx) => (
                     <Cell key={idx} fill={PIE_COLORS[idx]} />
@@ -95,12 +116,12 @@ export default function MonteCarloSummary({
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
+                    backgroundColor: tooltipBg,
+                    border: `1px solid ${tooltipBorder}`,
                     borderRadius: '8px',
                     fontSize: '12px',
                     fontFamily: 'JetBrains Mono',
-                    color: '#e2e8f0',
+                    color: tooltipText,
                   }}
                 />
               </PieChart>
@@ -111,13 +132,13 @@ export default function MonteCarloSummary({
         {/* Avg tokens */}
         <div className="flex flex-col items-center justify-center">
           <div className="flex items-center gap-2 mb-1">
-            <Zap size={16} className="text-yellow-400" />
-            <span className="text-2xl font-bold font-mono text-yellow-400">
+            <Zap size={16} className="text-yellow-600 dark:text-yellow-400" />
+            <span className="text-2xl font-bold font-mono text-yellow-500 dark:text-yellow-400">
               {avg_tokens.toLocaleString()}
             </span>
           </div>
-          <span className="text-xs text-gray-500 font-mono">
-            Avg Tokens / Run
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+            {t('monteCarlo.avgTokens')}
           </span>
 
           {/* Failure distribution chart */}
@@ -129,28 +150,28 @@ export default function MonteCarloSummary({
                   layout="vertical"
                   margin={{ left: 0, right: 10, top: 0, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
                   <XAxis
                     type="number"
-                    stroke="#475569"
-                    tick={{ fill: '#64748b', fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                    stroke={axisStroke}
+                    tick={{ fill: tickColor, fontSize: 9, fontFamily: 'JetBrains Mono' }}
                     allowDecimals={false}
                   />
                   <YAxis
                     type="category"
                     dataKey="reason"
-                    stroke="#475569"
-                    tick={{ fill: '#64748b', fontSize: 9, fontFamily: 'JetBrains Mono' }}
-                    width={120}
+                    stroke={axisStroke}
+                    tick={{ fill: tickColor, fontSize: 9, fontFamily: 'JetBrains Mono' }}
+                    width={100}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
+                      backgroundColor: tooltipBg,
+                      border: `1px solid ${tooltipBorder}`,
                       borderRadius: '8px',
                       fontSize: '12px',
                       fontFamily: 'JetBrains Mono',
-                      color: '#e2e8f0',
+                      color: tooltipText,
                     }}
                   />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]}>
@@ -166,34 +187,34 @@ export default function MonteCarloSummary({
 
         {/* Sample traces */}
         <div className="flex flex-col">
-          <span className="text-xs text-gray-500 font-mono mb-2">
-            Sample Traces
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-mono mb-2">
+            {t('monteCarlo.sampleTraces')}
           </span>
           {result.sample_traces.map((trace) => (
             <button
               key={trace.run_id}
               onClick={() => onViewTrace(trace)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors text-left mb-1 border border-transparent hover:border-gray-700"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left mb-1 border border-transparent hover:border-gray-300 dark:hover:border-gray-700"
             >
               {trace.status === 'SUCCESS' ? (
-                <CheckCircle2 size={14} className="text-green-400 shrink-0" />
+                <CheckCircle2 size={14} className="text-green-600 dark:text-green-400 shrink-0" />
               ) : (
-                <div className="w-3.5 h-3.5 rounded-full bg-red-400 shrink-0" />
+                <div className="w-3.5 h-3.5 rounded-full bg-red-600 dark:bg-red-400 shrink-0" />
               )}
               <div className="min-w-0">
-                <span className="text-xs font-mono text-gray-300 block truncate">
+                <span className="text-xs font-mono text-gray-700 dark:text-gray-300 block truncate">
                   {trace.run_id}
                 </span>
                 <span
                   className={`text-[10px] font-mono ${
                     trace.status === 'SUCCESS'
-                      ? 'text-green-400'
-                      : 'text-red-400'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-500 dark:text-red-400'
                   }`}
                 >
-                  {trace.status}
+                  {trace.status === 'SUCCESS' ? t('monteCarlo.success') : t('monteCarlo.failed')}
                   {trace.failure_reason !== 'NONE' &&
-                    ` — ${trace.failure_reason}`}
+                    ` — ${t(`monteCarlo.${trace.failure_reason.toLowerCase().replace(/_/g, '')}`, trace.failure_reason)}`}
                 </span>
               </div>
             </button>

@@ -1,6 +1,6 @@
-# Agent Forge MVP — Backend
+# Agent Playground MVP — Backend
 
-Deterministic simulation backend for the Agent Forge game. Built with FastAPI and Pydantic v2.
+Deterministic simulation backend for the Agent Playground game. Built with FastAPI and Pydantic v2.
 
 ## Quick Start
 

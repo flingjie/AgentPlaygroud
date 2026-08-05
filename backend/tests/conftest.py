@@ -1,4 +1,4 @@
-"""Shared test fixtures for Agent Forge backend tests."""
+"""Shared test fixtures for Agent Playground backend tests."""
 
 import pytest
 

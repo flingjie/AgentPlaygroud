@@ -1,0 +1,148 @@
+{
+  "common": {
+    "retry": "Retry",
+    "loading": "Loading...",
+    "locked": "locked",
+    "switchToEnglish": "Switch to English",
+    "switchToChinese": "切换到中文",
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode"
+  },
+  "layout": {
+    "brand": "AGENT_PLAYGROUND",
+    "factory": "Factory",
+    "architect": "Architect",
+    "debugger": "Debugger",
+    "architectLocked": "Unlock graph editing to access",
+    "graphLocked": "Graph editing is locked for this level.",
+    "graphLockedHint": "Select a higher level to unlock the Architect."
+  },
+  "factory": {
+    "title": "Factory",
+    "runSimulation": "Run Simulation (100 runs)",
+    "runningMonteCarlo": "Running Monte Carlo...",
+    "simulationFailed": "Simulation failed"
+  },
+  "levelSelector": {
+    "selectLevel": "Select Level",
+    "loadingLevels": "Loading levels...",
+    "noLevels": "No levels available.",
+    "target": "Target",
+    "budget": "Budget",
+    "tokens": "tokens",
+    "unlocked": "Unlocked",
+    "loop": "loop",
+    "graph": "graph"
+  },
+  "levels": {
+    "tutorial": {
+      "name": "Tutorial: Hello Agent",
+      "description": "Learn the basics by building a simple agent with a workspace and memory. No loops or custom graphs yet — just wire up the harness and run."
+    },
+    "intermediate": {
+      "name": "Intermediate: Loop Lab",
+      "description": "Unlock the ReAct+Reflexion loop strategy and experiment with retry limits. Configure a 3-node graph (planner, coder, reviewer) to solve harder tasks."
+    },
+    "advanced": {
+      "name": "Advanced: Full Stack Agent",
+      "description": "All tools unlocked. Build a 4-node DAG with tester validation, git integration, and fine-tuned memory. Hit 95% success rate under 10K tokens."
+    }
+  },
+  "harness": {
+    "title": "Harness Configuration",
+    "workspace": "Workspace",
+    "workspaceDesc": "Isolated file system for the agent",
+    "sandbox": "Sandbox",
+    "sandboxDesc": "Secure execution environment",
+    "git": "Git",
+    "gitDesc": "Version control and branching",
+    "memoryCapacity": "Memory Capacity"
+  },
+  "loop": {
+    "title": "Loop Strategy",
+    "none": "None",
+    "noneDesc": "Single-pass execution, no retries",
+    "reactReflexion": "ReAct + Reflexion",
+    "reactReflexionDesc": "Reasoning loop with self-reflection and retry",
+    "maxRetries": "Max Retries",
+    "stopOnTestPass": "Stop on test pass"
+  },
+  "tokenBudget": {
+    "title": "Token Budget",
+    "overBudget": "Over budget by {{amount}} tokens"
+  },
+  "successGauge": {
+    "title": "Success Rate",
+    "target": "target {{value}}%",
+    "noData": "--%"
+  },
+  "nodePalette": {
+    "title": "Node Palette",
+    "dragHint": "Drag nodes onto the canvas",
+    "planner": "Planner",
+    "coder": "Coder",
+    "reviewer": "Reviewer",
+    "tester": "Tester"
+  },
+  "graphValidator": {
+    "valid": "Graph valid",
+    "disconnected": "{{id}} is disconnected",
+    "multipleSinks": "Multiple sinks: {{ids}}",
+    "noEntryPoint": "No entry point: every node has an incoming edge",
+    "multipleEntryPoints": "Multiple entry points: {{ids}}",
+    "issueCount": "{{count}} issue",
+    "issueCount_plural": "{{count}} issues"
+  },
+  "debugger": {
+    "noTrace": "No trace data yet.",
+    "noTraceHint": "Run a simulation from the Factory view, or use the buttons below to test with a single run.",
+    "singleRun": "Single Run",
+    "liveStream": "Live Stream",
+    "reRun": "Re-run",
+    "live": "Live",
+    "tokens": "tokens",
+    "liveSimulationFailed": "Live simulation failed"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "waitingForSteps": "Waiting for steps...",
+    "noSteps": "No steps recorded",
+    "step": "Step",
+    "node": "Node",
+    "action": "Action",
+    "memory": "Memory",
+    "stepCount": "{{count}} step",
+    "stepCount_plural": "{{count}} steps"
+  },
+  "memoryMonitor": {
+    "title": "Memory Monitor",
+    "noData": "No data available",
+    "step": "Step",
+    "memory": "Memory",
+    "memoryUsed": "Memory Used",
+    "dangerWarning": "Memory usage at {{pct}}% — risk of context overflow. Consider reducing memory load or increasing capacity."
+  },
+  "eventBus": {
+    "title": "Event Log",
+    "waiting": "Waiting for events...",
+    "errors": "{{count}} error",
+    "errors_plural": "{{count}} errors"
+  },
+  "monteCarlo": {
+    "title": "Monte Carlo Results",
+    "successRate": "Success Rate",
+    "avgTokens": "Avg Tokens / Run",
+    "sampleTraces": "Sample Traces",
+    "success": "SUCCESS",
+    "failed": "FAILED",
+    "hallucinatedTool": "Hallucinated Tool",
+    "fileCorrosion": "File Corrosion",
+    "memoryStackOverflow": "Memory Stack Overflow",
+    "contextFull": "Context Full",
+    "infiniteLoopTrap": "Infinite Loop Trap",
+    "taskAbandoned": "Task Abandoned"
+  },
+  "architect": {
+    "dropHint": "Drop nodes here"
+  }
+}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Play, Loader2 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { monteCarlo } from '../api';
@@ -9,6 +10,7 @@ import TokenBudget from './TokenBudget';
 import SuccessGauge from './SuccessGauge';
 
 export default function FactoryView() {
+  const { t } = useTranslation();
   const { blueprint, setMonteCarloResult, setLatestTrace } = useGame();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export default function FactoryView() {
         setLatestTrace(result.sample_traces[0]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Simulation failed');
+      setError(err instanceof Error ? err.message : t('factory.simulationFailed'));
     } finally {
       setRunning(false);
     }
@@ -44,7 +46,7 @@ export default function FactoryView() {
           <LoopConfigPanel />
 
           {error && (
-            <div className="bg-red-400/10 border border-red-400/20 rounded-lg p-3 text-sm text-red-400">
+            <div className="bg-red-400/10 border border-red-400/20 rounded-lg p-3 text-sm text-red-600 dark:text-red-400">
               {error}
             </div>
           )}
@@ -52,17 +54,17 @@ export default function FactoryView() {
           <button
             onClick={handleRun}
             disabled={running}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-500 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 dark:disabled:text-gray-500 text-white font-medium transition-colors"
           >
             {running ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Running Monte Carlo...
+                {t('factory.runningMonteCarlo')}
               </>
             ) : (
               <>
                 <Play size={18} />
-                Run Simulation (100 runs)
+                {t('factory.runSimulation')}
               </>
             )}
           </button>
@@ -70,7 +72,7 @@ export default function FactoryView() {
 
         {/* Right: Resource Dashboard */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-6">
+          <div className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 space-y-6">
             <TokenBudget />
             <SuccessGauge />
           </div>

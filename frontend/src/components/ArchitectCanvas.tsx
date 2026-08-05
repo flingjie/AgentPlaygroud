@@ -14,7 +14,9 @@ import {
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { useTranslation } from 'react-i18next';
 import { useGame } from '../context/GameContext';
+import { useTheme } from '../context/ThemeContext';
 import type { GraphNode } from '../types';
 import NodePalette from './NodePalette';
 import AgentNode from './AgentNode';
@@ -53,7 +55,11 @@ function buildGraphNodes(currentNodes: Node[], currentEdges: Edge[]): GraphNode[
 }
 
 export default function ArchitectCanvas() {
+  const { t } = useTranslation();
   const { blueprint, updateGraph } = useGame();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const edgeColor = isDark ? '#94a3b8' : '#475569';
 
   // Initialize flow nodes from blueprint (only on mount)
   const initialNodes: Node[] = useMemo(() => {
@@ -75,8 +81,8 @@ export default function ArchitectCanvas() {
           id: `${gn.id}->${targetId}`,
           source: gn.id,
           target: targetId,
-          markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' },
-          style: { stroke: '#475569', strokeWidth: 2 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
+          style: { stroke: edgeColor, strokeWidth: 2 },
         });
       });
     });
@@ -98,8 +104,8 @@ export default function ArchitectCanvas() {
         addEdge(
           {
             ...connection,
-            markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' },
-            style: { stroke: '#475569', strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
+            style: { stroke: edgeColor, strokeWidth: 2 },
           },
           eds,
         ),
@@ -158,7 +164,7 @@ export default function ArchitectCanvas() {
       const inDeg = inDegree.get(n.id) ?? 0;
       const outDeg = outDegree.get(n.id) ?? 0;
       if (inDeg === 0 && outDeg === 0 && nodes.length > 1) {
-        issues.push(`"${n.id}" is disconnected`);
+        issues.push(t('graphValidator.disconnected', { id: n.id }));
       }
     });
 
@@ -167,7 +173,7 @@ export default function ArchitectCanvas() {
       (n) => (outDegree.get(n.id) ?? 0) === 0 && (inDegree.get(n.id) ?? 0) > 0,
     );
     if (sinks.length > 1) {
-      issues.push(`Multiple sinks: ${sinks.map((n) => n.id).join(', ')}`);
+      issues.push(t('graphValidator.multipleSinks', { ids: sinks.map((n) => n.id).join(', ') }));
     }
 
     // Entry point checks
@@ -175,14 +181,16 @@ export default function ArchitectCanvas() {
       (n) => (inDegree.get(n.id) ?? 0) === 0 && (outDegree.get(n.id) ?? 0) > 0,
     );
     if (sources.length === 0 && nodes.length > 0) {
-      issues.push('No entry point: every node has an incoming edge');
+      issues.push(t('graphValidator.noEntryPoint'));
     }
     if (sources.length > 1) {
-      issues.push(`Multiple entry points: ${sources.map((n) => n.id).join(', ')}`);
+      issues.push(t('graphValidator.multipleEntryPoints', { ids: sources.map((n) => n.id).join(', ') }));
     }
 
     return issues;
   }, [nodes, edges]);
+
+  const minimapMaskColor = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.08)';
 
   return (
     <div className="flex h-full">
@@ -199,21 +207,21 @@ export default function ArchitectCanvas() {
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
           fitView
-          className="bg-gray-950"
+          className="bg-white dark:bg-gray-950"
           defaultEdgeOptions={{
-            style: { stroke: '#475569', strokeWidth: 2 },
-            markerEnd: { type: MarkerType.ArrowClosed, color: '#475569' },
+            style: { stroke: edgeColor, strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
           }}
         >
-          <Background color="#1e293b" gap={20} />
-          <Controls className="!bg-gray-900 !border-gray-700" />
+          <Background color={isDark ? '#1e293b' : '#e2e8f0'} gap={20} />
+          <Controls className="!bg-gray-100 dark:!bg-gray-900 !border-gray-300 dark:!border-gray-700" />
           <MiniMap
             nodeColor={(n) => {
               const role = (n.data?.role as string) ?? 'coder';
               return ROLE_COLORS[role as GraphNode['role']] ?? '#6b7280';
             }}
-            maskColor="rgba(0,0,0,0.7)"
-            className="!bg-gray-900 !border-gray-700"
+            maskColor={minimapMaskColor}
+            className="!bg-gray-100 dark:!bg-gray-900 !border-gray-300 dark:!border-gray-700"
           />
         </ReactFlow>
 
