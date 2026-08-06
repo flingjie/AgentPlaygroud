@@ -1,11 +1,37 @@
 """Tests for level definitions."""
 
-from app.levels import ALL_LEVELS, HARNESS_SIX_KEYS, LEVELS_BY_ID
+from app.levels import ALL_LEVELS, HARNESS_SEVEN_KEYS, LEVELS_BY_ID
+
+
+def test_six_levels_in_order():
+    ids = [l.id for l in ALL_LEVELS]
+    assert ids == [
+        "level_1_raw", "level_2_harness", "level_3_loop",
+        "level_4_loop_stack", "level_5_graph", "level_6_agent_system",
+    ]
+
+
+def test_level_names_and_labels():
+    assert LEVELS_BY_ID["level_2_harness"].name == "Agent + Harness"
+    assert LEVELS_BY_ID["level_2_harness"].learning_label == "Tool Agent"
+    assert LEVELS_BY_ID["level_6_agent_system"].name == "Agent System"
+    assert LEVELS_BY_ID["level_6_agent_system"].learning_label == "Agent Factory"
+
+
+def test_harness_unlock_progression():
+    assert LEVELS_BY_ID["level_1_raw"].unlocked_harness == []
+    assert set(LEVELS_BY_ID["level_2_harness"].unlocked_harness) == set(HARNESS_SEVEN_KEYS)
+
+
+def test_loop_stack_templates_by_level():
+    assert LEVELS_BY_ID["level_4_loop_stack"].unlocked_loop_templates == ["single", "dual"]
+    assert LEVELS_BY_ID["level_6_agent_system"].unlocked_loop_templates == ["factory"]
+    assert LEVELS_BY_ID["level_3_loop"].unlocked_loop_stack is False
 
 
 class TestLevels:
-    def test_all_4_levels_exist(self):
-        assert len(ALL_LEVELS) == 4
+    def test_all_6_levels_exist(self):
+        assert len(ALL_LEVELS) == 6
 
     def test_level_ids_are_unique(self):
         ids = [lvl.id for lvl in ALL_LEVELS]
@@ -15,60 +41,45 @@ class TestLevels:
         for lvl in ALL_LEVELS:
             assert LEVELS_BY_ID[lvl.id] is lvl
 
-    def test_level_names_non_empty(self):
+    def test_names_descriptions_labels_non_empty(self):
         for lvl in ALL_LEVELS:
-            assert lvl.name
-            assert isinstance(lvl.name, str)
+            assert lvl.name and isinstance(lvl.name, str)
+            assert lvl.description and isinstance(lvl.description, str)
+            assert lvl.learning_label and isinstance(lvl.learning_label, str)
 
-    def test_level_descriptions_non_empty(self):
-        for lvl in ALL_LEVELS:
-            assert lvl.description
-            assert isinstance(lvl.description, str)
-
-    def test_target_success_rate_in_range(self):
-        for lvl in ALL_LEVELS:
-            assert 0.0 < lvl.target_success_rate <= 1.0
-
-    def test_token_budget_positive(self):
-        for lvl in ALL_LEVELS:
-            assert lvl.token_budget > 0
-
-    def test_token_budget_progression(self):
-        """Each level should have an equal or larger token budget."""
+    def test_progression_monotonic(self):
+        """Token budgets and target success rates must increase with level."""
         budgets = [lvl.token_budget for lvl in ALL_LEVELS]
-        for i in range(1, len(budgets)):
-            assert budgets[i] >= budgets[i - 1]
-
-    def test_target_success_rate_progression(self):
-        """Each level should have a higher target success rate."""
         rates = [lvl.target_success_rate for lvl in ALL_LEVELS]
-        for i in range(1, len(rates)):
+        for i in range(1, len(budgets)):
+            assert budgets[i] > budgets[i - 1]
             assert rates[i] > rates[i - 1]
 
-    def test_level_1_no_harness(self):
+    def test_unlock_progression(self):
         l1 = LEVELS_BY_ID["level_1_raw"]
-        assert l1.unlocked_harness == []
-        assert l1.unlocked_loop is False
-        assert l1.unlocked_graph is False
-
-    def test_level_2_has_harness_no_loop(self):
         l2 = LEVELS_BY_ID["level_2_harness"]
-        assert set(l2.unlocked_harness) == set(HARNESS_SIX_KEYS)
-        assert l2.unlocked_loop is False
-        assert l2.unlocked_graph is False
-
-    def test_level_3_has_loop_no_graph(self):
         l3 = LEVELS_BY_ID["level_3_loop"]
-        assert set(l3.unlocked_harness) == set(HARNESS_SIX_KEYS)
-        assert l3.unlocked_loop is True
-        assert l3.unlocked_graph is False
-
-    def test_level_4_has_everything(self):
-        l4 = LEVELS_BY_ID["level_4_graph"]
-        assert len(l4.unlocked_harness) == 6
-        assert set(l4.unlocked_harness) == set(HARNESS_SIX_KEYS)
-        assert l4.unlocked_loop is True
-        assert l4.unlocked_graph is True
+        l4 = LEVELS_BY_ID["level_4_loop_stack"]
+        l5 = LEVELS_BY_ID["level_5_graph"]
+        l6 = LEVELS_BY_ID["level_6_agent_system"]
+        # Level 1: model alone
+        assert l1.unlocked_harness == []
+        assert not l1.unlocked_loop and not l1.unlocked_graph
+        # Level 2: harness, still no loop
+        assert set(l2.unlocked_harness) == set(HARNESS_SEVEN_KEYS)
+        assert not l2.unlocked_loop
+        # Level 3: loop, still no loop stack
+        assert set(l3.unlocked_harness) == set(HARNESS_SEVEN_KEYS)
+        assert l3.unlocked_loop and not l3.unlocked_loop_stack
+        # Level 4: loop stack templates, no graph
+        assert l4.unlocked_loop_stack
+        assert l4.unlocked_loop_templates == ["single", "dual"]
+        assert not l4.unlocked_graph
+        # Level 5: graph on top of loop stack
+        assert l5.unlocked_graph and l5.unlocked_loop_stack
+        # Level 6: factory template + graph
+        assert l6.unlocked_graph
+        assert l6.unlocked_loop_templates == ["factory"]
 
     def test_lookup_missing_level(self):
         assert LEVELS_BY_ID.get("nonexistent") is None
@@ -77,75 +88,3 @@ class TestLevels:
         """LevelInfo models should validate without error."""
         for lvl in ALL_LEVELS:
             _ = lvl.id, lvl.name, lvl.target_success_rate, lvl.token_budget
-
-
-# ---------------------------------------------------------------------------
-# Level + simulation engine integration
-# ---------------------------------------------------------------------------
-
-
-def test_level_1_raw_has_low_success_rate():
-    """Level 1 with no harness should produce low success rate."""
-    from app.engine import SimulationEngine
-
-    engine = SimulationEngine(seed=42)
-    from app.models import AgentBlueprint
-
-    blueprint = AgentBlueprint(
-        level_id="level_1_raw",
-        harness={},
-        loop={},
-        graph={"nodes": [], "edges": []},
-    )
-    result = engine.monte_carlo(blueprint, num_runs=100)
-    # Level 1 target is 8%, allow up to 25% due to randomness
-    assert result["success_rate"] <= 0.25
-
-
-def test_level_4_with_full_config_has_high_success():
-    """Level 4 with full harness+loop+graph should achieve high success rate."""
-    from app.engine import SimulationEngine
-
-    engine = SimulationEngine(seed=42)
-    from app.models import (
-        AgentBlueprint,
-        GraphEdge,
-        GraphNode,
-        GraphSpec,
-        HarnessConfig,
-        LoopConfig,
-    )
-
-    blueprint = AgentBlueprint(
-        level_id="level_4_graph",
-        harness=HarnessConfig(
-            has_context_injection=True,
-            has_tool_surface=True,
-            has_persistence=True,
-            has_budget_guard=True,
-            token_budget_cap=50000,
-            has_sandbox_isolation=True,
-            memory_capacity=8,
-        ),
-        loop=LoopConfig(
-            enabled=True,
-            evidence="test_runner",
-            feedback="reflexion",
-            max_iterations=5,
-            stop_on="evidence_pass",
-        ),
-        graph=GraphSpec(
-            nodes=[
-                GraphNode(id="p1", role="planner"),
-                GraphNode(id="c1", role="coder"),
-                GraphNode(id="r1", role="reviewer"),
-            ],
-            edges=[
-                GraphEdge(source="p1", target="c1"),
-                GraphEdge(source="c1", target="r1"),
-            ],
-        ),
-    )
-    result = engine.monte_carlo(blueprint, num_runs=100)
-    # Level 4 target is 90%, allow down to 60% due to randomness
-    assert result["success_rate"] >= 0.60

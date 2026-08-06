@@ -25,22 +25,28 @@ def level_1_blueprint() -> AgentBlueprint:
 
 
 @pytest.fixture
-def level_4_blueprint() -> AgentBlueprint:
-    """Full level-4 AgentBlueprint: all harness, loop, graph."""
+def level_5_blueprint() -> AgentBlueprint:
+    """Full Agent + Graph blueprint: 7-dim harness, loop, graph."""
     return AgentBlueprint(
-        level_id="level_4_graph",
+        level_id="level_5_graph",
         run_seed=42,
         harness=HarnessConfig(
-            has_context_injection=True,
-            has_tool_surface=True,
-            has_persistence=True,
-            has_budget_guard=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
+            has_timeout_guard=True,
+            run_boundary_cap=100_000,
             has_sandbox_isolation=True,
-            has_tracing=True,
+            has_context_manager=True,
+            has_state_persistence=True,
+            has_permission_layer=True,
             memory_capacity=9,
         ),
         loop=LoopConfig(
             enabled=True,
+            trigger="on_task_start",
+            goal="tests_green",
+            state_policy="keep_last_error",
+            action_policy="edit_then_retest",
             evidence="test_runner",
             feedback="reflexion",
             stop_on="evidence_pass",
@@ -51,10 +57,12 @@ def level_4_blueprint() -> AgentBlueprint:
                 GraphNode(id="n1", role="planner"),
                 GraphNode(id="n2", role="coder"),
                 GraphNode(id="n3", role="reviewer"),
+                GraphNode(id="n4", role="tester"),
             ],
             edges=[
                 GraphEdge(source="n1", target="n2"),
                 GraphEdge(source="n2", target="n3"),
+                GraphEdge(source="n3", target="n4"),
             ],
             entry="n1",
         ),
