@@ -1332,3 +1332,52 @@ def test_state_schema_increases_memory_usage(level_5_blueprint):
     t_plain = SimulationEngine().simulate(plain, seed=5)
     t_schemad = SimulationEngine().simulate(schemad, seed=5)
     assert t_schemad.steps[0].memory_used > t_plain.steps[0].memory_used
+
+
+# ---------------------------------------------------------------------------
+# Loop-stack templates: dual + factory (Task A6)
+# ---------------------------------------------------------------------------
+
+
+def test_dual_loop_stack_success_high_with_evidence():
+    """The dual template (verify loop nested in improve loop) succeeds at a high
+    rate when the harness actually supports the run. The harness must include the
+    gates the engine enforces during node simulation (state persistence, context
+    manager, permission layer); without them the node phase fails before the loop
+    stack is ever reached, so the template's success rate is capped regardless."""
+    from app.models import AgentBlueprint, HarnessConfig, LoopConfig, LoopStackConfig
+    bp = AgentBlueprint(
+        level_id="level_4_loop_stack", run_seed=11,
+        harness=HarnessConfig(memory_capacity=9, has_retry_policy=True,
+                              has_tool_registry=True, has_sandbox_isolation=True,
+                              has_context_manager=True, has_state_persistence=True,
+                              has_permission_layer=True),
+        loop=LoopConfig(enabled=True, evidence="test_runner",
+                        feedback="reflexion", stop_on="evidence_pass"),
+        loop_stack=LoopStackConfig(enabled=True, template="dual"),
+    )
+    ok = sum(1 for i in range(200)
+             if SimulationEngine().simulate(bp, seed=2000 + i).status == "SUCCESS") / 200
+    assert ok > 0.6
+
+
+def test_factory_template_costs_more_than_dual():
+    """The factory pipeline (4 stages, each running a full test) must be the most
+    expensive template: its stage costs dominate the dual template's two retry
+    loops. Compared over a seeded batch because a single run can fail early at a
+    cheap stage, which would make the comparison vacuous."""
+    from app.models import AgentBlueprint, HarnessConfig, LoopConfig, LoopStackConfig
+    def run(tmpl):
+        bp = AgentBlueprint(
+            level_id="level_6_agent_system", run_seed=11,
+            harness=HarnessConfig(memory_capacity=9, has_retry_policy=True,
+                                  has_tool_registry=True, has_sandbox_isolation=True,
+                                  has_context_manager=True, has_state_persistence=True,
+                                  has_permission_layer=True),
+            loop=LoopConfig(enabled=True, evidence="test_runner",
+                            feedback="reflexion", stop_on="evidence_pass"),
+            loop_stack=LoopStackConfig(enabled=True, template=tmpl),
+        )
+        return sum(SimulationEngine().simulate(bp, seed=1000 + i).cost_tokens
+                   for i in range(200))
+    assert run("factory") > run("dual")

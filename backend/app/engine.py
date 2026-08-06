@@ -392,7 +392,19 @@ class SimulationEngine:
         # --- Loop / test simulation ---
         if failure_reason == FailureReason.NONE:
             if has_loop:
-                if not harness.has_retry_policy:
+                if (
+                    blueprint.loop_stack.enabled
+                    and blueprint.loop_stack.template in ("dual", "factory")
+                ):
+                    # Loop-stack templates replace the single-loop code path.
+                    before = len(steps)
+                    failure_reason, steps, cost_tokens = self._simulate_loop_stack(
+                        blueprint, hq, memory_used, test_node_id, steps, cost_tokens
+                    )
+                    for idx in range(before, len(steps)):
+                        steps[idx].step = idx + 1
+                        yield steps[idx]
+                elif not harness.has_retry_policy:
                     # Loop enabled but harness never made retrying possible.
                     failure_reason = FailureReason.INFINITE_LOOP_TRAP
                     s = TraceStep(
@@ -1355,6 +1367,89 @@ class SimulationEngine:
             if self.rng.random() > error_rate:
                 return True, attempt + 1, None
         return False, max_retries, "INFINITE_LOOP_TRAP"
+
+    def _simulate_loop_stack(
+        self,
+        blueprint: AgentBlueprint,
+        hq: float,
+        memory_used: int,
+        test_node_id: str,
+        steps: list[TraceStep],
+        cost_tokens: int,
+    ) -> tuple[FailureReason, list[TraceStep], int]:
+        """Dual = verify loop nested in improve loop. Factory = plan/build/test/review/release."""
+        stack = blueprint.loop_stack
+        harness = blueprint.harness
+        if not harness.has_retry_policy:
+            s = TraceStep(
+                step=0, node=test_node_id, action="RETRY",
+                status=StepStatus.FAIL, memory_used=memory_used,
+                warning=WARNING_NO_RETRY_MECHANISM,
+            )
+            steps.append(s)
+            cost_tokens += ACTION_TOKEN_COST["RETRY"]
+            return (FailureReason.INFINITE_LOOP_TRAP, steps, cost_tokens)
+
+        if stack.template == "factory":
+            # Plan -> Build -> Test -> Review -> Release pipeline.
+            # Each stage runs a test; every executed stage incurs its cost.
+            stages = ["planner", "coder", "tester", "reviewer"]
+            for i, role in enumerate(stages):
+                failed = self.rng.random() <= max(0.05, 0.25 - hq * 0.2)
+                s = TraceStep(
+                    step=0, node=f"stage_{role}", action="RUN_TEST",
+                    status=StepStatus.FAIL if failed else StepStatus.SUCCESS,
+                    memory_used=memory_used,
+                    warning=WARNING_TASK_ABANDONED if failed else None,
+                )
+                steps.append(s)
+                cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
+                if failed:
+                    if i == 2:
+                        return (FailureReason.FALSE_COMPLETION, steps, cost_tokens)
+                    return (FailureReason.TASK_ABANDONED, steps, cost_tokens)
+            steps.append(TraceStep(
+                step=0, node="release", action="STOP", status=StepStatus.SUCCESS,
+                memory_used=memory_used,
+            ))
+            cost_tokens += ACTION_TOKEN_COST["STOP"] + ACTION_TOKEN_COST["CHECK_EVIDENCE"]
+            return (FailureReason.NONE, steps, cost_tokens)
+
+        # dual: inner verify loop (max 3), outer improve loop (max 5)
+        inner = LoopConfig(
+            enabled=True, trigger="on_task_start", goal="tests_green",
+            state_policy="stateless", action_policy="edit_then_retest",
+            evidence="test_runner", feedback="reflexion",
+            stop_on="evidence_pass", max_iterations=3,
+        )
+        outer = LoopConfig(
+            enabled=True, trigger="on_task_start", goal="schema_valid",
+            state_policy="keep_run_summary", action_policy="escalate_review",
+            evidence="reviewer_signoff", feedback="compact_error",
+            stop_on="budget_or_max", max_iterations=5,
+        )
+        inner_ok, inner_used, _ = self._simulate_loop(inner, hq)
+        cost_tokens += ACTION_TOKEN_COST["RETRY"] * inner_used
+        if not inner_ok:
+            s = TraceStep(step=0, node=test_node_id, action="RETRY",
+                          status=StepStatus.FAIL, memory_used=memory_used,
+                          warning=WARNING_INFINITE_LOOP)
+            steps.append(s)
+            cost_tokens += ACTION_TOKEN_COST["RETRY"]
+            return (FailureReason.INFINITE_LOOP_TRAP, steps, cost_tokens)
+        outer_ok, outer_used, _ = self._simulate_loop(outer, hq, graph_has_reviewer=True)
+        cost_tokens += ACTION_TOKEN_COST["RETRY"] * outer_used
+        if not outer_ok:
+            s = TraceStep(step=0, node=test_node_id, action="RETRY",
+                          status=StepStatus.FAIL, memory_used=memory_used,
+                          warning=WARNING_INFINITE_LOOP)
+            steps.append(s)
+            cost_tokens += ACTION_TOKEN_COST["RETRY"]
+            return (FailureReason.INFINITE_LOOP_TRAP, steps, cost_tokens)
+        steps.append(TraceStep(step=0, node=test_node_id, action="STOP",
+                               status=StepStatus.SUCCESS, memory_used=memory_used))
+        cost_tokens += ACTION_TOKEN_COST["STOP"] + ACTION_TOKEN_COST["CHECK_EVIDENCE"]
+        return (FailureReason.NONE, steps, cost_tokens)
 
     @staticmethod
     def _memory_cost(
