@@ -7,7 +7,7 @@ import Timeline from './Timeline';
 import MemoryMonitor from './MemoryMonitor';
 import EventBus from './EventBus';
 import MonteCarloSummary from './MonteCarloSummary';
-import { Play, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Play, Wifi, WifiOff, Loader2, Lightbulb, Wrench } from 'lucide-react';
 
 export default function Debugger() {
   const { t } = useTranslation();
@@ -186,6 +186,36 @@ export default function Debugger() {
           </button>
         </div>
       </div>
+
+      {/* Failure diagnosis (tutorial hint) */}
+      {trace && trace.status === 'FAILED' && trace.failure_reason !== 'NONE' && (
+        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <div className="flex gap-2 shrink-0 mt-0.5">
+              <Lightbulb size={16} className="text-amber-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">
+                {t('debugger.whyFailed')}
+              </p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                {t(`debugger.failureHints.${trace.failure_reason}`, '')}
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0 mt-0.5">
+              <Wrench size={16} className="text-amber-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">
+                {t('debugger.howToFix')}
+              </p>
+              <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                {t(`debugger.failureFixes.${trace.failure_reason}`, '')}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main debugger content */}
       <div className="flex-1 overflow-hidden flex flex-col">

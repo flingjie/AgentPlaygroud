@@ -10,6 +10,7 @@ export default function LevelSelector() {
     selectedLevelId,
     setSelectedLevelId,
     selectedLevel,
+    monteCarloResult,
   } = useGame();
 
   const harnessLabels: Record<string, string> = {
@@ -23,6 +24,18 @@ export default function LevelSelector() {
     const level = levels.find((l) => l.id === id);
     return level ? t(`levels.${id}.name`, level.name) : id;
   };
+
+  // Determine recommended next level: first level whose target hasn't been beaten
+  const currentSuccessRate = monteCarloResult?.success_rate;
+  const nextUnbeatenIdx = levels.findIndex((l) => {
+    if (currentSuccessRate == null) return true;
+    return currentSuccessRate < l.target_success_rate * 100;
+  });
+  const recommendedLevelId = nextUnbeatenIdx >= 0 ? levels[nextUnbeatenIdx].id : (levels[levels.length - 1]?.id || '');
+  const hasBeatenCurrent = selectedLevel && currentSuccessRate != null && currentSuccessRate >= selectedLevel.target_success_rate * 100;
+  const nextLevel = selectedLevel && nextUnbeatenIdx > levels.findIndex((l) => l.id === selectedLevel.id)
+    ? levels[levels.findIndex((l) => l.id === selectedLevel.id) + 1]
+    : null;
 
   return (
     <div className="space-y-3">
@@ -60,11 +73,18 @@ export default function LevelSelector() {
             onChange={(e) => setSelectedLevelId(e.target.value)}
             className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-200 font-mono focus:outline-none focus:border-green-500 transition-colors"
           >
-            {levels.map((l) => (
-              <option key={l.id} value={l.id}>
-                {getLevelName(l.id)}
-              </option>
-            ))}
+            {levels.map((l) => {
+              const isRecommended = l.id === recommendedLevelId;
+              const isCleared = currentSuccessRate != null && currentSuccessRate >= l.target_success_rate * 100;
+              let suffix = '';
+              if (isCleared) suffix = ` ${t('levelSelector.cleared')}`;
+              else if (isRecommended) suffix = ` ${t('levelSelector.recommended')}`;
+              return (
+                <option key={l.id} value={l.id}>
+                  {getLevelName(l.id)}{suffix}
+                </option>
+              );
+            })}
           </select>
 
           {selectedLevel && (
@@ -105,6 +125,25 @@ export default function LevelSelector() {
                   )}
                 </div>
               </div>
+
+              {/* Tutorial lesson for this level */}
+              <div className="pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
+                <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed">
+                  {t(`levels.${selectedLevel.id}.tutorial`, '')}
+                </p>
+              </div>
+
+              {/* Next-level prompt after beating target */}
+              {hasBeatenCurrent && nextLevel && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => setSelectedLevelId(nextLevel.id)}
+                    className="w-full text-xs font-medium text-green-600 dark:text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg px-3 py-2 hover:bg-green-400/20 transition-colors text-left"
+                  >
+                    {t('levelSelector.nextLevel')}: {getLevelName(nextLevel.id)}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>

@@ -32,38 +32,49 @@
     "tokens": "tokens",
     "unlocked": "Unlocked",
     "loop": "loop",
-    "graph": "graph"
+    "graph": "graph",
+    "recommended": "⭐ Recommended",
+    "nextLevel": "Beat the target? Try the next level →",
+    "cleared": "✓ Cleared"
   },
   "levels": {
-    "tutorial": {
-      "name": "Tutorial: Hello Agent",
-      "description": "Learn the basics by building a simple agent with a workspace and memory. No loops or custom graphs yet — just wire up the harness and run."
+    "level_1_raw": {
+      "name": "Level 1: The Raw Agent",
+      "description": "No harness, no loop, no graph. A single coder node operating without any safety nets. Expect lots of failures — learn what breaks when an agent has zero infrastructure.",
+      "tutorial": "Lesson: Without any engineering infrastructure, a raw LLM agent is nearly useless. It hallucinates tools, corrupts its own work, and forgets context after just a few steps."
     },
-    "intermediate": {
-      "name": "Intermediate: Loop Lab",
-      "description": "Unlock the ReAct+Reflexion loop strategy and experiment with retry limits. Configure a 3-node graph (planner, coder, reviewer) to solve harder tasks."
+    "level_2_harness": {
+      "name": "Level 2: Safety Harness",
+      "description": "Unlock workspace, sandbox, Git, and memory buffer. Still no loop strategy, so a single test failure means the task is abandoned. Learn how infrastructure reduces common failure modes.",
+      "tutorial": "Lesson: Infrastructure (workspace, sandbox, git, memory) eliminates the most basic failure modes, but without a self-correction loop, the agent still gives up on the first error."
     },
-    "advanced": {
-      "name": "Advanced: Full Stack Agent",
-      "description": "All tools unlocked. Build a 4-node DAG with tester validation, git integration, and fine-tuned memory. Hit 95% success rate under 10K tokens."
+    "level_3_loop": {
+      "name": "Level 3: The Loop",
+      "description": "Unlock the ReAct+Reflexion loop strategy with up to 5 retries and a test_pass stop condition. The agent can now recover from failures automatically. Master the feedback loop.",
+      "tutorial": "Lesson: A retry loop dramatically improves success rates, but without memory isolation, repeated retries fill up the context window, leading to infinite loop traps and token waste."
+    },
+    "level_4_graph": {
+      "name": "Level 4: The Graph",
+      "description": "Unlock the multi-agent graph: planner → coder → reviewer. Each agent has isolated memory, and the chain provides built-in review. Full harness + loop enabled. Reach near-perfect reliability.",
+      "tutorial": "Lesson: Splitting work across specialized sub-agents with isolated memory is the key to scaling agent reliability. The planner decomposes tasks, the coder implements, and the reviewer catches mistakes — each with its own context window."
     }
   },
   "harness": {
     "title": "Harness Configuration",
     "workspace": "Workspace",
-    "workspaceDesc": "Isolated file system for the agent",
+    "workspaceDesc": "Prevents hallucinated tool calls by giving the agent a real file system",
     "sandbox": "Sandbox",
-    "sandboxDesc": "Secure execution environment",
+    "sandboxDesc": "Secure execution environment — run code safely without breaking things",
     "git": "Git",
-    "gitDesc": "Version control and branching",
+    "gitDesc": "Tracks every change so the agent can roll back corrupted files",
     "memoryCapacity": "Memory Capacity"
   },
   "loop": {
     "title": "Loop Strategy",
     "none": "None",
-    "noneDesc": "Single-pass execution, no retries",
+    "noneDesc": "Single-pass execution — the agent stops on the first error",
     "reactReflexion": "ReAct + Reflexion",
-    "reactReflexionDesc": "Reasoning loop with self-reflection and retry",
+    "reactReflexionDesc": "Self-correcting loop: test → reflect → retry until success or limit",
     "maxRetries": "Max Retries",
     "stopOnTestPass": "Stop on test pass"
   },
@@ -80,9 +91,13 @@
     "title": "Node Palette",
     "dragHint": "Drag nodes onto the canvas",
     "planner": "Planner",
+    "plannerHint": "Decomposes tasks into sub-tasks",
     "coder": "Coder",
+    "coderHint": "Writes and edits code",
     "reviewer": "Reviewer",
-    "tester": "Tester"
+    "reviewerHint": "Reviews code and catches errors",
+    "tester": "Tester",
+    "testerHint": "Runs tests and validates"
   },
   "graphValidator": {
     "valid": "Graph valid",
@@ -101,7 +116,25 @@
     "reRun": "Re-run",
     "live": "Live",
     "tokens": "tokens",
-    "liveSimulationFailed": "Live simulation failed"
+    "liveSimulationFailed": "Live simulation failed",
+    "whyFailed": "Why did it fail?",
+    "howToFix": "How to fix",
+    "failureHints": {
+      "HALLUCINATED_TOOL": "The agent tried to use a tool that doesn't exist — it hallucinated an API or package. This happens when there's no sandbox or workspace to ground the agent in reality.",
+      "FILE_CORROSION": "The agent overwrote its own work. Without Git to track changes, each edit destroyed the previous one, corrupting the final output.",
+      "MEMORY_STACK_OVERFLOW": "The agent ran out of memory. After too many steps without enough buffer space, it forgot what it was doing and reset.",
+      "CONTEXT_FULL": "The context window is completely full. During retries, the agent accumulated too much history and can no longer process new information.",
+      "INFINITE_LOOP_TRAP": "The agent is stuck in a loop: test fails → same fix → test fails again. Without a proper stop condition, it burned through all retries making no progress.",
+      "TASK_ABANDONED": "The agent gave up after the first failure. Without a loop strategy to retry, a single test failure ended the entire task."
+    },
+    "failureFixes": {
+      "HALLUCINATED_TOOL": "Enable Sandbox and Workspace in the Harness config.",
+      "FILE_CORROSION": "Enable Git in the Harness config to track file changes.",
+      "MEMORY_STACK_OVERFLOW": "Increase Memory Capacity to at least 5.",
+      "CONTEXT_FULL": "Increase Memory Capacity or use a multi-agent Graph to isolate context per agent.",
+      "INFINITE_LOOP_TRAP": "Enable 'Stop on test pass' in Loop Strategy, or increase Max Retries.",
+      "TASK_ABANDONED": "Switch Loop Strategy from 'None' to 'ReAct + Reflexion'."
+    }
   },
   "timeline": {
     "title": "Timeline",

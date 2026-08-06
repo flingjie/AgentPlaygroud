@@ -19,37 +19,48 @@ function delay(ms: number): Promise<void> {
 
 const MOCK_LEVELS: LevelInfo[] = [
   {
-    id: 'tutorial',
-    name: 'Tutorial: Hello Agent',
+    id: 'level_1_raw',
+    name: 'The Raw Agent',
     description:
-      'Learn the basics by building a simple agent with a workspace and memory. No loops or custom graphs yet — just wire up the harness and run.',
-    unlocked_harness: ['workspace', 'memory'],
+      'No harness, no loop, no graph. A single coder node operating without any safety nets. Expect lots of failures — learn what breaks when an agent has zero infrastructure.',
+    unlocked_harness: [],
     unlocked_loop: false,
     unlocked_graph: false,
-    target_success_rate: 70,
-    token_budget: 1000,
+    target_success_rate: 0.08,
+    token_budget: 10_000,
   },
   {
-    id: 'intermediate',
-    name: 'Intermediate: Loop Lab',
+    id: 'level_2_harness',
+    name: 'Safety Harness',
     description:
-      'Unlock the ReAct+Reflexion loop strategy and experiment with retry limits. Configure a 3-node graph (planner, coder, reviewer) to solve harder tasks.',
-    unlocked_harness: ['workspace', 'sandbox', 'memory'],
+      'Unlock workspace, sandbox, Git, and memory buffer. Still no loop strategy, so a single test failure means the task is abandoned. Learn how infrastructure reduces common failure modes.',
+    unlocked_harness: ['workspace', 'sandbox', 'git', 'memory'],
+    unlocked_loop: false,
+    unlocked_graph: false,
+    target_success_rate: 0.40,
+    token_budget: 20_000,
+  },
+  {
+    id: 'level_3_loop',
+    name: 'The Loop',
+    description:
+      'Unlock the ReAct+Reflexion loop strategy with up to 5 retries and a test_pass stop condition. The agent can now recover from failures automatically. Master the feedback loop.',
+    unlocked_harness: ['workspace', 'sandbox', 'git', 'memory'],
     unlocked_loop: true,
-    unlocked_graph: true,
-    target_success_rate: 80,
-    token_budget: 5000,
+    unlocked_graph: false,
+    target_success_rate: 0.70,
+    token_budget: 50_000,
   },
   {
-    id: 'advanced',
-    name: 'Advanced: Full Stack Agent',
+    id: 'level_4_graph',
+    name: 'The Graph',
     description:
-      'All tools unlocked. Build a 4-node DAG with tester validation, git integration, and fine-tuned memory. Hit 95% success rate under 10K tokens.',
+      'Unlock the multi-agent graph: planner → coder → reviewer. Each agent has isolated memory, and the chain provides built-in review. Full harness + loop enabled. Reach near-perfect reliability.',
     unlocked_harness: ['workspace', 'sandbox', 'git', 'memory'],
     unlocked_loop: true,
     unlocked_graph: true,
-    target_success_rate: 95,
-    token_budget: 10000,
+    target_success_rate: 0.90,
+    token_budget: 100_000,
   },
 ];
 
@@ -59,48 +70,12 @@ const MOCK_TRACE_SUCCESS: RunTrace = {
   failure_reason: 'NONE',
   cost_tokens: 1247,
   steps: [
-    {
-      step: 1,
-      node: 'planner',
-      action: 'DECOMPOSE_TASK',
-      status: 'SUCCESS',
-      memory_used: 1,
-    },
-    {
-      step: 2,
-      node: 'coder',
-      action: 'WRITE_FILE',
-      status: 'SUCCESS',
-      memory_used: 2,
-    },
-    {
-      step: 3,
-      node: 'reviewer',
-      action: 'REVIEW_CODE',
-      status: 'SUCCESS',
-      memory_used: 3,
-    },
-    {
-      step: 4,
-      node: 'coder',
-      action: 'EDIT_FILE',
-      status: 'SUCCESS',
-      memory_used: 3,
-    },
-    {
-      step: 5,
-      node: 'tester',
-      action: 'RUN_TESTS',
-      status: 'SUCCESS',
-      memory_used: 4,
-    },
-    {
-      step: 6,
-      node: 'planner',
-      action: 'FINALIZE',
-      status: 'SUCCESS',
-      memory_used: 4,
-    },
+    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
+    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2 },
+    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 3 },
+    { step: 4, node: 'node_1', action: 'RETRY', status: 'SUCCESS', memory_used: 3 },
+    { step: 5, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 4 },
+    { step: 6, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 4 },
   ],
 };
 
@@ -110,67 +85,13 @@ const MOCK_TRACE_INFINITE_LOOP: RunTrace = {
   failure_reason: 'INFINITE_LOOP_TRAP',
   cost_tokens: 3200,
   steps: [
-    {
-      step: 1,
-      node: 'planner',
-      action: 'DECOMPOSE_TASK',
-      status: 'SUCCESS',
-      memory_used: 1,
-    },
-    {
-      step: 2,
-      node: 'coder',
-      action: 'WRITE_FILE',
-      status: 'SUCCESS',
-      memory_used: 2,
-    },
-    {
-      step: 3,
-      node: 'planner',
-      action: 'RE_PLAN',
-      status: 'SUCCESS',
-      memory_used: 4,
-    },
-    {
-      step: 4,
-      node: 'coder',
-      action: 'REWRITE_FILE',
-      status: 'SUCCESS',
-      memory_used: 5,
-    },
-    {
-      step: 5,
-      node: 'planner',
-      action: 'RE_PLAN',
-      status: 'SUCCESS',
-      memory_used: 6,
-      warning: 'Cycle detected: planner→coder→planner',
-    },
-    {
-      step: 6,
-      node: 'coder',
-      action: 'REWRITE_FILE',
-      status: 'FAIL',
-      memory_used: 7,
-      warning: 'Same file edited 3 times with no progress',
-    },
-    {
-      step: 7,
-      node: 'planner',
-      action: 'RE_PLAN',
-      status: 'FAIL',
-      memory_used: 8,
-      warning:
-        'Detected infinite loop: planner↔coder cycle repeated 4 times. Aborting.',
-    },
-    {
-      step: 8,
-      node: 'reviewer',
-      action: 'HALT',
-      status: 'FAIL',
-      memory_used: 8,
-      warning: 'INFINITE_LOOP_TRAP triggered. Agent stuck in planning loop.',
-    },
+    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
+    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2 },
+    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 4, warning: 'Test failed: 2 assertions failed' },
+    { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 5, warning: 'Same edit applied, test still failing' },
+    { step: 5, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 6, warning: 'Retry #2: no progress detected' },
+    { step: 6, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 7, warning: 'Retry #3: same fix applied again' },
+    { step: 7, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 8, warning: 'Agent stuck in infinite retry loop — retries exhausted without success. Add a stop_condition (test_pass) or increase max_retries.' },
   ],
 };
 
@@ -180,45 +101,10 @@ const MOCK_TRACE_CONTEXT_FULL: RunTrace = {
   failure_reason: 'CONTEXT_FULL',
   cost_tokens: 4500,
   steps: [
-    {
-      step: 1,
-      node: 'planner',
-      action: 'DECOMPOSE_TASK',
-      status: 'SUCCESS',
-      memory_used: 2,
-    },
-    {
-      step: 2,
-      node: 'coder',
-      action: 'WRITE_FILE',
-      status: 'SUCCESS',
-      memory_used: 5,
-    },
-    {
-      step: 3,
-      node: 'coder',
-      action: 'APPEND_FILE',
-      status: 'SUCCESS',
-      memory_used: 8,
-    },
-    {
-      step: 4,
-      node: 'reviewer',
-      action: 'REVIEW_CODE',
-      status: 'FAIL',
-      memory_used: 10,
-      warning:
-        'Context window exceeded at 128K tokens. Memory capacity (10) exhausted.',
-    },
-    {
-      step: 5,
-      node: 'planner',
-      action: 'ABORT',
-      status: 'FAIL',
-      memory_used: 10,
-      warning:
-        'CONTEXT_FULL: Cannot proceed with review. Agent memory saturated.',
-    },
+    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 2 },
+    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 5 },
+    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 7, warning: 'Test failed — retrying' },
+    { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 10, warning: 'Context window full — memory capacity exhausted during retry loop. Increase memory capacity or use sub-agents to isolate context.' },
   ],
 };
 
@@ -271,13 +157,25 @@ export async function getLevel(id: string): Promise<LevelInfo> {
 export async function simulate(blueprint: AgentBlueprint): Promise<RunTrace> {
   if (USE_MOCKS) {
     await delay(800);
-    // Return different traces based on the blueprint to feel interactive
-    const hasTester = blueprint.graph_nodes.some((n) => n.role === 'tester');
     const hasLoop = blueprint.loop_strategy.type !== 'none';
+    const hasGraph = blueprint.graph_nodes.length >= 3;
+    const hasHarness = blueprint.harness.has_git || blueprint.harness.has_sandbox;
 
-    if (hasTester && hasLoop) return { ...MOCK_TRACE_SUCCESS, run_id: `run-${Date.now()}` };
-    if (hasLoop) return { ...MOCK_TRACE_INFINITE_LOOP, run_id: `run-${Date.now()}` };
-    return { ...MOCK_TRACE_CONTEXT_FULL, run_id: `run-${Date.now()}` };
+    if (hasGraph && hasLoop) return { ...MOCK_TRACE_SUCCESS, run_id: `run-${Date.now()}` };
+    if (hasLoop && !hasGraph) return { ...MOCK_TRACE_INFINITE_LOOP, run_id: `run-${Date.now()}` };
+    if (hasHarness && !hasLoop) return { ...MOCK_TRACE_CONTEXT_FULL, run_id: `run-${Date.now()}` };
+    // No harness, no loop, no graph — raw agent
+    const hallucinatedTrace: RunTrace = {
+      run_id: `run-${Date.now()}`,
+      status: 'FAILED',
+      failure_reason: 'HALLUCINATED_TOOL',
+      cost_tokens: 800,
+      steps: [
+        { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
+        { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'FAIL', memory_used: 2, warning: 'Agent attempted to use a tool that does not exist — no sandbox or workspace available. Add Sandbox or Git Workspace.' },
+      ],
+    };
+    return hallucinatedTrace;
   }
   const res = await fetch(`${BASE}/api/simulate`, {
     method: 'POST',
@@ -311,7 +209,6 @@ export function connectSimulationWebSocket(
   onComplete: (trace: RunTrace) => void,
 ): WebSocket {
   if (USE_MOCKS) {
-    // Fake WebSocket: replay steps from a mock trace with delays
     const fakeWs = {
       close: () => {
         if (fakeWs._timer) clearTimeout(fakeWs._timer);

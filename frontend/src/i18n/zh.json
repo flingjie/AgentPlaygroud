@@ -32,38 +32,49 @@
     "tokens": "Token",
     "unlocked": "已解锁",
     "loop": "循环",
-    "graph": "图"
+    "graph": "图",
+    "recommended": "⭐ 推荐",
+    "nextLevel": "达成目标？尝试下一关 →",
+    "cleared": "✓ 已通关"
   },
   "levels": {
-    "tutorial": {
-      "name": "教程：初识智能体",
-      "description": "从基础开始，构建一个带有工作区和记忆的简单智能体。无需循环和自定义图——只需配置好运行环境即可运行。"
+    "level_1_raw": {
+      "name": "第一关：裸奔时代",
+      "description": "没有运行环境、没有循环策略、没有图结构。只有一个裸 coder 节点，没有任何安全网。准备好面对大量失败——看看没有工程基础设施的 agent 会崩成什么样。",
+      "tutorial": "教训：没有任何工程基础设施时，裸 LLM agent 几乎毫无用处。它会幻觉出不存在的工具、覆盖自己的代码、几步之后就忘记上下文。"
     },
-    "intermediate": {
-      "name": "中级：循环实验室",
-      "description": "解锁 ReAct+Reflexion 循环策略，尝试调整重试次数。配置一个3节点的图（规划器、编码器、审查器）来解决更复杂的任务。"
+    "level_2_harness": {
+      "name": "第二关：安全 harness",
+      "description": "解锁工作区、沙箱、Git 和记忆缓存。还没有循环策略，所以一次测试失败就会导致任务放弃。学习基础设施如何消除最常见的失败模式。",
+      "tutorial": "教训：基础设施（工作区、沙箱、Git、记忆）消除了最基本的失败模式，但没有自我纠错循环时，agent 遇到第一个错误就会放弃。"
     },
-    "advanced": {
-      "name": "高级：全栈智能体",
-      "description": "所有工具已解锁。构建一个包含测试验证、Git集成和精细记忆调优的4节点DAG。目标：在10000 token预算内达到95%成功率。"
+    "level_3_loop": {
+      "name": "第三关：循环策略",
+      "description": "解锁 ReAct+Reflexion 循环策略，最多 5 次重试，测试通过即停止。agent 现在可以自动从失败中恢复。掌握反馈循环的力量。",
+      "tutorial": "教训：重试循环显著提升了成功率，但没有记忆隔离时，反复重试会填满上下文窗口，导致死循环陷阱和 token 浪费。"
+    },
+    "level_4_graph": {
+      "name": "第四关：多智能体图",
+      "description": "解锁多智能体图结构：规划器 → 编码器 → 审查器。每个 agent 拥有独立记忆空间，链路自带审查机制。全 harness + 全 loop 已启用。冲击近乎完美的可靠性。",
+      "tutorial": "教训：将任务拆分给拥有独立记忆的专用 sub-agent，是提升 agent 可靠性的关键。规划器分解任务，编码器实现，审查器发现问题——各自使用独立的上下文窗口。"
     }
   },
   "harness": {
     "title": "运行环境配置",
     "workspace": "工作区",
-    "workspaceDesc": "智能体的隔离文件系统",
+    "workspaceDesc": "给 agent 真实的文件系统，防止幻觉调用不存在的工具",
     "sandbox": "沙箱",
-    "sandboxDesc": "安全的代码执行环境",
+    "sandboxDesc": "安全的代码执行环境——运行代码而不会破坏系统",
     "git": "Git",
-    "gitDesc": "版本控制与分支管理",
+    "gitDesc": "追踪每次修改，agent 可以回滚被破坏的文件",
     "memoryCapacity": "记忆容量"
   },
   "loop": {
     "title": "循环策略",
     "none": "无",
-    "noneDesc": "单次执行，无重试",
+    "noneDesc": "单次执行——遇到第一个错误就停止",
     "reactReflexion": "ReAct + 反思",
-    "reactReflexionDesc": "带有自我反思和重试的推理循环",
+    "reactReflexionDesc": "自我纠错循环：测试 → 反思 → 重试，直到成功或达到上限",
     "maxRetries": "最大重试次数",
     "stopOnTestPass": "测试通过时停止"
   },
@@ -80,9 +91,13 @@
     "title": "节点面板",
     "dragHint": "拖拽节点到画布",
     "planner": "规划器",
+    "plannerHint": "将任务分解为子任务",
     "coder": "编码器",
+    "coderHint": "编写和修改代码",
     "reviewer": "审查器",
-    "tester": "测试器"
+    "reviewerHint": "审查代码并发现错误",
+    "tester": "测试器",
+    "testerHint": "运行测试并验证结果"
   },
   "graphValidator": {
     "valid": "图结构有效",
@@ -101,7 +116,25 @@
     "reRun": "重新运行",
     "live": "实时",
     "tokens": "Token",
-    "liveSimulationFailed": "实时模拟失败"
+    "liveSimulationFailed": "实时模拟失败",
+    "whyFailed": "为什么会失败？",
+    "howToFix": "如何修复",
+    "failureHints": {
+      "HALLUCINATED_TOOL": "agent 尝试调用一个不存在的工具——它幻觉出了一个 API 或包。没有沙箱或工作区时，agent 无法区分真实和虚构。",
+      "FILE_CORROSION": "agent 覆盖了自己的代码。没有 Git 追踪变更，每次修改都破坏了前一次的结果，最终文件损坏。",
+      "MEMORY_STACK_OVERFLOW": "agent 内存溢出。执行了太多步骤而记忆缓存不够大时，它忘记了自己在做什么，重置回了默认状态。",
+      "CONTEXT_FULL": "上下文窗口已满。重试过程中积累了大量历史记录，agent 无法再处理新信息。",
+      "INFINITE_LOOP_TRAP": "agent 陷入了死循环：测试失败 → 同样的修复 → 测试再次失败。没有合适的停止条件，它耗尽了所有重试次数却毫无进展。",
+      "TASK_ABANDONED": "agent 在第一次失败后就放弃了。没有循环策略来重试，一次测试失败直接终止了整个任务。"
+    },
+    "failureFixes": {
+      "HALLUCINATED_TOOL": "在运行环境配置中启用沙箱和工作区。",
+      "FILE_CORROSION": "在运行环境配置中启用 Git 来追踪文件变更。",
+      "MEMORY_STACK_OVERFLOW": "将记忆容量提高到至少 5。",
+      "CONTEXT_FULL": "提高记忆容量，或使用多智能体图来隔离每个 agent 的上下文。",
+      "INFINITE_LOOP_TRAP": "在循环策略中启用「测试通过时停止」，或增加最大重试次数。",
+      "TASK_ABANDONED": "将循环策略从「无」切换到「ReAct + 反思」。"
+    }
   },
   "timeline": {
     "title": "时间线",
