@@ -7,6 +7,7 @@ import LevelSelector from './LevelSelector';
 import HarnessConfigPanel from './HarnessConfig';
 import LoopConfigPanel from './LoopConfig';
 import LoopStackConfigPanel from './LoopStackConfig';
+import ArchitectureDelta from './ArchitectureDelta';
 import TokenBudget from './TokenBudget';
 import SuccessGauge from './SuccessGauge';
 
@@ -71,6 +72,7 @@ export default function FactoryView() {
 
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 space-y-6">
+            <ArchitectureDelta />
             <TokenBudget />
             <SuccessGauge />
           </div>
