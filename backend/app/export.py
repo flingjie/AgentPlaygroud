@@ -12,6 +12,10 @@ def _node_lines(blueprint: AgentBlueprint) -> list[str]:
 
 def _edge_lines(blueprint: AgentBlueprint) -> list[str]:
     graph = blueprint.graph
+    if not graph.nodes:
+        # Fallback single-node path owns all edges; real edges would reference
+        # undefined node ids when graph.nodes is empty.
+        return []
     out: list[str] = []
     for e in graph.edges:
         cond = {"always": "", "on_pass": ", condition='pass'",
@@ -41,10 +45,16 @@ def render_langgraph(blueprint: AgentBlueprint) -> str:
             e.source == n.id for e in graph.edges)]
         for s in sinks:
             lines.append(f'    graph.add_edge("{s}", END)')
-    lines += [
-        "",
-        "app = graph.compile(" + ("checkpointer=MemorySaver()" if graph.checkpointing else "") + ")",
-    ]
+    if graph.checkpointing:
+        lines += [
+            "",
+            "from langgraph.checkpoint.memory import MemorySaver",
+            "",
+        ]
+    else:
+        lines += [""]
+    compile_arg = "checkpointer=MemorySaver()" if graph.checkpointing else ""
+    lines.append(f"app = graph.compile({compile_arg})")
     return "\n".join(lines)
 
 

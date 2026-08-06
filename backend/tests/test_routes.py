@@ -151,3 +151,67 @@ def test_export_endpoint_returns_langgraph_and_arlo():
     assert "langgraph" in data and "arlo_yaml" in data
     assert "StateGraph" in data["langgraph"]
     assert "agent:" in data["arlo_yaml"]
+
+
+def test_export_checkpointing_emits_memorysaver_import():
+    """A checkpointed graph must import MemorySaver before compile() uses it."""
+    from app.models import AgentBlueprint
+
+    bp = AgentBlueprint(
+        level_id="level_6_agent_system",
+        graph={
+            "state_schema": ["messages", "task"],
+            "nodes": [
+                {"id": "n1", "role": "planner"},
+                {"id": "n2", "role": "coder"},
+            ],
+            "edges": [{"source": "n1", "target": "n2"}],
+            "entry": "n1",
+            "checkpointing": True,
+        },
+    )
+    res = client.post("/api/export", json=bp.model_dump())
+    assert res.status_code == 200
+    langgraph = res.json()["langgraph"]
+    assert "MemorySaver" in langgraph
+    assert "from langgraph.checkpoint.memory import MemorySaver" in langgraph
+    # the import must come before the compile() that references MemorySaver
+    assert (
+        langgraph.index("from langgraph.checkpoint.memory import MemorySaver")
+        < langgraph.index("checkpointer=MemorySaver()")
+    )
+
+
+def test_export_non_checkpointing_omits_memorysaver_import():
+    """A non-checkpointed graph must NOT import MemorySaver (clean output)."""
+    from app.models import AgentBlueprint
+
+    bp = AgentBlueprint(level_id="level_6_agent_system")
+    res = client.post("/api/export", json=bp.model_dump())
+    assert res.status_code == 200
+    assert "MemorySaver" not in res.json()["langgraph"]
+
+
+def test_export_arlo_has_harness_permission_layer():
+    """arlo export reflects the 7-dim harness keys, incl. has_permission_layer."""
+    from app.models import AgentBlueprint
+
+    bp = AgentBlueprint(
+        level_id="level_6_agent_system",
+        harness={
+            "has_tool_registry": True,
+            "has_retry_policy": True,
+            "has_timeout_guard": True,
+            "has_sandbox_isolation": True,
+            "has_context_manager": True,
+            "has_state_persistence": True,
+            "has_permission_layer": True,
+            "memory_capacity": 8,
+        },
+        graph={"state_schema": ["messages", "task"]},
+    )
+    res = client.post("/api/export", json=bp.model_dump())
+    assert res.status_code == 200
+    arlo = res.json()["arlo_yaml"]
+    assert "permission_layer: true" in arlo
+    assert "state_schema: ['messages', 'task']" in arlo
