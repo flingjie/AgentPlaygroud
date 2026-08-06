@@ -275,9 +275,12 @@ class SimulationEngine:
         # can never succeed, so short-circuit before simulating any node.
         if failure_reason == FailureReason.NONE and self._detect_deadlock(graph):
             failure_reason = FailureReason.DEADLOCK
+            # Effective entry, computed like _detect_deadlock does: fall back to
+            # the first resolved node rather than a possibly-fabricated graph.entry.
+            entry_node = node_order[0].id if node_order else "node_1"
             s = TraceStep(
                 step=1,
-                node=graph.entry or "node_1",
+                node=entry_node,
                 action="STOP",
                 status=StepStatus.FAIL,
                 memory_used=memory_used,
@@ -300,7 +303,6 @@ class SimulationEngine:
                 hq=hq,
                 graph_bonus=graph_bonus,
                 multi_agent=multi_agent,
-                num_nodes=num_nodes,
                 global_memory=memory_used,
                 coder_edit_count=coder_edit_count,
             )
@@ -482,7 +484,7 @@ class SimulationEngine:
 
                 else:
                     # evidence_pass or budget_or_max
-                    loop_ok, retries_used, _ = self._simulate_loop(
+                    loop_ok, retries_used = self._simulate_loop(
                         loop, hq, graph_has_reviewer=graph_has_reviewer,
                     )
                     if loop.action_policy == "edit_then_retest":
@@ -747,8 +749,8 @@ class SimulationEngine:
 
         Returns True when:
         (a) any node is unreachable from the entry point, or
-        (b) a node reachable only through failure edges (on_fail / on_review_reject)
-            has no outgoing edges — a failure that dead-ends with no recovery.
+        (b) any target of a failure edge (on_fail / on_review_reject) has no
+            outgoing edges — a failure that dead-ends with no recovery.
         """
         if not graph.nodes:
             return False
@@ -975,7 +977,6 @@ class SimulationEngine:
         hq: float,
         graph_bonus: bool,
         multi_agent: bool,
-        num_nodes: int,
         global_memory: int,
         coder_edit_count: int,
     ) -> tuple[list[TraceStep], int, int, FailureReason]:
@@ -1200,7 +1201,7 @@ class SimulationEngine:
         if (
             not harness.has_context_manager
             and node.role == "coder"
-            and self._stale_risk(blueprint, steps_so_far, in_flight_edits=1)
+            and self._stale_risk(steps_so_far, in_flight_edits=1)
         ):
             if self.rng.random() < 0.20:
                 return WARNING_STALE_CONTEXT
@@ -1261,21 +1262,15 @@ class SimulationEngine:
         return 0.75  # keep_run_summary
 
     @staticmethod
-    def _check_hallucination_condition(
-        harness: HarnessConfig, role: str | None = None
-    ) -> bool:
+    def _check_hallucination_condition(harness: HarnessConfig) -> bool:
         """Return True if hallucinated-tool failure is possible given the state."""
-        if role is not None and role != "coder":
-            return False
         return not harness.has_tool_registry
 
     @staticmethod
     def _check_corrosion_condition(
-        harness: HarnessConfig, coder_edit_count: int, role: str | None = None
+        harness: HarnessConfig, coder_edit_count: int
     ) -> bool:
         """Return True if file-corrosion failure is possible given the state."""
-        if role is not None and role != "coder":
-            return False
         return not harness.has_state_persistence and coder_edit_count >= 2
 
     @staticmethod
@@ -1291,7 +1286,6 @@ class SimulationEngine:
 
     @staticmethod
     def _stale_risk(
-        blueprint: AgentBlueprint,
         steps_so_far: list[TraceStep],
         in_flight_edits: int = 0,
     ) -> bool:
@@ -1325,30 +1319,11 @@ class SimulationEngine:
 
     def _simulate_loop(
         self,
-        loop: LoopConfig | int,
+        loop: LoopConfig,
         harness_quality: float = 0.0,
-        feedback_mode: str | None = None,
         graph_has_reviewer: bool = False,
-    ) -> tuple[bool, int, str | None]:
-        """Simulate a retry loop. Returns (success, retries_used, failure_reason).
-
-        Supports the legacy int call style for test convenience.
-        """
-        if isinstance(loop, int):
-            max_retries = loop
-            mode = feedback_mode or "reflexion"
-            if mode in ("none", "blind", "retry_blind"):
-                loop = LoopConfig(enabled=True, evidence="none", feedback="none",
-                                  max_iterations=max_retries, stop_on="evidence_pass")
-            elif mode == "compact_error":
-                loop = LoopConfig(enabled=True, evidence="test_runner",
-                                  feedback="compact_error", max_iterations=max_retries,
-                                  stop_on="evidence_pass")
-            else:
-                loop = LoopConfig(enabled=True, evidence="test_runner",
-                                  feedback="reflexion", max_iterations=max_retries,
-                                  stop_on="evidence_pass")
-
+    ) -> tuple[bool, int]:
+        """Simulate a retry loop. Returns (success, retries_used)."""
         max_retries = loop.max_iterations
         has_evidence = loop.evidence != "none"
         use_reflexion = has_evidence and loop.feedback == "reflexion"
@@ -1366,7 +1341,7 @@ class SimulationEngine:
             action_bonus = 0.10
         elif loop.action_policy == "escalate_review":
             if not graph_has_reviewer:
-                return False, max_retries, "INFINITE_LOOP_TRAP"
+                return False, max_retries
             action_bonus = 0.05  # reviewer absorbs iterations
         else:
             action_bonus = 0.0
@@ -1381,8 +1356,8 @@ class SimulationEngine:
             else:
                 error_rate = max(0.1, 0.8 - (attempt * 0.05) - harness_quality - goal_bonus - action_bonus)
             if self.rng.random() > error_rate:
-                return True, attempt + 1, None
-        return False, max_retries, "INFINITE_LOOP_TRAP"
+                return True, attempt + 1
+        return False, max_retries
 
     def _simulate_loop_stack(
         self,
@@ -1453,8 +1428,14 @@ class SimulationEngine:
             evidence="reviewer_signoff", feedback="compact_error",
             stop_on="budget_or_max", max_iterations=5,
         )
-        inner_ok, inner_used, _ = self._simulate_loop(inner, hq)
-        cost_tokens += ACTION_TOKEN_COST["RETRY"] * inner_used
+        # Inner verify loop: emit one RETRY step per attempt so the trace
+        # reflects the cost (mirroring the single-loop path's step emission).
+        inner_ok, inner_used = self._simulate_loop(inner, hq)
+        for _ in range(inner_used):
+            s = TraceStep(step=0, node=test_node_id, action="RETRY",
+                          status=StepStatus.SUCCESS, memory_used=memory_used)
+            steps.append(s)
+            cost_tokens += ACTION_TOKEN_COST["RETRY"]
         if not inner_ok:
             s = TraceStep(step=0, node=test_node_id, action="RETRY",
                           status=StepStatus.FAIL, memory_used=memory_used,
@@ -1462,8 +1443,13 @@ class SimulationEngine:
             steps.append(s)
             cost_tokens += ACTION_TOKEN_COST["RETRY"]
             return (FailureReason.INFINITE_LOOP_TRAP, steps, cost_tokens)
-        outer_ok, outer_used, _ = self._simulate_loop(outer, hq, graph_has_reviewer=True)
-        cost_tokens += ACTION_TOKEN_COST["RETRY"] * outer_used
+        # Outer improve loop: same per-retry step emission.
+        outer_ok, outer_used = self._simulate_loop(outer, hq, graph_has_reviewer=True)
+        for _ in range(outer_used):
+            s = TraceStep(step=0, node=test_node_id, action="RETRY",
+                          status=StepStatus.SUCCESS, memory_used=memory_used)
+            steps.append(s)
+            cost_tokens += ACTION_TOKEN_COST["RETRY"]
         if not outer_ok:
             s = TraceStep(step=0, node=test_node_id, action="RETRY",
                           status=StepStatus.FAIL, memory_used=memory_used,
@@ -1471,9 +1457,13 @@ class SimulationEngine:
             steps.append(s)
             cost_tokens += ACTION_TOKEN_COST["RETRY"]
             return (FailureReason.INFINITE_LOOP_TRAP, steps, cost_tokens)
+        s = TraceStep(step=0, node=test_node_id, action="CHECK_EVIDENCE",
+                      status=StepStatus.SUCCESS, memory_used=memory_used)
+        steps.append(s)
+        cost_tokens += ACTION_TOKEN_COST["CHECK_EVIDENCE"]
         steps.append(TraceStep(step=0, node=test_node_id, action="STOP",
                                status=StepStatus.SUCCESS, memory_used=memory_used))
-        cost_tokens += ACTION_TOKEN_COST["STOP"] + ACTION_TOKEN_COST["CHECK_EVIDENCE"]
+        cost_tokens += ACTION_TOKEN_COST["STOP"]
         return (FailureReason.NONE, steps, cost_tokens)
 
     @staticmethod

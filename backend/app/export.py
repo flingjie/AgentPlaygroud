@@ -101,6 +101,8 @@ def render_arlo(blueprint: AgentBlueprint) -> str:
         "graph:",
         f"  state_schema: {list(graph.state_schema)}",
         f"  checkpointing: {str(graph.checkpointing).lower()}",
+        # Graph topology (nodes/edges) is intentionally omitted here: only the
+        # node count is emitted. The full topology lives in the LangGraph snippet.
         f"  nodes: {len(graph.nodes)}",
     ]
     return "\n".join(lines)

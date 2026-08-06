@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import type { GraphNode } from '../types';
 
-const NODE_TYPES: { role: GraphNode['role']; i18nKey: string; color: string; bgColor: string }[] = [
-  { role: 'planner', i18nKey: 'nodePalette.planner', color: '#3b82f6', bgColor: 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400' },
-  { role: 'coder', i18nKey: 'nodePalette.coder', color: '#22c55e', bgColor: 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400' },
-  { role: 'reviewer', i18nKey: 'nodePalette.reviewer', color: '#a855f7', bgColor: 'bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400' },
-  { role: 'tester', i18nKey: 'nodePalette.tester', color: '#f97316', bgColor: 'bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400' },
+const NODE_TYPES: { role: GraphNode['role']; i18nKey: string; bgColor: string }[] = [
+  { role: 'planner', i18nKey: 'nodePalette.planner', bgColor: 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400' },
+  { role: 'coder', i18nKey: 'nodePalette.coder', bgColor: 'bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400' },
+  { role: 'reviewer', i18nKey: 'nodePalette.reviewer', bgColor: 'bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400' },
+  { role: 'tester', i18nKey: 'nodePalette.tester', bgColor: 'bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400' },
 ];
 
 export default function NodePalette() {

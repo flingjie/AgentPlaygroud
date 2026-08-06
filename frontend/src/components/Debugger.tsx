@@ -6,7 +6,7 @@ import type { RunTrace, TraceStep } from '../types';
 import Timeline from './Timeline';
 import MemoryMonitor from './MemoryMonitor';
 import EventBus from './EventBus';
-import MonteCarloSummary from './MonteCarloSummary';
+import MonteCarloSummary, { getFailureLabel } from './MonteCarloSummary';
 import RuntimeGraph from './RuntimeGraph';
 import { Play, Wifi, WifiOff, Loader2, Lightbulb, Wrench, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -158,7 +158,7 @@ export default function Debugger() {
             >
               {trace.status === 'SUCCESS' ? t('monteCarlo.success') : t('monteCarlo.failed')}
               {trace.failure_reason !== 'NONE' &&
-                ` — ${t(`monteCarlo.${trace.failure_reason.toLowerCase().replace(/_/g, '')}`, trace.failure_reason)}`}
+                ` — ${getFailureLabel(trace.failure_reason, t)}`}
             </span>
           )}
           {trace && (
@@ -258,7 +258,6 @@ export default function Debugger() {
             selectedStep={selectedStep}
             onSelectStep={setSelectedStep}
             isLive={isLive}
-            status={trace?.status}
           />
         </div>
 

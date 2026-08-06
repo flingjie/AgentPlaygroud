@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { GraphNode, TraceStep } from '../types';
+import type { TraceStep } from '../types';
 
 export default function RuntimeGraph({ steps }: { steps: TraceStep[] }) {
   const { t } = useTranslation();
@@ -11,9 +11,9 @@ export default function RuntimeGraph({ steps }: { steps: TraceStep[] }) {
     return last.node;
   }, [steps]);
 
-  const nodes: GraphNode[] = useMemo(() => {
+  const nodes: { id: string }[] = useMemo(() => {
     const ids = Array.from(new Set(steps.map((s) => s.node)));
-    return ids.map((id) => ({ id, role: 'coder', state_writes: [] } as GraphNode));
+    return ids.map((id) => ({ id }));
   }, [steps]);
 
   if (steps.length === 0) {

@@ -1,4 +1,4 @@
-"""Agent Playground MVP — FastAPI backend."""
+"""Agent Engineering Simulator — FastAPI backend."""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.routes import router
 
-app = FastAPI(title="Agent Playground MVP", version="0.1.0")
+app = FastAPI(title="Agent Engineering Simulator", version="0.1.0")
 
 # ---------------------------------------------------------------------------
 # CORS — only allow the Vite dev server origin during MVP development

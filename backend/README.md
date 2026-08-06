@@ -1,6 +1,6 @@
-# Agent Playground MVP — Backend
+# Agent Engineering Simulator — Backend
 
-Deterministic simulation backend for the Agent Playground game. Built with FastAPI and Pydantic v2.
+Deterministic simulation backend for the Agent Engineering Simulator. Built with FastAPI and Pydantic v2.
 
 ## Quick Start
 
@@ -23,10 +23,11 @@ pytest tests/ -v
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/levels` | List all 4 level configurations |
+| `GET` | `/api/levels` | List all 6 level configurations |
 | `GET` | `/api/levels/{id}` | Get a single level by ID |
 | `POST` | `/api/simulate` | Run a single deterministic simulation |
 | `POST` | `/api/monte-carlo` | Run N simulations with aggregate stats |
+| `POST` | `/api/export` | Render a blueprint as LangGraph code + `arlo_config.yaml` |
 | `WS` | `/ws/simulate/{run_id}` | Stream a simulation trace step-by-step |
 
 ## Project Layout
@@ -39,7 +40,7 @@ backend/
 │   ├── models.py        # Pydantic v2 models (AgentBlueprint, RunTrace, LevelInfo, …)
 │   ├── engine.py        # Deterministic simulation engine + Monte Carlo runner
 │   ├── routes.py        # HTTP + WebSocket endpoints
-│   └── levels.py        # 4 predefined level configurations
+│   └── levels.py        # 6 predefined level configurations
 ├── tests/
 │   ├── conftest.py      # Shared pytest fixtures
 │   ├── test_models.py   # Model serialisation/deserialisation tests
@@ -53,5 +54,5 @@ backend/
 - **All simulation is deterministic.** Uses `random.Random(seed)` — zero LLM/API calls.
 - **Failure injection** is driven by the AgentBlueprint's harness, loop, and graph configuration.
 - **Harness quality** is a derived score affecting success probability.
-- **Graph bonus** (Level 4) gives each sub-agent isolated memory and high per-node base success.
+- **Graph bonus** (Level 5) gives each sub-agent isolated memory and high per-node base success.
 - **Monte Carlo runs** use sequential seeds from `base_seed + i` for full reproducibility.

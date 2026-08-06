@@ -44,7 +44,7 @@ const FAILURE_I18N_KEYS: Record<FailureReason, string> = {
   UNSAFE_EXECUTION: 'monteCarlo.unsafeExecution',
 };
 
-function getFailureLabel(reason: string, t: TFunction): string {
+export function getFailureLabel(reason: string, t: TFunction): string {
   const key = FAILURE_I18N_KEYS[reason as FailureReason];
   if (key && key !== 'NONE') return t(key, reason);
   return reason;
@@ -248,7 +248,7 @@ export default function MonteCarloSummary({
                 >
                   {trace.status === 'SUCCESS' ? t('monteCarlo.success') : t('monteCarlo.failed')}
                   {trace.failure_reason !== 'NONE' &&
-                    ` — ${t(`monteCarlo.${trace.failure_reason.toLowerCase().replace(/_/g, '')}`, trace.failure_reason)}`}
+                    ` — ${getFailureLabel(trace.failure_reason, t)}`}
                 </span>
               </div>
             </button>

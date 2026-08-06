@@ -60,7 +60,8 @@ Frontend (React)
 ├── Factory View — Level Selector (free selection), Harness / Loop / Loop Stack config,
 │                   Architecture Delta (0–100% bars + target), Success Gauge, Token Budget
 ├── Architect Canvas — drag-and-drop DAG nodes (planner/coder/reviewer/tester), edge
-│                   conditions, state_schema, checkpointing, deadlock validation
+│                   conditions, state_schema, checkpointing, well-formedness validation
+│                   (structural DEADLOCK detection is engine-side, in engine.py)
 ├── Debugger — Timeline, Memory Monitor, Event Bus, Monte Carlo Summary, Runtime Graph
 │                   (active-node highlight), live WebSocket stream, failure diagnosis hints
 └── Export View — Boss level only; static LangGraph + arlo_config.yaml preview (no IDE)

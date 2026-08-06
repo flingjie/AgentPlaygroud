@@ -3,32 +3,6 @@
 from app.levels import ALL_LEVELS, HARNESS_SEVEN_KEYS, LEVELS_BY_ID
 
 
-def test_six_levels_in_order():
-    ids = [l.id for l in ALL_LEVELS]
-    assert ids == [
-        "level_1_raw", "level_2_harness", "level_3_loop",
-        "level_4_loop_stack", "level_5_graph", "level_6_agent_system",
-    ]
-
-
-def test_level_names_and_labels():
-    assert LEVELS_BY_ID["level_2_harness"].name == "Agent + Harness"
-    assert LEVELS_BY_ID["level_2_harness"].learning_label == "Tool Agent"
-    assert LEVELS_BY_ID["level_6_agent_system"].name == "Agent System"
-    assert LEVELS_BY_ID["level_6_agent_system"].learning_label == "Agent Factory"
-
-
-def test_harness_unlock_progression():
-    assert LEVELS_BY_ID["level_1_raw"].unlocked_harness == []
-    assert set(LEVELS_BY_ID["level_2_harness"].unlocked_harness) == set(HARNESS_SEVEN_KEYS)
-
-
-def test_loop_stack_templates_by_level():
-    assert LEVELS_BY_ID["level_4_loop_stack"].unlocked_loop_templates == ["single", "dual"]
-    assert LEVELS_BY_ID["level_6_agent_system"].unlocked_loop_templates == ["factory"]
-    assert LEVELS_BY_ID["level_3_loop"].unlocked_loop_stack is False
-
-
 class TestLevels:
     def test_all_6_levels_exist(self):
         assert len(ALL_LEVELS) == 6
@@ -37,9 +11,23 @@ class TestLevels:
         ids = [lvl.id for lvl in ALL_LEVELS]
         assert len(ids) == len(set(ids))
 
+    def test_level_ids_in_order(self):
+        """The six levels must be listed in progression order."""
+        ids = [l.id for l in ALL_LEVELS]
+        assert ids == [
+            "level_1_raw", "level_2_harness", "level_3_loop",
+            "level_4_loop_stack", "level_5_graph", "level_6_agent_system",
+        ]
+
     def test_level_ids_match_registry(self):
         for lvl in ALL_LEVELS:
             assert LEVELS_BY_ID[lvl.id] is lvl
+
+    def test_level_names_and_labels(self):
+        assert LEVELS_BY_ID["level_2_harness"].name == "Agent + Harness"
+        assert LEVELS_BY_ID["level_2_harness"].learning_label == "Tool Agent"
+        assert LEVELS_BY_ID["level_6_agent_system"].name == "Agent System"
+        assert LEVELS_BY_ID["level_6_agent_system"].learning_label == "Agent Factory"
 
     def test_names_descriptions_labels_non_empty(self):
         for lvl in ALL_LEVELS:

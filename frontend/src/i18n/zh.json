@@ -9,7 +9,7 @@
     "switchToDark": "切换到暗色模式"
   },
   "layout": {
-    "brand": "AGENT_PLAYGROUND",
+    "brand": "AGENT_ENGINEERING_SIMULATOR",
     "factory": "工厂",
     "architect": "架构师",
     "debugger": "调试器",
@@ -19,7 +19,6 @@
     "graphLockedHint": "选择更高关卡以解锁架构师视图。"
   },
   "factory": {
-    "title": "工厂",
     "runSimulation": "运行模拟（100次）",
     "runningMonteCarlo": "蒙特卡洛运行中...",
     "simulationFailed": "模拟失败"
@@ -38,32 +37,26 @@
   },
   "levels": {
     "level_1_raw": {
-      "name": "第一关：裸模型",
       "description": "模型本身不是 agent。没有 harness 时，运行器无法基于真实证据落地工具、持久化工作或停止——预期幻觉工具、文件腐蚀与任务放弃。",
       "tutorial": "命题：Agent = Model + Harness。模型本身不是 agent——没有 harness 基础设施，它无法落地工具、持久化工作，或依据真实证据停止。没有追踪，你只会看到失败，却不知道失败的原因。在本模拟器中追踪始终开启，所以你总能看见完整轨迹。"
     },
     "level_2_harness": {
-      "name": "第二关：工具 Agent",
       "description": "同一模型，不同 harness——结果天差地别。解锁全部七个 harness 维度。仍无 loop，一次测试失败就会放弃任务。",
       "tutorial": "命题：同一模型，不同 harness → 巨大差异。工具注册表、重试策略、超时守卫、沙箱隔离、上下文管理器、状态持久化与权限层，往往比换模型更能改变结果。"
     },
     "level_3_loop": {
-      "name": "第三关：单循环",
       "description": "依据证据循环，而非自信。配置触发、目标、状态/动作策略、证据、反馈与停止规则。Loop 工程 ≠ Prompt 工程。",
       "tutorial": "命题：看证据，不看自信。Loop ≠ Prompt 工程——应在真实检查（测试、schema、审查）上停止，而不是「agent 说做完了」。"
     },
     "level_4_loop_stack": {
-      "name": "第四关：循环栈",
       "description": "两个循环可以协作，也可能互相冲突。选择一个模板：单一验证循环，或嵌套在改进循环内部的验证循环。",
       "tutorial": "命题：循环可以协作，也可能互相冲突。双循环模板将快速的内层验证嵌套进较慢的外层改进；工厂模板则按 规划 → 构建 → 测试 → 审查 → 发布 的顺序执行。"
     },
     "level_5_graph": {
-      "name": "第五关：Agent 图",
       "description": "图决定「下一步谁跑」——不是 agent 做什么。条件边路由控制流；失败状态必须始终有恢复路径。",
       "tutorial": "命题：Graph = 谁下一步运行——不是知识图谱。条件边路由控制流；每个失败状态都需要恢复路径。简单单 agent 任务往往不需要图。"
     },
     "level_6_agent_system": {
-      "name": "第六关：Agent 工厂",
       "description": "规划 → 构建 → 测试 → 审查 → 发布。组合完整 harness、工厂循环模板，并将蓝图导出为真实代码。",
       "tutorial": "命题：Agent 系统 = 完整技术栈。组合完整 harness、工厂循环模板，并将蓝图导出为真实的 LangGraph 代码。"
     }
@@ -189,13 +182,9 @@
     "title": "节点面板",
     "dragHint": "拖拽节点到画布",
     "planner": "规划器",
-    "plannerHint": "将任务分解为子任务",
     "coder": "编码器",
-    "coderHint": "编写和修改代码",
     "reviewer": "审查器",
-    "reviewerHint": "审查代码并发现错误",
-    "tester": "测试器",
-    "testerHint": "运行测试并验证结果"
+    "tester": "测试器"
   },
   "graphValidator": {
     "valid": "图结构有效",
@@ -216,7 +205,6 @@
     "tokens": "Token",
     "liveSimulationFailed": "实时模拟失败",
     "whyFailed": "为什么会失败？",
-    "howToFix": "如何修复",
     "showHint": "需要提示？",
     "topology": {
       "single": "拓扑：单节点",
@@ -289,28 +277,17 @@
     "failed": "失败",
     "noData": "暂无数据",
     "hallucination": "幻觉调用",
-    "toolfailure": "工具失败",
     "toolFailure": "工具失败",
-    "filecorrosion": "文件损坏",
     "fileCorrosion": "文件损坏",
-    "memorystackoverflow": "记忆栈溢出",
     "memoryStackOverflow": "记忆栈溢出",
-    "contextoverflow": "上下文溢出",
     "contextOverflow": "上下文溢出",
-    "stalecontext": "过期上下文",
     "staleContext": "过期上下文",
-    "falsecompletion": "虚假完成",
     "falseCompletion": "虚假完成",
-    "permissionerror": "权限错误",
     "permissionError": "权限错误",
     "deadlock": "死锁",
-    "infinitelooptrap": "死循环陷阱",
     "infiniteLoopTrap": "死循环陷阱",
-    "budgetexhausted": "预算耗尽",
     "budgetExhausted": "预算耗尽",
-    "taskabandoned": "任务中止",
     "taskAbandoned": "任务中止",
-    "unsafeexecution": "不安全执行",
     "unsafeExecution": "不安全执行"
   },
   "architectureDelta": {
@@ -330,7 +307,6 @@
     "download": "下载 langgraph.py"
   },
   "architect": {
-    "dropHint": "拖拽节点到此处",
     "edgeCondition": "边条件",
     "graphOptions": "图选项",
     "entryNode": "入口节点",

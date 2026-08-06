@@ -8,7 +8,6 @@ interface TimelineProps {
   selectedStep: TraceStep | null;
   onSelectStep: (step: TraceStep) => void;
   isLive: boolean;
-  status?: string;
 }
 
 export default function Timeline({

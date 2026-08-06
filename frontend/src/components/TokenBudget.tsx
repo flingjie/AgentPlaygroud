@@ -1,15 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { useGame } from '../context/GameContext';
 
-interface TokenBudgetProps {
-  estimatedCost?: number;
-}
-
-export default function TokenBudget({ estimatedCost }: TokenBudgetProps) {
+export default function TokenBudget() {
   const { t } = useTranslation();
   const { selectedLevel, monteCarloResult } = useGame();
   const budget = selectedLevel?.token_budget ?? 1000;
-  const used = monteCarloResult?.avg_tokens ?? estimatedCost ?? 0;
+  const used = monteCarloResult?.avg_tokens ?? 0;
   const pct = Math.min((used / budget) * 100, 100);
   const overBudget = used > budget;
 

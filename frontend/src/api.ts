@@ -202,18 +202,6 @@ export async function getLevels(): Promise<LevelInfo[]> {
   return res.json();
 }
 
-export async function getLevel(id: string): Promise<LevelInfo> {
-  if (USE_MOCKS) {
-    await delay(300);
-    const level = MOCK_LEVELS.find((l) => l.id === id);
-    if (!level) throw new ApiError(`Level not found: ${id}`, 404);
-    return { ...level };
-  }
-  const res = await fetch(`${BASE}/api/levels/${id}`);
-  if (!res.ok) throw new ApiError(`Failed to fetch level ${id}`, res.status);
-  return res.json();
-}
-
 export async function simulate(blueprint: AgentBlueprint): Promise<RunTrace> {
   if (USE_MOCKS) {
     await delay(800);

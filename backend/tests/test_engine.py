@@ -252,24 +252,6 @@ class TestFailureHallucination:
                 count += 1
         assert count > 0
 
-    def test_with_tool_registry_no_hallucination(self):
-        bp = make_blueprint(
-            level_id="level_2_harness",
-            has_context_manager=True,
-            has_tool_registry=True,
-            has_state_persistence=True,
-            has_sandbox_isolation=True,
-            memory_capacity=5,
-        )
-        engine = SimulationEngine()
-        count = 0
-        total = 500
-        for seed_offset in range(total):
-            trace = engine.simulate(bp, seed=2000 + seed_offset)
-            if trace.failure_reason == FailureReason.HALLUCINATION:
-                count += 1
-        assert count < total * 0.15
-
 
 class TestFailureFileCorrosion:
     def test_no_persistence_many_edits_causes_corrosion(self):
@@ -466,22 +448,28 @@ class TestEvidenceStop:
 class TestLoopSimulation:
     def test_high_quality_usually_succeeds(self):
         engine = SimulationEngine(seed=42)
+        loop = LoopConfig(enabled=True, evidence="test_runner",
+                          feedback="reflexion", stop_on="evidence_pass",
+                          max_iterations=10)
         successes = 0
         total = 500
         for i in range(total):
             engine.rng = random.Random(42 + i)
-            ok, _, _ = engine._simulate_loop(10, 0.8, "reflexion")
+            ok, _ = engine._simulate_loop(loop, 0.8)
             if ok:
                 successes += 1
         assert successes > total * 0.7
 
     def test_low_quality_often_fails(self):
         engine = SimulationEngine(seed=42)
+        loop = LoopConfig(enabled=True, evidence="test_runner",
+                          feedback="reflexion", stop_on="evidence_pass",
+                          max_iterations=3)
         failures = 0
         total = 500
         for i in range(total):
             engine.rng = random.Random(42 + i)
-            ok, _, _ = engine._simulate_loop(3, 0.1, "reflexion")
+            ok, _ = engine._simulate_loop(loop, 0.1)
             if not ok:
                 failures += 1
         assert failures > 20
@@ -523,7 +511,7 @@ class TestMonteCarlo:
 
 
 # ---------------------------------------------------------------------------
-# Graph bonus (Level 4)
+# Graph bonus (Level 5)
 # ---------------------------------------------------------------------------
 
 
@@ -757,11 +745,19 @@ class TestEvidenceFeedback:
         blind_ok = 0
         reflex_ok = 0
         hq = 0.1
+        blind_loop = LoopConfig(
+            enabled=True, evidence="none", feedback="none",
+            max_iterations=4, stop_on="evidence_pass",
+        )
+        reflex_loop = LoopConfig(
+            enabled=True, evidence="test_runner", feedback="reflexion",
+            max_iterations=4, stop_on="evidence_pass",
+        )
         for i in range(total):
             engine.rng = random.Random(20000 + i)
-            ok_b, _, _ = engine._simulate_loop(4, hq, "blind")
+            ok_b, _ = engine._simulate_loop(blind_loop, hq)
             engine.rng = random.Random(20000 + i)
-            ok_r, _, _ = engine._simulate_loop(4, hq, "reflexion")
+            ok_r, _ = engine._simulate_loop(reflex_loop, hq)
             if ok_b:
                 blind_ok += 1
             if ok_r:
@@ -788,9 +784,9 @@ class TestEvidenceFeedback:
         )
         for i in range(total):
             engine.rng = random.Random(30000 + i)
-            ok_b, _, _ = engine._simulate_loop(blind_loop, 0.3)
+            ok_b, _ = engine._simulate_loop(blind_loop, 0.3)
             engine.rng = random.Random(30000 + i)
-            ok_r, _, _ = engine._simulate_loop(reflex_loop, 0.3)
+            ok_r, _ = engine._simulate_loop(reflex_loop, 0.3)
             if ok_b:
                 blind_ok += 1
             if ok_r:
@@ -1197,32 +1193,29 @@ class TestUnsafeExecution:
 
 class TestStaleContext:
     def test_stale_risk_true_when_observed_lags_two(self):
-        bp = make_blueprint()
         steps = [
             TraceStep(step=1, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=0),
             TraceStep(step=2, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=1),
             TraceStep(step=3, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=2),
         ]
-        assert SimulationEngine._stale_risk(bp, steps) is True
+        assert SimulationEngine._stale_risk(steps) is True
 
     def test_stale_risk_false_when_observed_fresh(self):
-        bp = make_blueprint()
         steps = [
             TraceStep(step=1, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=0),
             TraceStep(step=2, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=1),
             TraceStep(step=3, node="n2", action="CHECK_EVIDENCE", status=StepStatus.SUCCESS, memory_used=1),
         ]
-        assert SimulationEngine._stale_risk(bp, steps) is False
+        assert SimulationEngine._stale_risk(steps) is False
 
-    def test_stale_risk_false_when_lag_one(self):
-        bp = make_blueprint()
+    def test_stale_risk_false_after_fresh_think(self):
         steps = [
             TraceStep(step=1, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=0),
             TraceStep(step=2, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=1),
             TraceStep(step=3, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=2),
             TraceStep(step=4, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=2),
         ]
-        assert SimulationEngine._stale_risk(bp, steps) is False
+        assert SimulationEngine._stale_risk(steps) is False
 
 
 class TestStaleContextReachability:

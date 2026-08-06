@@ -9,7 +9,7 @@
     "switchToDark": "Switch to dark mode"
   },
   "layout": {
-    "brand": "AGENT_PLAYGROUND",
+    "brand": "AGENT_ENGINEERING_SIMULATOR",
     "factory": "Factory",
     "architect": "Architect",
     "debugger": "Debugger",
@@ -19,7 +19,6 @@
     "graphLockedHint": "Select a higher level to unlock the Architect."
   },
   "factory": {
-    "title": "Factory",
     "runSimulation": "Run Simulation (100 runs)",
     "runningMonteCarlo": "Running Monte Carlo...",
     "simulationFailed": "Simulation failed"
@@ -38,32 +37,26 @@
   },
   "levels": {
     "level_1_raw": {
-      "name": "Level 1: Raw LLM",
       "description": "A model alone is not an agent. With no harness, the runner cannot ground tools, persist work, or stop on real evidence — expect hallucinated tools, corrosion, and abandoned tasks.",
       "tutorial": "Proposition: Agent = Model + Harness. A model alone is not an agent — without harness infrastructure it cannot ground tools, persist work, or stop on real evidence. Without tracing you would only see a failure, not why it failed. In this simulator tracing is always on so you can always see the full trace."
     },
     "level_2_harness": {
-      "name": "Level 2: Tool Agent",
       "description": "Same model, different harness — results diverge sharply. Unlock all seven harness dimensions. Still no loop, so a single failed test abandons the task.",
       "tutorial": "Proposition: Same model, different harness → huge difference. Tool Registry, Retry Policy, Timeout Guard, Sandbox Isolation, Context Manager, State Persistence, and Permission Layer change outcomes far more than swapping the model."
     },
     "level_3_loop": {
-      "name": "Level 3: Single Loop",
       "description": "Loop on evidence, not confidence. Configure trigger, goal, state/action policy, evidence, feedback, and stop rules. Loop engineering ≠ prompt engineering.",
       "tutorial": "Proposition: Evidence, not confidence. Loop ≠ prompt engineering — stop on real checks (tests, schema, review), not \"agent says done.\""
     },
     "level_4_loop_stack": {
-      "name": "Level 4: Loop Stack",
       "description": "Two loops can cooperate or fight. Pick a template: a single verification loop, or a verification loop nested inside an improvement loop.",
       "tutorial": "Proposition: Loops can cooperate or fight. The dual template nests fast inner verification inside slower outer improvement; the factory template sequences Plan → Build → Test → Review → Release."
     },
     "level_5_graph": {
-      "name": "Level 5: Agent Graph",
       "description": "The graph decides who runs next — not what the agent does. Conditional edges route control flow; failure states must always have a recovery path.",
       "tutorial": "Proposition: Graph = who runs next — not a knowledge graph. Conditional edges route control flow; every failure state needs a recovery path. A simple single-agent task often needs no graph."
     },
     "level_6_agent_system": {
-      "name": "Level 6: Agent Factory",
       "description": "Plan → Build → Test → Review → Release. Combine the full harness, a factory loop template, and export the blueprint as real code.",
       "tutorial": "Proposition: Agent System = the full stack. Combine the full harness, the factory loop template, and export the blueprint as real LangGraph code."
     }
@@ -189,13 +182,9 @@
     "title": "Node Palette",
     "dragHint": "Drag nodes onto the canvas",
     "planner": "Planner",
-    "plannerHint": "Decomposes tasks into sub-tasks",
     "coder": "Coder",
-    "coderHint": "Writes and edits code",
     "reviewer": "Reviewer",
-    "reviewerHint": "Reviews code and catches errors",
-    "tester": "Tester",
-    "testerHint": "Runs tests and validates"
+    "tester": "Tester"
   },
   "graphValidator": {
     "valid": "Graph valid",
@@ -216,7 +205,6 @@
     "tokens": "tokens",
     "liveSimulationFailed": "Live simulation failed",
     "whyFailed": "Why did it fail?",
-    "howToFix": "How to fix",
     "showHint": "Need a hint?",
     "topology": {
       "single": "Topology: single",
@@ -289,28 +277,17 @@
     "failed": "FAILED",
     "noData": "No data",
     "hallucination": "Hallucinated Tool",
-    "toolfailure": "Tool Failure",
     "toolFailure": "Tool Failure",
-    "filecorrosion": "File Corrosion",
     "fileCorrosion": "File Corrosion",
-    "memorystackoverflow": "Memory Stack Overflow",
     "memoryStackOverflow": "Memory Stack Overflow",
-    "contextoverflow": "Context Overflow",
     "contextOverflow": "Context Overflow",
-    "stalecontext": "Stale Context",
     "staleContext": "Stale Context",
-    "falsecompletion": "False Completion",
     "falseCompletion": "False Completion",
-    "permissionerror": "Permission Error",
     "permissionError": "Permission Error",
     "deadlock": "Deadlock",
-    "infinitelooptrap": "Infinite Loop Trap",
     "infiniteLoopTrap": "Infinite Loop Trap",
-    "budgetexhausted": "Budget Exhausted",
     "budgetExhausted": "Budget Exhausted",
-    "taskabandoned": "Task Abandoned",
     "taskAbandoned": "Task Abandoned",
-    "unsafeexecution": "Unsafe Execution",
     "unsafeExecution": "Unsafe Execution"
   },
   "architectureDelta": {
@@ -330,7 +307,6 @@
     "download": "Download langgraph.py"
   },
   "architect": {
-    "dropHint": "Drop nodes here",
     "edgeCondition": "Edge condition",
     "graphOptions": "Graph options",
     "entryNode": "Entry node",

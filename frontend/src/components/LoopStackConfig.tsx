@@ -77,7 +77,10 @@ export default function LoopStackConfigPanel() {
   const unlocked = selectedLevel?.unlocked_loop_stack ?? false;
   if (!unlocked) return null;
 
-  const showFactory = (selectedLevel?.unlocked_loop_templates ?? []).includes('factory');
+  const unlockedTemplates = selectedLevel?.unlocked_loop_templates ?? [];
+  const templateOptions = (['single', 'dual', 'factory'] as const).filter((tmpl) =>
+    unlockedTemplates.includes(tmpl),
+  );
   const selected: LoopStackTemplate = loop_stack.enabled ? loop_stack.template : 'none';
   const fields = selected !== 'none' ? TEMPLATES[selected]?.fields ?? [] : [];
 
@@ -110,23 +113,14 @@ export default function LoopStackConfigPanel() {
           selected={selected === 'none'}
           onSelect={() => selectTemplate('none')}
         />
-        <TemplateOption
-          label={t('loopStack.single')}
-          selected={selected === 'single'}
-          onSelect={() => selectTemplate('single')}
-        />
-        <TemplateOption
-          label={t('loopStack.dual')}
-          selected={selected === 'dual'}
-          onSelect={() => selectTemplate('dual')}
-        />
-        {showFactory && (
+        {templateOptions.map((tmpl) => (
           <TemplateOption
-            label={t('loopStack.factory')}
-            selected={selected === 'factory'}
-            onSelect={() => selectTemplate('factory')}
+            key={tmpl}
+            label={t(`loopStack.${tmpl}`)}
+            selected={selected === tmpl}
+            onSelect={() => selectTemplate(tmpl)}
           />
-        )}
+        ))}
       </div>
 
       {selected === 'single' && (
