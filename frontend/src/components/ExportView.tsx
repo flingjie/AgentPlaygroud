@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, Copy, Check } from 'lucide-react';
 import { exportBlueprint } from '../api';
@@ -12,6 +12,15 @@ export default function ExportView() {
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleExport = async () => {
     setExporting(true);
@@ -33,7 +42,13 @@ export default function ExportView() {
         `# arlo_config.yaml\n${arlo}\n\n# langgraph.py\n${langgraph}`,
       );
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (copyTimerRef.current !== null) {
+        clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = setTimeout(() => {
+        copyTimerRef.current = null;
+        setCopied(false);
+      }, 1500);
     } catch {
       // Clipboard unavailable (e.g. non-secure context) — ignore.
     }
@@ -45,8 +60,10 @@ export default function ExportView() {
     const a = document.createElement('a');
     a.href = url;
     a.download = 'langgraph.py';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
   return (
