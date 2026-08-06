@@ -13,6 +13,7 @@
     "factory": "工厂",
     "architect": "架构师",
     "debugger": "调试器",
+    "export": "导出",
     "architectLocked": "解锁图编辑功能以访问",
     "graphLocked": "当前关卡未解锁图编辑功能。",
     "graphLockedHint": "选择更高关卡以解锁架构师视图。"
@@ -33,48 +34,58 @@
     "unlocked": "已解锁",
     "loop": "循环",
     "graph": "图",
-    "recommended": "推荐",
-    "nextLevel": "达成目标？尝试下一关 →",
-    "cleared": "已通关"
+    "current": "当前"
   },
   "levels": {
     "level_1_raw": {
       "name": "第一关：裸模型",
-      "description": "Agent = Model + Harness。没有 harness 时，运行器无法可靠地基于真实条件终止——预期幻觉工具、文件腐蚀与任务放弃。",
-      "tutorial": "命题：Agent = Model + Harness。模型本身不是 agent——没有 harness 基础设施，它无法落地工具、持久化工作，或依据真实证据停止。"
+      "description": "模型本身不是 agent。没有 harness 时，运行器无法基于真实证据落地工具、持久化工作或停止——预期幻觉工具、文件腐蚀与任务放弃。",
+      "tutorial": "命题：Agent = Model + Harness。模型本身不是 agent——没有 harness 基础设施，它无法落地工具、持久化工作，或依据真实证据停止。没有追踪，你只会看到失败，却不知道失败的原因。在本模拟器中追踪始终开启，所以你总能看见完整轨迹。"
     },
     "level_2_harness": {
-      "name": "第二关：Harness 工程",
-      "description": "同一模型，不同 harness ——结果天差地别。解锁全部六个 harness 维度。仍无 loop，一次测试失败就会放弃任务。",
-      "tutorial": "命题：同一模型，不同 harness → 巨大差异。上下文注入、工具面、持久化、预算守卫、沙箱与追踪，往往比换模型更能改变结果。"
+      "name": "第二关：工具 Agent",
+      "description": "同一模型，不同 harness——结果天差地别。解锁全部七个 harness 维度。仍无 loop，一次测试失败就会放弃任务。",
+      "tutorial": "命题：同一模型，不同 harness → 巨大差异。工具注册表、重试策略、超时守卫、沙箱隔离、上下文管理器、状态持久化与权限层，往往比换模型更能改变结果。"
     },
     "level_3_loop": {
-      "name": "第三关：Loop 工程",
+      "name": "第三关：单循环",
       "description": "依据证据循环，而非自信。配置触发、目标、状态/动作策略、证据、反馈与停止规则。Loop 工程 ≠ Prompt 工程。",
       "tutorial": "命题：看证据，不看自信。Loop ≠ Prompt 工程——应在真实检查（测试、schema、审查）上停止，而不是「agent 说做完了」。"
     },
-    "level_4_graph": {
-      "name": "第四关：Graph 工程",
-      "description": "图决定「下一步谁跑」——不是 agent 做什么。用条件边、状态 schema 与检查点。简单单 agent 任务往往不需要图。",
-      "tutorial": "命题：Graph = 谁下一步运行——不是知识图谱。条件边路由控制流。简单单 agent 任务常常根本不需要图。"
+    "level_4_loop_stack": {
+      "name": "第四关：循环栈",
+      "description": "两个循环可以协作，也可能互相冲突。选择一个模板：单一验证循环，或嵌套在改进循环内部的验证循环。",
+      "tutorial": "命题：循环可以协作，也可能互相冲突。双循环模板将快速的内层验证嵌套进较慢的外层改进；工厂模板则按 规划 → 构建 → 测试 → 审查 → 发布 的顺序执行。"
+    },
+    "level_5_graph": {
+      "name": "第五关：Agent 图",
+      "description": "图决定「下一步谁跑」——不是 agent 做什么。条件边路由控制流；失败状态必须始终有恢复路径。",
+      "tutorial": "命题：Graph = 谁下一步运行——不是知识图谱。条件边路由控制流；每个失败状态都需要恢复路径。简单单 agent 任务往往不需要图。"
+    },
+    "level_6_agent_system": {
+      "name": "第六关：Agent 工厂",
+      "description": "规划 → 构建 → 测试 → 审查 → 发布。组合完整 harness、工厂循环模板，并将蓝图导出为真实代码。",
+      "tutorial": "命题：Agent 系统 = 完整技术栈。组合完整 harness、工厂循环模板，并将蓝图导出为真实的 LangGraph 代码。"
     }
   },
   "harness": {
     "title": "Harness 配置",
-    "contextInjection": "上下文注入",
-    "contextInjectionDesc": "用检索到的文件、规格与上次运行状态为模型提供 grounding",
-    "toolSurface": "工具面",
-    "toolSurfaceDesc": "暴露真实、有类型的工具 API，防止模型凭空发明工具",
-    "persistence": "持久化",
-    "persistenceDesc": "提交工作区变更，避免编辑互相覆盖",
-    "budgetGuard": "预算守卫",
-    "budgetGuardDesc": "限制消耗，在 token 爆炸前停止运行",
+    "toolRegistry": "工具注册表",
+    "toolRegistryDesc": "暴露真实、有类型的工具 API，防止模型凭空发明工具",
+    "retryPolicy": "重试策略",
+    "retryPolicyDesc": "提供结构化的重试脚手架——loop 需要这个机制才能真正重试",
+    "timeoutGuard": "超时守卫",
+    "timeoutGuardDesc": "在运行边界（token 或迭代次数）爆炸前设定上限",
     "sandboxIsolation": "沙箱隔离",
     "sandboxIsolationDesc": "在隔离环境执行代码，避免污染宿主机",
-    "tracing": "追踪",
-    "tracingDesc": "记录每一步，让失败可诊断而非神秘",
-    "tokenBudgetCap": "Token 预算上限",
-    "tokenBudgetCapPlaceholder": "例如 20000",
+    "contextManager": "上下文管理器",
+    "contextManagerDesc": "用最新的文件、规格与上次运行状态为模型提供 grounding",
+    "statePersistence": "状态持久化",
+    "statePersistenceDesc": "对工作区变更做版本化，避免编辑互相覆盖",
+    "permissionLayer": "权限层",
+    "permissionLayerDesc": "定义白名单——能力不等于权限",
+    "runBoundaryCap": "运行边界上限",
+    "runBoundaryCapPlaceholder": "例如 20000",
     "memoryCapacity": "记忆容量"
   },
   "loop": {
@@ -122,6 +133,40 @@
       "retry_same": "原样重试",
       "edit_then_retest": "修改后再测",
       "escalate_review": "升级审查"
+    }
+  },
+  "loopStack": {
+    "title": "循环栈",
+    "template": "循环栈模板",
+    "single": "单一循环",
+    "dual": "双循环",
+    "factory": "Agent 工厂循环",
+    "lockedNote": "预设项——点击字段了解其存在原因",
+    "inner": "内层（验证）",
+    "outer": "外层（改进）",
+    "innerEvidence": "内层证据",
+    "outerEvidence": "外层证据",
+    "plan": "规划",
+    "build": "构建",
+    "test": "测试",
+    "review": "审查",
+    "release": "发布",
+    "why": {
+      "trigger": "循环需要触发条件，才能知道何时开始观察。",
+      "goal": "目标是具体状态，而非含糊指令。",
+      "evidence": "没有证据，「完成」毫无意义——FALSE_COMPLETION 更可能发生。",
+      "feedback": "反馈必须说明失败原因，下一次尝试才会有所不同。",
+      "stopOn": "在证据通过时停止，绝不在 agent 自报完成时停止。",
+      "maxIterations": "迭代上限把无限循环变成有界循环。",
+      "inner": "内层循环快速验证每一次尝试。",
+      "outer": "内层验证之后，外层循环改进整体方案。",
+      "innerEvidence": "针对每次编辑的快速、廉价检查。",
+      "outerEvidence": "更慢、更强的签署把关最终发布。",
+      "plan": "把目标分解为具体步骤。",
+      "build": "产出补丁。",
+      "test": "运行测试——即证据。",
+      "review": "第二双眼睛；拒绝会把它送回构建。",
+      "release": "只有证据达标的产出才发布。"
     }
   },
   "reflections": {
@@ -179,24 +224,34 @@
       "feedback": "拓扑：回边"
     },
     "failureHints": {
-      "HALLUCINATED_TOOL": "agent 调用了不存在的工具。没有真实工具面（通常还需要沙箱隔离）时，模型会发明 API。",
-      "FILE_CORROSION": "agent 覆盖了自己的工作。没有持久化时，每次编辑都会毁掉上一次结果。",
+      "HALLUCINATION": "模型调用了不存在的工具——没有工具注册表时，它会凭空发明 API。",
+      "TOOL_FAILURE": "真实工具返回了垃圾结果。工具可以被调用但仍然不可靠——只有验证循环能抓住这一点。",
+      "FILE_CORROSION": "agent 覆盖了自己的工作。没有状态持久化时，每次编辑都会毁掉上一次结果。",
       "MEMORY_STACK_OVERFLOW": "agent 记忆缓存耗尽。步骤太多而容量不够时，它会忘记任务。",
-      "CONTEXT_FULL": "重试过程中上下文窗口被填满。历史堆积到无法再处理新信息。",
+      "CONTEXT_OVERFLOW": "重试过程中上下文窗口被填满。历史堆积到无法再处理新信息。",
+      "STALE_CONTEXT": "agent 基于过期的快照行动。没有上下文管理器时，它会一直从过时的世界视图出发工作。",
+      "FALSE_COMPLETION": "agent 因为「说做完了」而停止——并非证据通过。声称不是事实。",
+      "PERMISSION_ERROR": "agent 尝试了超出其边界的行为。能力 ≠ 权限——请定义权限层。",
+      "DEADLOCK": "控制图中存在无恢复路径的失败状态。每个 on_fail 边都必须到达恢复节点。",
       "INFINITE_LOOP_TRAP": "agent 无进展地循环：失败 → 同样动作 → 再失败。缺少或过弱的停止规则/迭代上限。",
+      "BUDGET_EXHAUSTED": "运行触达运行边界上限。超时守卫在任务完成前停止了 agent。",
       "TASK_ABANDONED": "agent 在第一次失败后就放弃了。未启用 loop 时，一次测试失败即结束运行。",
-      "BUDGET_EXHAUSTED": "运行触达 token 预算上限。预算守卫在任务完成前停止了 agent。",
-      "UNGROUNDED_STOP": "agent 因「说做完了」而停止——并非证据通过。无 grounding 的停止条件会撒谎。"
+      "UNSAFE_EXECUTION": "破坏性操作在没有沙箱隔离的情况下运行，破坏了环境。"
     },
     "failureFixes": {
-      "HALLUCINATED_TOOL": "在 Harness 中启用工具面与沙箱隔离。",
-      "FILE_CORROSION": "在 Harness 中启用持久化，让编辑可版本化。",
-      "MEMORY_STACK_OVERFLOW": "提高记忆容量，或启用上下文注入/追踪来管理状态。",
-      "CONTEXT_FULL": "提高记忆容量、收紧 state_policy，或用 Graph 拆分工作。",
+      "HALLUCINATION": "在 Harness 中启用工具注册表，让模型只能调用真实工具。",
+      "TOOL_FAILURE": "保留工具注册表，但增加验证循环，在信任工具输出前先做检查。",
+      "FILE_CORROSION": "在 Harness 中启用状态持久化，让编辑可版本化。",
+      "MEMORY_STACK_OVERFLOW": "提高记忆容量，或启用上下文管理器来管理状态。",
+      "CONTEXT_OVERFLOW": "提高记忆容量、收紧 state_policy，或用 Graph 拆分工作。",
+      "STALE_CONTEXT": "启用上下文管理器，让 agent 重新读取当前文件与运行状态。",
+      "FALSE_COMPLETION": "将 stop_on 设为 evidence_pass，并把证据设为真实检查——绝不用 agent 自报。",
+      "PERMISSION_ERROR": "启用权限层，为 agent 的行为定义白名单。",
+      "DEADLOCK": "增加恢复节点，并把每个 on_fail 边指向它。",
       "INFINITE_LOOP_TRAP": "将 stop_on 设为 evidence_pass（或 budget_or_max），必要时提高 max_iterations。",
+      "BUDGET_EXHAUSTED": "提高运行边界上限，或降低 max_iterations / 收紧 loop。",
       "TASK_ABANDONED": "启用 Loop，并配置 evidence 与 stop_on，让 agent 能恢复。",
-      "BUDGET_EXHAUSTED": "提高 token_budget_cap，或降低 max_iterations / 收紧 loop。",
-      "UNGROUNDED_STOP": "将 stop_on 从 agent_says_done 改为 evidence_pass，并把 evidence 设为真实检查。"
+      "UNSAFE_EXECUTION": "启用沙箱隔离，让破坏性操作无法破坏宿主机。"
     }
   },
   "timeline": {
@@ -231,14 +286,36 @@
     "sampleTraces": "采样轨迹",
     "success": "成功",
     "failed": "失败",
-    "hallucinatedTool": "幻觉调用",
-    "fileCorrosion": "文件损坏",
-    "memoryStackOverflow": "记忆栈溢出",
-    "contextFull": "上下文溢出",
-    "infiniteLoopTrap": "死循环陷阱",
-    "taskAbandoned": "任务中止",
-    "budgetExhausted": "预算耗尽",
-    "ungroundedStop": "无依据停止"
+    "noData": "暂无数据",
+    "hallucination": "幻觉调用",
+    "toolfailure": "工具失败",
+    "filecorrosion": "文件损坏",
+    "memorystackoverflow": "记忆栈溢出",
+    "contextoverflow": "上下文溢出",
+    "stalecontext": "过期上下文",
+    "falsecompletion": "虚假完成",
+    "permissionerror": "权限错误",
+    "deadlock": "死锁",
+    "infinitelooptrap": "死循环陷阱",
+    "budgetexhausted": "预算耗尽",
+    "taskabandoned": "任务中止",
+    "unsafeexecution": "不安全执行"
+  },
+  "architectureDelta": {
+    "title": "架构差异"
+  },
+  "staticFlow": {
+    "title": "执行流程"
+  },
+  "runtimeGraph": {
+    "title": "运行时位置",
+    "empty": "暂无轨迹。"
+  },
+  "export": {
+    "title": "导出蓝图",
+    "generate": "生成 LangGraph + arlo_config",
+    "copy": "全部复制",
+    "download": "下载 langgraph.py"
   },
   "architect": {
     "dropHint": "拖拽节点到此处",

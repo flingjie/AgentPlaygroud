@@ -13,6 +13,7 @@
     "factory": "Factory",
     "architect": "Architect",
     "debugger": "Debugger",
+    "export": "Export",
     "architectLocked": "Unlock graph editing to access",
     "graphLocked": "Graph editing is locked for this level.",
     "graphLockedHint": "Select a higher level to unlock the Architect."
@@ -33,48 +34,58 @@
     "unlocked": "Unlocked",
     "loop": "loop",
     "graph": "graph",
-    "recommended": "Recommended",
-    "nextLevel": "Beat the target? Try the next level →",
-    "cleared": "Cleared"
+    "current": "Current"
   },
   "levels": {
     "level_1_raw": {
-      "name": "Level 1: The Raw Model",
-      "description": "Agent = Model + Harness. With no harness, the runner cannot reliably terminate on real conditions — expect hallucinated tools, corrosion, and abandoned tasks.",
-      "tutorial": "Proposition: Agent = Model + Harness. A model alone is not an agent — without harness infrastructure it cannot ground tools, persist work, or stop on real evidence."
+      "name": "Level 1: Raw LLM",
+      "description": "A model alone is not an agent. With no harness, the runner cannot ground tools, persist work, or stop on real evidence — expect hallucinated tools, corrosion, and abandoned tasks.",
+      "tutorial": "Proposition: Agent = Model + Harness. A model alone is not an agent — without harness infrastructure it cannot ground tools, persist work, or stop on real evidence. Without tracing you would only see a failure, not why it failed. In this simulator tracing is always on so you can always see the full trace."
     },
     "level_2_harness": {
-      "name": "Level 2: Harness Engineering",
-      "description": "Same model, different harness — results diverge sharply. Unlock all six harness dimensions. Still no loop, so a single failed test abandons the task.",
-      "tutorial": "Proposition: Same model, different harness → huge difference. Context injection, tool surface, persistence, budget guard, sandbox, and tracing change outcomes far more than swapping the model."
+      "name": "Level 2: Tool Agent",
+      "description": "Same model, different harness — results diverge sharply. Unlock all seven harness dimensions. Still no loop, so a single failed test abandons the task.",
+      "tutorial": "Proposition: Same model, different harness → huge difference. Tool Registry, Retry Policy, Timeout Guard, Sandbox Isolation, Context Manager, State Persistence, and Permission Layer change outcomes far more than swapping the model."
     },
     "level_3_loop": {
-      "name": "Level 3: Loop Engineering",
+      "name": "Level 3: Single Loop",
       "description": "Loop on evidence, not confidence. Configure trigger, goal, state/action policy, evidence, feedback, and stop rules. Loop engineering ≠ prompt engineering.",
       "tutorial": "Proposition: Evidence, not confidence. Loop ≠ prompt engineering — stop on real checks (tests, schema, review), not \"agent says done.\""
     },
-    "level_4_graph": {
-      "name": "Level 4: Graph Engineering",
-      "description": "The graph decides who runs next — not what the agent does. Use conditional edges, state schema, and checkpointing. Simple single-agent tasks need no graph.",
-      "tutorial": "Proposition: Graph = who runs next — not a knowledge graph. Conditional edges route control flow. A simple single-agent task often needs no graph at all."
+    "level_4_loop_stack": {
+      "name": "Level 4: Loop Stack",
+      "description": "Two loops can cooperate or fight. Pick a template: a single verification loop, or a verification loop nested inside an improvement loop.",
+      "tutorial": "Proposition: Loops can cooperate or fight. The dual template nests fast inner verification inside slower outer improvement; the factory template sequences Plan → Build → Test → Review → Release."
+    },
+    "level_5_graph": {
+      "name": "Level 5: Agent Graph",
+      "description": "The graph decides who runs next — not what the agent does. Conditional edges route control flow; failure states must always have a recovery path.",
+      "tutorial": "Proposition: Graph = who runs next — not a knowledge graph. Conditional edges route control flow; every failure state needs a recovery path. A simple single-agent task often needs no graph."
+    },
+    "level_6_agent_system": {
+      "name": "Level 6: Agent Factory",
+      "description": "Plan → Build → Test → Review → Release. Combine the full harness, a factory loop template, and export the blueprint as real code.",
+      "tutorial": "Proposition: Agent System = the full stack. Combine the full harness, the factory loop template, and export the blueprint as real LangGraph code."
     }
   },
   "harness": {
     "title": "Harness Configuration",
-    "contextInjection": "Context Injection",
-    "contextInjectionDesc": "Ground the model with retrieved files, specs, and prior run state",
-    "toolSurface": "Tool Surface",
-    "toolSurfaceDesc": "Expose a real, typed tool API so the model cannot invent tools",
-    "persistence": "Persistence",
-    "persistenceDesc": "Commit workspace changes so edits do not overwrite each other",
-    "budgetGuard": "Budget Guard",
-    "budgetGuardDesc": "Cap spend and stop the run before tokens explode",
+    "toolRegistry": "Tool Registry",
+    "toolRegistryDesc": "Expose a real, typed tool API so the model cannot invent tools",
+    "retryPolicy": "Retry Policy",
+    "retryPolicyDesc": "Provide structured retry scaffolding — a loop needs this mechanism to actually retry",
+    "timeoutGuard": "Timeout Guard",
+    "timeoutGuardDesc": "Cap the run boundary (tokens or iterations) before it explodes",
     "sandboxIsolation": "Sandbox Isolation",
     "sandboxIsolationDesc": "Execute code in an isolated environment that cannot corrupt the host",
-    "tracing": "Tracing",
-    "tracingDesc": "Record every step so failures are diagnosable, not mysterious",
-    "tokenBudgetCap": "Token Budget Cap",
-    "tokenBudgetCapPlaceholder": "e.g. 20000",
+    "contextManager": "Context Manager",
+    "contextManagerDesc": "Ground the model with fresh files, specs, and prior run state",
+    "statePersistence": "State Persistence",
+    "statePersistenceDesc": "Version workspace changes so edits do not overwrite each other",
+    "permissionLayer": "Permission Layer",
+    "permissionLayerDesc": "Define an allowlist — capability is not permission",
+    "runBoundaryCap": "Run Boundary Cap",
+    "runBoundaryCapPlaceholder": "e.g. 20000",
     "memoryCapacity": "Memory Capacity"
   },
   "loop": {
@@ -122,6 +133,40 @@
       "retry_same": "Retry same",
       "edit_then_retest": "Edit then retest",
       "escalate_review": "Escalate to review"
+    }
+  },
+  "loopStack": {
+    "title": "Loop Stack",
+    "template": "Loop Stack Template",
+    "single": "Single Loop",
+    "dual": "Dual Loop",
+    "factory": "Agent Factory Loop",
+    "lockedNote": "Preset — click a field to see why it exists",
+    "inner": "Inner (verify)",
+    "outer": "Outer (improve)",
+    "innerEvidence": "Inner evidence",
+    "outerEvidence": "Outer evidence",
+    "plan": "Plan",
+    "build": "Build",
+    "test": "Test",
+    "review": "Review",
+    "release": "Release",
+    "why": {
+      "trigger": "A loop needs a trigger to know when to start observing.",
+      "goal": "The goal is a concrete state, not a vague instruction.",
+      "evidence": "Without evidence, \"done\" means nothing — FALSE_COMPLETION becomes likely.",
+      "feedback": "Feedback must describe why it failed so the next attempt is different.",
+      "stopOn": "Stop on evidence pass, never on agent self-report.",
+      "maxIterations": "An iteration cap turns an infinite loop into a bounded one.",
+      "inner": "The inner loop verifies each attempt quickly.",
+      "outer": "The outer loop improves the overall approach after inner verification.",
+      "innerEvidence": "Fast, cheap checks for each edit.",
+      "outerEvidence": "Slower, stronger sign-off gates the final release.",
+      "plan": "Decompose the goal into concrete steps.",
+      "build": "Produce the patch.",
+      "test": "Run the tests — evidence.",
+      "review": "A second pair of eyes; rejection sends it back to build.",
+      "release": "Only evidence-cleared output ships."
     }
   },
   "reflections": {
@@ -179,24 +224,34 @@
       "feedback": "Topology: feedback"
     },
     "failureHints": {
-      "HALLUCINATED_TOOL": "The agent called a tool that does not exist. Without a real tool surface (and usually sandbox isolation), the model invents APIs.",
-      "FILE_CORROSION": "The agent overwrote its own work. Without persistence, each edit destroyed the previous one.",
+      "HALLUCINATION": "The model called a tool that does not exist — with no Tool Registry it invents APIs.",
+      "TOOL_FAILURE": "A real tool returned garbage. Tools can be called but still be unreliable — only a verification loop catches this.",
+      "FILE_CORROSION": "The agent overwrote its own work. Without State Persistence, each edit destroyed the previous one.",
       "MEMORY_STACK_OVERFLOW": "The agent ran out of memory buffer. Too many steps without enough capacity and it forgot the task.",
-      "CONTEXT_FULL": "The context window filled during retries. History accumulated until the agent could no longer process new information.",
+      "CONTEXT_OVERFLOW": "The context window filled during retries. History accumulated until the agent could no longer process new information.",
+      "STALE_CONTEXT": "The agent acted on an outdated snapshot. Without a Context Manager it keeps working from a stale view of the world.",
+      "FALSE_COMPLETION": "The agent stopped because it said \"done\" — not because evidence passed. Claims are not facts.",
+      "PERMISSION_ERROR": "The agent attempted an action outside its boundary. Capability ≠ Permission — define a Permission Layer.",
+      "DEADLOCK": "The control graph has a failure state with no recovery path. Every on_fail edge must reach a recovery node.",
       "INFINITE_LOOP_TRAP": "The agent looped without progress: fail → same action → fail. Stop rules or iteration caps were missing or too weak.",
+      "BUDGET_EXHAUSTED": "The run hit the run boundary cap (tokens or iterations). Timeout Guard stopped the agent before it could finish.",
       "TASK_ABANDONED": "The agent quit after the first failure. With no loop enabled, a single test fail ended the run.",
-      "BUDGET_EXHAUSTED": "The run hit the token budget cap. Budget guard stopped the agent before it could finish.",
-      "UNGROUNDED_STOP": "The agent stopped because it \"said done\" — not because evidence passed. Ungrounded stop conditions lie."
+      "UNSAFE_EXECUTION": "A destructive action ran without Sandbox Isolation and corrupted the environment."
     },
     "failureFixes": {
-      "HALLUCINATED_TOOL": "Enable Tool Surface and Sandbox Isolation in Harness.",
-      "FILE_CORROSION": "Enable Persistence in Harness so edits are versioned.",
-      "MEMORY_STACK_OVERFLOW": "Raise Memory Capacity, or add Context Injection / Tracing to manage state.",
-      "CONTEXT_FULL": "Raise Memory Capacity, tighten state_policy, or split work with a Graph.",
+      "HALLUCINATION": "Enable Tool Registry in Harness so the model can only call real tools.",
+      "TOOL_FAILURE": "Keep the Tool Registry, but add a verification loop that checks tool output before trusting it.",
+      "FILE_CORROSION": "Enable State Persistence in Harness so edits are versioned.",
+      "MEMORY_STACK_OVERFLOW": "Raise Memory Capacity, or enable Context Manager to manage state.",
+      "CONTEXT_OVERFLOW": "Raise Memory Capacity, tighten state_policy, or split work with a Graph.",
+      "STALE_CONTEXT": "Enable Context Manager so the agent re-reads current files and run state.",
+      "FALSE_COMPLETION": "Set stop_on to evidence_pass and set evidence to a real check — never agent self-report.",
+      "PERMISSION_ERROR": "Enable Permission Layer and define an allowlist for the agent's actions.",
+      "DEADLOCK": "Add a recovery node and route every on_fail edge to it.",
       "INFINITE_LOOP_TRAP": "Set stop_on to evidence_pass (or budget_or_max) and raise max_iterations if needed.",
+      "BUDGET_EXHAUSTED": "Raise the run boundary cap, or reduce max_iterations / tighten the loop.",
       "TASK_ABANDONED": "Enable the Loop and set evidence + stop_on so the agent can recover.",
-      "BUDGET_EXHAUSTED": "Raise token_budget_cap, or reduce max_iterations / tighten the loop.",
-      "UNGROUNDED_STOP": "Change stop_on from agent_says_done to evidence_pass, and set evidence to a real check."
+      "UNSAFE_EXECUTION": "Enable Sandbox Isolation so destructive actions cannot corrupt the host."
     }
   },
   "timeline": {
@@ -231,14 +286,36 @@
     "sampleTraces": "Sample Traces",
     "success": "SUCCESS",
     "failed": "FAILED",
-    "hallucinatedTool": "Hallucinated Tool",
-    "fileCorrosion": "File Corrosion",
-    "memoryStackOverflow": "Memory Stack Overflow",
-    "contextFull": "Context Full",
-    "infiniteLoopTrap": "Infinite Loop Trap",
-    "taskAbandoned": "Task Abandoned",
-    "budgetExhausted": "Budget Exhausted",
-    "ungroundedStop": "Ungrounded Stop"
+    "noData": "No data",
+    "hallucination": "Hallucinated Tool",
+    "toolfailure": "Tool Failure",
+    "filecorrosion": "File Corrosion",
+    "memorystackoverflow": "Memory Stack Overflow",
+    "contextoverflow": "Context Overflow",
+    "stalecontext": "Stale Context",
+    "falsecompletion": "False Completion",
+    "permissionerror": "Permission Error",
+    "deadlock": "Deadlock",
+    "infinitelooptrap": "Infinite Loop Trap",
+    "budgetexhausted": "Budget Exhausted",
+    "taskabandoned": "Task Abandoned",
+    "unsafeexecution": "Unsafe Execution"
+  },
+  "architectureDelta": {
+    "title": "Architecture Delta"
+  },
+  "staticFlow": {
+    "title": "Execution Flow"
+  },
+  "runtimeGraph": {
+    "title": "Runtime Position",
+    "empty": "No trace yet."
+  },
+  "export": {
+    "title": "Export Blueprint",
+    "generate": "Generate LangGraph + arlo_config",
+    "copy": "Copy all",
+    "download": "Download langgraph.py"
   },
   "architect": {
     "dropHint": "Drop nodes here",
