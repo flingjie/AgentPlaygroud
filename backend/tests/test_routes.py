@@ -12,20 +12,22 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 
 
-def test_get_levels_returns_all_4():
-    """GET /api/levels should return 4 predefined levels."""
+def test_get_levels_returns_all_6():
+    """GET /api/levels should return 6 predefined levels."""
     response = client.get("/api/levels")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 4
+    assert len(data) == 6
     assert data[0]["id"] == "level_1_raw"
+    assert data[-1]["id"] == "level_6_agent_system"
 
 
 def test_get_level_1_by_id():
     """GET /api/levels/level_1_raw should return the Raw Model level."""
     response = client.get("/api/levels/level_1_raw")
     assert response.status_code == 200
-    assert response.json()["name"] == "The Raw Model"
+    assert response.json()["name"] == "Agent"
+    assert response.json()["learning_label"] == "Raw LLM"
 
 
 def test_get_level_404():
@@ -65,13 +67,15 @@ def test_monte_carlo_endpoint():
     """POST /api/monte-carlo should return aggregate stats."""
     req = {
         "blueprint": {
-            "level_id": "level_4_graph",
+            "level_id": "level_5_graph",
             "harness": {
-                "has_context_injection": True,
-                "has_tool_surface": True,
-                "has_persistence": True,
-                "has_budget_guard": True,
+                "has_tool_registry": True,
+                "has_retry_policy": True,
+                "has_timeout_guard": True,
                 "has_sandbox_isolation": True,
+                "has_context_manager": True,
+                "has_state_persistence": True,
+                "has_permission_layer": True,
                 "memory_capacity": 8,
             },
             "loop": {
@@ -130,3 +134,20 @@ def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# POST /api/export
+# ---------------------------------------------------------------------------
+
+
+def test_export_endpoint_returns_langgraph_and_arlo():
+    from app.models import AgentBlueprint
+
+    bp = AgentBlueprint(level_id="level_6_agent_system")
+    res = client.post("/api/export", json=bp.model_dump())
+    assert res.status_code == 200
+    data = res.json()
+    assert "langgraph" in data and "arlo_yaml" in data
+    assert "StateGraph" in data["langgraph"]
+    assert "agent:" in data["arlo_yaml"]

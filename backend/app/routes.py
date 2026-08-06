@@ -7,6 +7,7 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.engine import SimulationEngine
+from app.export import render_export
 from app.levels import ALL_LEVELS, LEVELS_BY_ID
 from app.models import (
     AgentBlueprint,
@@ -75,6 +76,17 @@ async def monte_carlo(req: MonteCarloRequest):
         req.num_runs = 100
     result = engine.monte_carlo(req.blueprint, req.num_runs)
     return MonteCarloResponse(**result)
+
+
+# ---------------------------------------------------------------------------
+# Export bridge
+# ---------------------------------------------------------------------------
+
+
+@router.post("/api/export")
+async def export_blueprint(blueprint: AgentBlueprint):
+    """Render the blueprint as LangGraph code + arlo_config.yaml."""
+    return render_export(blueprint)
 
 
 # ---------------------------------------------------------------------------
