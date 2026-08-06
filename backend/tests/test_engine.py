@@ -998,6 +998,93 @@ class TestRetryPolicyGate:
 
 
 # ---------------------------------------------------------------------------
+# action_policy / trigger (revived loop fields)
+# ---------------------------------------------------------------------------
+
+
+class TestEscalateReviewGate:
+    """action_policy=escalate_review requires a reviewer node in the graph."""
+
+    def _esc_bp(self, graph: GraphSpec | None = None) -> AgentBlueprint:
+        bp = make_blueprint(
+            has_tool_registry=True,
+            has_retry_policy=True,
+            has_sandbox_isolation=True,
+            has_context_manager=True,
+            has_state_persistence=True,
+            has_permission_layer=True,
+            memory_capacity=6,
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=3,
+            graph=graph,
+        )
+        bp.loop = LoopConfig(
+            enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=3,
+            action_policy="escalate_review",
+        )
+        return bp
+
+    def test_escalate_review_requires_reviewer_gate(self):
+        """Without a reviewer the loop short-circuits to INFINITE_LOOP_TRAP on
+        every seed; adding a reviewer node lets the +0.05 action bonus win."""
+        engine = SimulationEngine()
+
+        # No reviewer: escalate_review short-circuits -> always traps.
+        no_rev = self._esc_bp()  # default graph is a single coder, no reviewer
+        for seed_offset in range(50):
+            trace = engine.simulate(no_rev, seed=1000 + seed_offset)
+            assert trace.status == "FAILED"
+            assert trace.failure_reason == FailureReason.INFINITE_LOOP_TRAP
+
+        # Same harness and loop, but a planner→coder→reviewer chain: can succeed.
+        with_rev = self._esc_bp(graph=chain_graph())
+        successes = sum(
+            1
+            for seed_offset in range(50)
+            if engine.simulate(with_rev, seed=1000 + seed_offset).status == "SUCCESS"
+        )
+        assert successes >= 25
+
+
+class TestTriggerTokenSurcharge:
+    """trigger=on_task_start adds a CHECK_EVIDENCE overhead on the success path."""
+
+    def test_on_task_start_costs_more_than_on_test_fail(self):
+        """Over a success-heavy seeded batch, the on_task_start blueprint must
+        spend strictly more tokens than the identical on_test_fail blueprint."""
+        engine = SimulationEngine()
+        totals = {"on_task_start": 0, "on_test_fail": 0}
+        for trigger in ("on_task_start", "on_test_fail"):
+            bp = make_blueprint(
+                has_tool_registry=True,
+                has_retry_policy=True,
+                has_sandbox_isolation=True,
+                has_context_manager=True,
+                has_state_persistence=True,
+                has_permission_layer=True,
+                memory_capacity=8,
+                loop_enabled=True,
+                evidence="test_runner",
+                feedback="reflexion",
+                stop_on="evidence_pass",
+                max_iterations=5,
+            )
+            bp.loop.trigger = trigger  # blueprints differ ONLY in trigger
+            for seed_offset in range(200):
+                totals[trigger] += engine.simulate(
+                    bp, seed=20000 + seed_offset
+                ).cost_tokens
+        assert totals["on_task_start"] > totals["on_test_fail"]
+
+
+# ---------------------------------------------------------------------------
 # Budget guard
 # ---------------------------------------------------------------------------
 
