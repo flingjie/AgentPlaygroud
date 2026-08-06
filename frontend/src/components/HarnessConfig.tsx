@@ -8,42 +8,13 @@ const TOGGLES: {
   descKey: string;
   unlockKey: string;
 }[] = [
-  {
-    key: 'has_context_injection',
-    labelKey: 'harness.contextInjection',
-    descKey: 'harness.contextInjectionDesc',
-    unlockKey: 'context_injection',
-  },
-  {
-    key: 'has_tool_surface',
-    labelKey: 'harness.toolSurface',
-    descKey: 'harness.toolSurfaceDesc',
-    unlockKey: 'tool_surface',
-  },
-  {
-    key: 'has_persistence',
-    labelKey: 'harness.persistence',
-    descKey: 'harness.persistenceDesc',
-    unlockKey: 'persistence',
-  },
-  {
-    key: 'has_budget_guard',
-    labelKey: 'harness.budgetGuard',
-    descKey: 'harness.budgetGuardDesc',
-    unlockKey: 'budget_guard',
-  },
-  {
-    key: 'has_sandbox_isolation',
-    labelKey: 'harness.sandboxIsolation',
-    descKey: 'harness.sandboxIsolationDesc',
-    unlockKey: 'sandbox_isolation',
-  },
-  {
-    key: 'has_tracing',
-    labelKey: 'harness.tracing',
-    descKey: 'harness.tracingDesc',
-    unlockKey: 'tracing',
-  },
+  { key: 'has_tool_registry', labelKey: 'harness.toolRegistry', descKey: 'harness.toolRegistryDesc', unlockKey: 'tool_registry' },
+  { key: 'has_retry_policy', labelKey: 'harness.retryPolicy', descKey: 'harness.retryPolicyDesc', unlockKey: 'retry_policy' },
+  { key: 'has_timeout_guard', labelKey: 'harness.timeoutGuard', descKey: 'harness.timeoutGuardDesc', unlockKey: 'timeout_guard' },
+  { key: 'has_sandbox_isolation', labelKey: 'harness.sandboxIsolation', descKey: 'harness.sandboxIsolationDesc', unlockKey: 'sandbox_isolation' },
+  { key: 'has_context_manager', labelKey: 'harness.contextManager', descKey: 'harness.contextManagerDesc', unlockKey: 'context_manager' },
+  { key: 'has_state_persistence', labelKey: 'harness.statePersistence', descKey: 'harness.statePersistenceDesc', unlockKey: 'state_persistence' },
+  { key: 'has_permission_layer', labelKey: 'harness.permissionLayer', descKey: 'harness.permissionLayerDesc', unlockKey: 'permission_layer' },
 ];
 
 export default function HarnessConfigPanel() {
@@ -71,8 +42,8 @@ export default function HarnessConfigPanel() {
               disabled={!isUnlocked}
               onClick={() => {
                 const next = !enabled;
-                if (key === 'has_budget_guard' && !next) {
-                  updateHarness({ has_budget_guard: false, token_budget_cap: null });
+                if (key === 'has_timeout_guard' && !next) {
+                  updateHarness({ has_timeout_guard: false, run_boundary_cap: null });
                 } else {
                   updateHarness({ [key]: next });
                 }
@@ -132,26 +103,26 @@ export default function HarnessConfigPanel() {
         })}
       </div>
 
-      {harness.has_budget_guard && unlocked.includes('budget_guard') && (
+      {harness.has_timeout_guard && unlocked.includes('timeout_guard') && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
-              {t('harness.tokenBudgetCap')}
+              {t('harness.runBoundaryCap')}
             </label>
             <span className="font-mono text-sm text-green-600 dark:text-green-400">
-              {harness.token_budget_cap ?? '—'}
+              {harness.run_boundary_cap ?? '—'}
             </span>
           </div>
           <input
             type="number"
             min={1000}
             step={1000}
-            value={harness.token_budget_cap ?? ''}
-            placeholder={t('harness.tokenBudgetCapPlaceholder')}
+            value={harness.run_boundary_cap ?? ''}
+            placeholder={t('harness.runBoundaryCapPlaceholder')}
             onChange={(e) => {
               const raw = e.target.value;
               updateHarness({
-                token_budget_cap: raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0),
+                run_boundary_cap: raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0),
               });
             }}
             className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-200 font-mono focus:outline-none focus:border-green-500"
