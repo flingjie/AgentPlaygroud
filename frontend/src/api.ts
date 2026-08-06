@@ -11,13 +11,14 @@ import { ApiError } from './types';
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 const BASE = import.meta.env.VITE_API_BASE ?? '';
 
-const HARNESS_SIX_KEYS = [
-  'context_injection',
-  'tool_surface',
-  'persistence',
-  'budget_guard',
+const HARNESS_SEVEN_KEYS = [
+  'tool_registry',
+  'retry_policy',
+  'timeout_guard',
   'sandbox_isolation',
-  'tracing',
+  'context_manager',
+  'state_persistence',
+  'permission_layer',
 ];
 
 function delay(ms: number): Promise<void> {
@@ -29,47 +30,87 @@ function delay(ms: number): Promise<void> {
 const MOCK_LEVELS: LevelInfo[] = [
   {
     id: 'level_1_raw',
-    name: 'The Raw Model',
+    name: 'Agent',
     description:
-      'Agent = Model + Harness. With no harness, the runner cannot reliably terminate on real conditions — expect hallucinated tools, corrosion, and abandoned tasks.',
+      'A model alone is not an agent. With no harness, the runner cannot ground tools, persist work, or stop on real evidence.',
+    learning_label: 'Raw LLM',
     unlocked_harness: [],
     unlocked_loop: false,
+    unlocked_loop_stack: false,
+    unlocked_loop_templates: [],
     unlocked_graph: false,
     target_success_rate: 0.08,
     token_budget: 10_000,
   },
   {
     id: 'level_2_harness',
-    name: 'Harness Engineering',
+    name: 'Agent + Harness',
     description:
-      'Same model, different harness — results diverge sharply. Unlock all six harness dimensions. Still no loop, so a single failed test abandons the task.',
-    unlocked_harness: [...HARNESS_SIX_KEYS],
+      'Same model, different harness — results diverge sharply. Unlock all seven dimensions. Still no loop, so a single failed test abandons the task.',
+    learning_label: 'Tool Agent',
+    unlocked_harness: [...HARNESS_SEVEN_KEYS],
     unlocked_loop: false,
+    unlocked_loop_stack: false,
+    unlocked_loop_templates: [],
     unlocked_graph: false,
     target_success_rate: 0.40,
     token_budget: 20_000,
   },
   {
     id: 'level_3_loop',
-    name: 'Loop Engineering',
+    name: 'Agent + Loop',
     description:
-      'Loop on evidence, not confidence. Configure trigger, goal, state/action policy, evidence, feedback, and stop rules. Loop engineering ≠ prompt engineering.',
-    unlocked_harness: [...HARNESS_SIX_KEYS],
+      'Loop on evidence, not confidence. Configure trigger, goal, state/action policy, evidence, feedback, and stop rules. Loop engineering != prompt engineering.',
+    learning_label: 'Single Loop',
+    unlocked_harness: [...HARNESS_SEVEN_KEYS],
     unlocked_loop: true,
+    unlocked_loop_stack: false,
+    unlocked_loop_templates: [],
     unlocked_graph: false,
     target_success_rate: 0.70,
     token_budget: 50_000,
   },
   {
-    id: 'level_4_graph',
-    name: 'Graph Engineering',
+    id: 'level_4_loop_stack',
+    name: 'Agent + Loop Stack',
     description:
-      'The graph decides who runs next — not what the agent does. Use conditional edges, state schema, and checkpointing. Simple single-agent tasks need no graph.',
-    unlocked_harness: [...HARNESS_SIX_KEYS],
+      'Two loops can cooperate or fight. Pick a template: a single verification loop, or a verification loop nested inside an improvement loop.',
+    learning_label: 'Loop Stack',
+    unlocked_harness: [...HARNESS_SEVEN_KEYS],
     unlocked_loop: true,
+    unlocked_loop_stack: true,
+    unlocked_loop_templates: ['single', 'dual'],
+    unlocked_graph: false,
+    target_success_rate: 0.80,
+    token_budget: 80_000,
+  },
+  {
+    id: 'level_5_graph',
+    name: 'Agent + Graph',
+    description:
+      'The graph decides who runs next — not what the agent does. Conditional edges route control flow; failure states must always have a recovery path.',
+    learning_label: 'Agent Graph',
+    unlocked_harness: [...HARNESS_SEVEN_KEYS],
+    unlocked_loop: true,
+    unlocked_loop_stack: true,
+    unlocked_loop_templates: ['single', 'dual'],
     unlocked_graph: true,
     target_success_rate: 0.90,
-    token_budget: 100_000,
+    token_budget: 120_000,
+  },
+  {
+    id: 'level_6_agent_system',
+    name: 'Agent System',
+    description:
+      'Plan → Build → Test → Review → Release. Combine the full harness, a factory loop template, and export the blueprint as real code.',
+    learning_label: 'Agent Factory',
+    unlocked_harness: [...HARNESS_SEVEN_KEYS],
+    unlocked_loop: true,
+    unlocked_loop_stack: true,
+    unlocked_loop_templates: ['factory'],
+    unlocked_graph: true,
+    target_success_rate: 0.95,
+    token_budget: 200_000,
   },
 ];
 
@@ -106,10 +147,10 @@ const MOCK_TRACE_INFINITE_LOOP: RunTrace = {
   topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
-const MOCK_TRACE_CONTEXT_FULL: RunTrace = {
+const MOCK_TRACE_CONTEXT_OVERFLOW: RunTrace = {
   run_id: 'run-ghi-003',
   status: 'FAILED',
-  failure_reason: 'CONTEXT_FULL',
+  failure_reason: 'CONTEXT_OVERFLOW',
   cost_tokens: 4500,
   steps: [
     { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 2 },
@@ -123,14 +164,19 @@ const MOCK_TRACE_CONTEXT_FULL: RunTrace = {
 function buildMockMonteCarlo(): MonteCarloResult {
   const dist: Record<FailureReason, number> = {
     NONE: 0,
-    HALLUCINATED_TOOL: 3,
-    FILE_CORROSION: 2,
+    HALLUCINATION: 2,
+    TOOL_FAILURE: 1,
+    FILE_CORROSION: 1,
     MEMORY_STACK_OVERFLOW: 1,
-    CONTEXT_FULL: 2,
+    CONTEXT_OVERFLOW: 2,
+    STALE_CONTEXT: 1,
+    FALSE_COMPLETION: 0,
+    PERMISSION_ERROR: 1,
+    DEADLOCK: 0,
     INFINITE_LOOP_TRAP: 1,
-    TASK_ABANDONED: 0,
     BUDGET_EXHAUSTED: 1,
-    UNGROUNDED_STOP: 1,
+    TASK_ABANDONED: 0,
+    UNSAFE_EXECUTION: 0,
   };
 
   const successCount = 91;
@@ -140,7 +186,7 @@ function buildMockMonteCarlo(): MonteCarloResult {
     success_rate: Math.round((successCount / total) * 100),
     avg_tokens: 2150,
     failure_distribution: dist,
-    sample_traces: [MOCK_TRACE_SUCCESS, MOCK_TRACE_INFINITE_LOOP, MOCK_TRACE_CONTEXT_FULL],
+    sample_traces: [MOCK_TRACE_SUCCESS, MOCK_TRACE_INFINITE_LOOP, MOCK_TRACE_CONTEXT_OVERFLOW],
   };
 }
 
@@ -175,23 +221,26 @@ export async function simulate(blueprint: AgentBlueprint): Promise<RunTrace> {
     const hasGraph = blueprint.graph.nodes.length >= 3;
     const h = blueprint.harness;
     const hasHarness =
-      h.has_tool_surface ||
-      h.has_persistence ||
+      h.has_tool_registry ||
+      h.has_retry_policy ||
+      h.has_timeout_guard ||
       h.has_sandbox_isolation ||
-      h.has_context_injection;
+      h.has_context_manager ||
+      h.has_state_persistence ||
+      h.has_permission_layer;
 
     if (hasGraph && hasLoop) return { ...MOCK_TRACE_SUCCESS, run_id: `run-${Date.now()}` };
     if (hasLoop && !hasGraph) return { ...MOCK_TRACE_INFINITE_LOOP, run_id: `run-${Date.now()}` };
-    if (hasHarness && !hasLoop) return { ...MOCK_TRACE_CONTEXT_FULL, run_id: `run-${Date.now()}` };
+    if (hasHarness && !hasLoop) return { ...MOCK_TRACE_CONTEXT_OVERFLOW, run_id: `run-${Date.now()}` };
     // No harness, no loop, no graph — raw model
     const hallucinatedTrace: RunTrace = {
       run_id: `run-${Date.now()}`,
       status: 'FAILED',
-      failure_reason: 'HALLUCINATED_TOOL',
+      failure_reason: 'HALLUCINATION',
       cost_tokens: 800,
       steps: [
         { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
-        { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'FAIL', memory_used: 2, warning: 'Agent attempted to use a tool that does not exist — no tool surface or sandbox available. Enable tool_surface or sandbox_isolation.' },
+        { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'FAIL', memory_used: 2, warning: 'Agent attempted to use a tool that does not exist — no tool registry or sandbox available. Enable tool_registry or sandbox_isolation.' },
       ],
     };
     return hallucinatedTrace;
@@ -228,6 +277,18 @@ export async function monteCarlo(
         ? Math.round(data.success_rate * 10000) / 100
         : data.success_rate,
   };
+}
+
+export async function exportBlueprint(
+  blueprint: AgentBlueprint,
+): Promise<{ langgraph: string; arlo_yaml: string }> {
+  const res = await fetch(`${BASE}/api/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(blueprint),
+  });
+  if (!res.ok) throw new ApiError('Export failed', res.status);
+  return res.json();
 }
 
 export function connectSimulationWebSocket(

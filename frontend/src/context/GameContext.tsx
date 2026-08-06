@@ -15,6 +15,7 @@ import type {
   HarnessConfig,
   LevelInfo,
   LoopConfig,
+  LoopStackConfig,
   MonteCarloResult,
   RunTrace,
 } from '../types';
@@ -39,13 +40,14 @@ function defaultBlueprint(levelId: string): AgentBlueprint {
   return {
     level_id: levelId,
     harness: {
-      has_context_injection: false,
-      has_tool_surface: false,
-      has_persistence: false,
-      has_budget_guard: false,
-      token_budget_cap: null,
+      has_tool_registry: false,
+      has_retry_policy: false,
+      has_timeout_guard: false,
+      run_boundary_cap: null,
       has_sandbox_isolation: false,
-      has_tracing: false,
+      has_context_manager: false,
+      has_state_persistence: false,
+      has_permission_layer: false,
       memory_capacity: 3,
     },
     loop: {
@@ -58,6 +60,10 @@ function defaultBlueprint(levelId: string): AgentBlueprint {
       feedback: 'none',
       stop_on: 'agent_says_done',
       max_iterations: 1,
+    },
+    loop_stack: {
+      enabled: false,
+      template: 'none',
     },
     graph: defaultGraph(),
   };
@@ -78,6 +84,7 @@ interface GameContextType {
   blueprint: AgentBlueprint;
   updateHarness: (partial: Partial<HarnessConfig>) => void;
   updateLoop: (partial: Partial<LoopConfig>) => void;
+  updateLoopStack: (partial: Partial<LoopStackConfig>) => void;
   updateGraph: (update: GraphUpdate) => void;
   latestTrace: RunTrace | null;
   setLatestTrace: (trace: RunTrace | null) => void;
@@ -158,6 +165,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const updateLoopStack = useCallback(
+    (partial: Partial<LoopStackConfig>) => {
+      setBlueprint((prev) => ({
+        ...prev,
+        loop_stack: { ...prev.loop_stack, ...partial },
+      }));
+    },
+    [],
+  );
+
   const updateGraph = useCallback((update: GraphUpdate) => {
     setBlueprint((prev) => {
       const merged: GraphSpec = {
@@ -187,6 +204,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         blueprint,
         updateHarness,
         updateLoop,
+        updateLoopStack,
         updateGraph,
         latestTrace,
         setLatestTrace,

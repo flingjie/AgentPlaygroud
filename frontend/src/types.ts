@@ -1,12 +1,19 @@
 export interface HarnessConfig {
-  has_context_injection: boolean;
-  has_tool_surface: boolean;
-  has_persistence: boolean;
-  has_budget_guard: boolean;
-  token_budget_cap: number | null;
+  has_tool_registry: boolean;
+  has_retry_policy: boolean;
+  has_timeout_guard: boolean;
+  run_boundary_cap: number | null;
   has_sandbox_isolation: boolean;
-  has_tracing: boolean;
+  has_context_manager: boolean;
+  has_state_persistence: boolean;
+  has_permission_layer: boolean;
   memory_capacity: number; // 1-10
+}
+
+export type LoopStackTemplate = 'none' | 'single' | 'dual' | 'factory';
+export interface LoopStackConfig {
+  enabled: boolean;
+  template: LoopStackTemplate;
 }
 
 export type LoopTrigger = 'on_task_start' | 'on_test_fail';
@@ -61,6 +68,7 @@ export interface AgentBlueprint {
   run_seed?: number;
   harness: HarnessConfig;
   loop: LoopConfig;
+  loop_stack: LoopStackConfig;
   graph: GraphSpec;
 }
 
@@ -76,14 +84,19 @@ export interface TraceStep {
 
 export type FailureReason =
   | 'NONE'
-  | 'HALLUCINATED_TOOL'
+  | 'HALLUCINATION'
+  | 'TOOL_FAILURE'
   | 'FILE_CORROSION'
   | 'MEMORY_STACK_OVERFLOW'
-  | 'CONTEXT_FULL'
+  | 'CONTEXT_OVERFLOW'
+  | 'STALE_CONTEXT'
+  | 'FALSE_COMPLETION'
+  | 'PERMISSION_ERROR'
+  | 'DEADLOCK'
   | 'INFINITE_LOOP_TRAP'
-  | 'TASK_ABANDONED'
   | 'BUDGET_EXHAUSTED'
-  | 'UNGROUNDED_STOP';
+  | 'TASK_ABANDONED'
+  | 'UNSAFE_EXECUTION';
 
 export interface TopologyInfo {
   kind: 'single' | 'chain' | 'parallel' | 'feedback';
@@ -112,8 +125,11 @@ export interface LevelInfo {
   id: string;
   name: string;
   description: string;
+  learning_label: string;
   unlocked_harness: string[];
   unlocked_loop: boolean;
+  unlocked_loop_stack: boolean;
+  unlocked_loop_templates: string[];
   unlocked_graph: boolean;
   target_success_rate: number;
   token_budget: number;
