@@ -4,7 +4,7 @@ import random
 
 import pytest
 
-from app.engine import SimulationEngine
+from app.engine import SimulationEngine, WARNING_NO_RETRY_MECHANISM
 from app.models import (
     AgentBlueprint,
     FailureReason,
@@ -13,6 +13,8 @@ from app.models import (
     GraphSpec,
     HarnessConfig,
     LoopConfig,
+    StepStatus,
+    TraceStep,
 )
 
 
@@ -23,12 +25,13 @@ from app.models import (
 
 def full_harness(**overrides) -> HarnessConfig:
     base = dict(
-        has_context_injection=True,
-        has_tool_surface=True,
-        has_persistence=True,
-        has_budget_guard=False,
+        has_tool_registry=True,
+        has_retry_policy=True,
+        has_timeout_guard=True,
         has_sandbox_isolation=True,
-        has_tracing=True,
+        has_context_manager=True,
+        has_state_persistence=True,
+        has_permission_layer=True,
         memory_capacity=5,
     )
     base.update(overrides)
@@ -38,13 +41,14 @@ def full_harness(**overrides) -> HarnessConfig:
 def make_blueprint(
     level_id: str = "level_1_raw",
     run_seed: int = 42,
-    has_context_injection: bool = False,
-    has_tool_surface: bool = False,
-    has_persistence: bool = False,
-    has_budget_guard: bool = False,
-    token_budget_cap: int | None = None,
+    has_tool_registry: bool = False,
+    has_retry_policy: bool = False,
+    has_timeout_guard: bool = False,
+    run_boundary_cap: int | None = None,
     has_sandbox_isolation: bool = False,
-    has_tracing: bool = False,
+    has_context_manager: bool = False,
+    has_state_persistence: bool = False,
+    has_permission_layer: bool = False,
     memory_capacity: int = 3,
     loop_enabled: bool = False,
     evidence: str = "none",
@@ -67,13 +71,14 @@ def make_blueprint(
         level_id=level_id,
         run_seed=run_seed,
         harness=HarnessConfig(
-            has_context_injection=has_context_injection,
-            has_tool_surface=has_tool_surface,
-            has_persistence=has_persistence,
-            has_budget_guard=has_budget_guard,
-            token_budget_cap=token_budget_cap,
+            has_tool_registry=has_tool_registry,
+            has_retry_policy=has_retry_policy,
+            has_timeout_guard=has_timeout_guard,
+            run_boundary_cap=run_boundary_cap,
             has_sandbox_isolation=has_sandbox_isolation,
-            has_tracing=has_tracing,
+            has_context_manager=has_context_manager,
+            has_state_persistence=has_state_persistence,
+            has_permission_layer=has_permission_layer,
             memory_capacity=memory_capacity,
         ),
         loop=LoopConfig(
@@ -170,13 +175,13 @@ class TestHarnessQuality:
         assert SimulationEngine._harness_quality(bp.harness) == pytest.approx(0.15)
 
     def test_full_harness_max_memory(self):
-        h = full_harness(has_budget_guard=True, memory_capacity=10)
-        # 5 effect dims * 0.1 + 0.05*10 = 1.0
-        assert SimulationEngine._harness_quality(h) == pytest.approx(1.0)
+        h = full_harness(memory_capacity=10)
+        # 6 effect dims * 0.1 + 0.05*10 = 1.1
+        assert SimulationEngine._harness_quality(h) == pytest.approx(1.1)
 
-    def test_tracing_does_not_affect_quality(self):
-        h_off = full_harness(has_tracing=False, has_budget_guard=True, memory_capacity=5)
-        h_on = full_harness(has_tracing=True, has_budget_guard=True, memory_capacity=5)
+    def test_retry_policy_does_not_affect_quality(self):
+        h_off = full_harness(has_retry_policy=False, memory_capacity=5)
+        h_on = full_harness(has_retry_policy=True, memory_capacity=5)
         assert SimulationEngine._harness_quality(h_off) == SimulationEngine._harness_quality(
             h_on
         )
@@ -193,26 +198,26 @@ class TestHarnessQuality:
 
 
 class TestHarnessDimensions:
-    def test_no_tool_surface_causes_hallucination(self):
+    def test_no_tool_registry_causes_hallucination(self):
         bp = make_blueprint(
-            has_tool_surface=False,
+            has_tool_registry=False,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
             memory_capacity=5,
         )
         engine = SimulationEngine()
         count = 0
         for i in range(200):
             trace = engine.simulate(bp, seed=1000 + i)
-            if trace.failure_reason == FailureReason.HALLUCINATED_TOOL:
+            if trace.failure_reason == FailureReason.HALLUCINATION:
                 count += 1
         assert count > 0
 
-    def test_tool_surface_eliminates_hallucination(self):
+    def test_tool_registry_eliminates_hallucination(self):
         bp = make_blueprint(
-            has_context_injection=True,
-            has_tool_surface=True,
-            has_persistence=True,
+            has_context_manager=True,
+            has_tool_registry=True,
+            has_state_persistence=True,
             has_sandbox_isolation=True,
             memory_capacity=5,
         )
@@ -221,7 +226,7 @@ class TestHarnessDimensions:
         total = 500
         for i in range(total):
             trace = engine.simulate(bp, seed=2000 + i)
-            if trace.failure_reason == FailureReason.HALLUCINATED_TOOL:
+            if trace.failure_reason == FailureReason.HALLUCINATION:
                 count += 1
         assert count < total * 0.15
 
@@ -231,23 +236,23 @@ class TestHarnessDimensions:
 # ---------------------------------------------------------------------------
 
 
-class TestFailureHallucinatedTool:
+class TestFailureHallucination:
     def test_level_1_often_fails_with_hallucination(self):
         bp = make_blueprint(level_id="level_1_raw", run_seed=42, memory_capacity=3)
         engine = SimulationEngine()
         count = 0
         for seed_offset in range(200):
             trace = engine.simulate(bp, seed=1000 + seed_offset)
-            if trace.failure_reason == FailureReason.HALLUCINATED_TOOL:
+            if trace.failure_reason == FailureReason.HALLUCINATION:
                 count += 1
         assert count > 0
 
-    def test_with_tool_surface_no_hallucination(self):
+    def test_with_tool_registry_no_hallucination(self):
         bp = make_blueprint(
             level_id="level_2_harness",
-            has_context_injection=True,
-            has_tool_surface=True,
-            has_persistence=True,
+            has_context_manager=True,
+            has_tool_registry=True,
+            has_state_persistence=True,
             has_sandbox_isolation=True,
             memory_capacity=5,
         )
@@ -256,7 +261,7 @@ class TestFailureHallucinatedTool:
         total = 500
         for seed_offset in range(total):
             trace = engine.simulate(bp, seed=2000 + seed_offset)
-            if trace.failure_reason == FailureReason.HALLUCINATED_TOOL:
+            if trace.failure_reason == FailureReason.HALLUCINATION:
                 count += 1
         assert count < total * 0.15
 
@@ -264,9 +269,9 @@ class TestFailureHallucinatedTool:
 class TestFailureFileCorrosion:
     def test_no_persistence_many_edits_causes_corrosion(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=False,
+            has_state_persistence=False,
             memory_capacity=5,
         )
         engine = SimulationEngine()
@@ -279,9 +284,9 @@ class TestFailureFileCorrosion:
 
     def test_with_persistence_no_corrosion(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
             memory_capacity=5,
         )
         engine = SimulationEngine()
@@ -296,9 +301,9 @@ class TestFailureFileCorrosion:
 class TestFailureMemoryStackOverflow:
     def test_low_memory_can_overflow(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
             memory_capacity=2,
         )
         engine = SimulationEngine()
@@ -311,9 +316,9 @@ class TestFailureMemoryStackOverflow:
 
     def test_high_memory_no_overflow(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
             memory_capacity=10,
         )
         engine = SimulationEngine()
@@ -328,9 +333,11 @@ class TestFailureMemoryStackOverflow:
 class TestFailureTaskAbandoned:
     def test_no_loop_test_fails(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
             memory_capacity=5,
             loop_enabled=False,
         )
@@ -344,9 +351,10 @@ class TestFailureTaskAbandoned:
 
     def test_with_loop_no_abandoned(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
             memory_capacity=5,
             loop_enabled=True,
             evidence="test_runner",
@@ -366,9 +374,10 @@ class TestFailureTaskAbandoned:
 class TestFailureInfiniteLoop:
     def test_loop_can_trap(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
             memory_capacity=5,
             loop_enabled=True,
             evidence="none",
@@ -392,12 +401,14 @@ class TestFailureInfiniteLoop:
 
 class TestEvidenceStop:
     def test_agent_says_done_ungrounded(self):
-        """stop_on=agent_says_done → UNGROUNDED_STOP dominates."""
+        """stop_on=agent_says_done → FALSE_COMPLETION dominates."""
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
-            has_context_injection=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
             memory_capacity=8,
             loop_enabled=True,
             evidence="none",
@@ -410,17 +421,19 @@ class TestEvidenceStop:
         total = 200
         for i in range(total):
             trace = engine.simulate(bp, seed=15000 + i)
-            if trace.failure_reason == FailureReason.UNGROUNDED_STOP:
+            if trace.failure_reason == FailureReason.FALSE_COMPLETION:
                 ungrounded += 1
         assert ungrounded > total * 0.5
 
     def test_evidence_pass_can_succeed(self):
         """stop_on=evidence_pass with reflexion can succeed."""
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
-            has_context_injection=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
             memory_capacity=8,
             loop_enabled=True,
             evidence="test_runner",
@@ -478,9 +491,9 @@ class TestMonteCarlo:
     def test_returns_correct_structure(self):
         bp = make_blueprint(
             run_seed=1,
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
             memory_capacity=5,
         )
         engine = SimulationEngine()
@@ -534,11 +547,13 @@ class TestGraphBonus:
         bp = make_blueprint(
             level_id="level_4_graph",
             run_seed=42,
-            has_context_injection=True,
-            has_tool_surface=True,
-            has_persistence=True,
+            has_context_manager=True,
+            has_tool_registry=True,
+            has_state_persistence=True,
             has_sandbox_isolation=True,
-            has_budget_guard=True,
+            has_timeout_guard=True,
+            has_permission_layer=True,
+            has_retry_policy=True,
             memory_capacity=9,
             loop_enabled=True,
             evidence="test_runner",
@@ -555,7 +570,7 @@ class TestGraphBonus:
         bp = AgentBlueprint(
             level_id="level_1_raw",
             run_seed=42,
-            harness=HarnessConfig(has_tool_surface=True, memory_capacity=5),
+            harness=HarnessConfig(has_tool_registry=True, memory_capacity=5),
             loop=LoopConfig(enabled=False),
             graph=GraphSpec(),
         )
@@ -701,10 +716,12 @@ class TestMemoryIsolation:
         bp = make_blueprint(
             level_id="level_4_graph",
             run_seed=42,
-            has_context_injection=True,
-            has_tool_surface=True,
-            has_persistence=True,
+            has_context_manager=True,
+            has_tool_registry=True,
+            has_state_persistence=True,
             has_sandbox_isolation=True,
+            has_permission_layer=True,
+            has_retry_policy=True,
             memory_capacity=6,
             loop_enabled=True,
             evidence="test_runner",
@@ -772,10 +789,12 @@ class TestEvidenceFeedback:
 class TestReflections:
     def test_reflexion_produces_reflection_text(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
-            has_context_injection=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
             memory_capacity=8,
             loop_enabled=True,
             evidence="test_runner",
@@ -796,10 +815,11 @@ class TestReflections:
 
     def test_no_evidence_no_reflection(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
-            has_context_injection=True,
+            has_state_persistence=True,
+            has_context_manager=True,
             memory_capacity=8,
             loop_enabled=True,
             evidence="none",
@@ -822,17 +842,21 @@ class TestReflections:
 class TestFeedbackRework:
     def test_feedback_improves_success_rate(self):
         chain = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
             memory_capacity=5,
             loop_enabled=False,
             graph=chain_graph(),
         )
         feedback = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
             memory_capacity=5,
             loop_enabled=False,
             graph=feedback_graph(),
@@ -846,10 +870,12 @@ class TestFeedbackRework:
 class TestParallelCoders:
     def test_parallel_improves_or_matches_success(self):
         single = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
-            has_context_injection=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
             memory_capacity=6,
             loop_enabled=True,
             evidence="test_runner",
@@ -859,10 +885,12 @@ class TestParallelCoders:
             graph=chain_graph(),
         )
         parallel = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
+            has_retry_policy=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
-            has_context_injection=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
             memory_capacity=6,
             loop_enabled=True,
             evidence="test_runner",
@@ -881,6 +909,54 @@ class TestParallelCoders:
 
 
 # ---------------------------------------------------------------------------
+# Retry-policy gate
+# ---------------------------------------------------------------------------
+
+
+class TestRetryPolicyGate:
+    def test_loop_without_retry_policy_traps(self):
+        """Loop enabled but has_retry_policy=False → INFINITE_LOOP_TRAP."""
+        bp = make_blueprint(
+            has_tool_registry=True,
+            has_sandbox_isolation=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
+            memory_capacity=8,
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=3,
+        )
+        engine = SimulationEngine()
+        trace = engine.simulate(bp, seed=42)
+        assert trace.failure_reason == FailureReason.INFINITE_LOOP_TRAP
+        assert any(s.warning == WARNING_NO_RETRY_MECHANISM for s in trace.steps)
+        assert any(s.action == "RETRY" for s in trace.steps)
+
+    def test_with_retry_policy_loop_can_succeed(self):
+        """Loop + has_retry_policy → high success rate."""
+        bp = make_blueprint(
+            has_tool_registry=True,
+            has_retry_policy=True,
+            has_sandbox_isolation=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
+            memory_capacity=8,
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=3,
+        )
+        engine = SimulationEngine()
+        result = engine.monte_carlo(bp, num_runs=100)
+        assert result["success_rate"] >= 0.8
+
+
+# ---------------------------------------------------------------------------
 # Budget guard
 # ---------------------------------------------------------------------------
 
@@ -888,11 +964,12 @@ class TestParallelCoders:
 class TestBudgetGuard:
     def test_budget_exhausted_when_cap_low(self):
         bp = make_blueprint(
-            has_tool_surface=True,
+            has_tool_registry=True,
             has_sandbox_isolation=True,
-            has_persistence=True,
-            has_budget_guard=True,
-            token_budget_cap=100,
+            has_state_persistence=True,
+            has_permission_layer=True,
+            has_timeout_guard=True,
+            run_boundary_cap=100,
             memory_capacity=5,
             loop_enabled=False,
         )
@@ -903,3 +980,134 @@ class TestBudgetGuard:
             if trace.failure_reason == FailureReason.BUDGET_EXHAUSTED:
                 count += 1
         assert count > 0
+
+
+# ---------------------------------------------------------------------------
+# New injections: permission, unsafe execution, stale context
+# ---------------------------------------------------------------------------
+
+
+class TestPermissionGate:
+    def test_permission_error_when_no_permission_layer(self):
+        bp = make_blueprint(
+            has_tool_registry=True,
+            has_sandbox_isolation=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            memory_capacity=8,
+            loop_enabled=False,
+        )
+        engine = SimulationEngine()
+        count = 0
+        for i in range(500):
+            trace = engine.simulate(bp, seed=60000 + i)
+            if trace.failure_reason == FailureReason.PERMISSION_ERROR:
+                count += 1
+        assert count > 0
+
+    def test_permission_layer_prevents_permission_error(self):
+        bp = make_blueprint(
+            has_tool_registry=True,
+            has_sandbox_isolation=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
+            memory_capacity=8,
+            loop_enabled=False,
+        )
+        engine = SimulationEngine()
+        count = 0
+        for i in range(500):
+            trace = engine.simulate(bp, seed=61000 + i)
+            if trace.failure_reason == FailureReason.PERMISSION_ERROR:
+                count += 1
+        assert count == 0
+
+
+class TestUnsafeExecution:
+    def test_unsafe_execution_without_sandbox(self):
+        bp = make_blueprint(
+            has_tool_registry=True,
+            has_sandbox_isolation=False,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
+            memory_capacity=8,
+            loop_enabled=False,
+        )
+        engine = SimulationEngine()
+        count = 0
+        for i in range(500):
+            trace = engine.simulate(bp, seed=62000 + i)
+            if trace.failure_reason == FailureReason.UNSAFE_EXECUTION:
+                count += 1
+        assert count > 0
+
+    def test_sandbox_prevents_unsafe_execution(self):
+        bp = make_blueprint(
+            has_tool_registry=True,
+            has_sandbox_isolation=True,
+            has_state_persistence=True,
+            has_context_manager=True,
+            has_permission_layer=True,
+            memory_capacity=8,
+            loop_enabled=False,
+        )
+        engine = SimulationEngine()
+        count = 0
+        for i in range(500):
+            trace = engine.simulate(bp, seed=63000 + i)
+            if trace.failure_reason == FailureReason.UNSAFE_EXECUTION:
+                count += 1
+        assert count == 0
+
+
+class TestStaleContext:
+    def test_stale_risk_true_when_observed_lags_two(self):
+        bp = make_blueprint()
+        steps = [
+            TraceStep(step=1, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=0),
+            TraceStep(step=2, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=1),
+            TraceStep(step=3, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=2),
+        ]
+        assert SimulationEngine._stale_risk(bp, steps) is True
+
+    def test_stale_risk_false_when_observed_fresh(self):
+        bp = make_blueprint()
+        steps = [
+            TraceStep(step=1, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=0),
+            TraceStep(step=2, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=1),
+            TraceStep(step=3, node="n2", action="CHECK_EVIDENCE", status=StepStatus.SUCCESS, memory_used=1),
+        ]
+        assert SimulationEngine._stale_risk(bp, steps) is False
+
+    def test_stale_risk_false_when_lag_one(self):
+        bp = make_blueprint()
+        steps = [
+            TraceStep(step=1, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=0),
+            TraceStep(step=2, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=1),
+            TraceStep(step=3, node="n2", action="EDIT_FILE", status=StepStatus.SUCCESS, memory_used=2),
+            TraceStep(step=4, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=2),
+        ]
+        assert SimulationEngine._stale_risk(bp, steps) is False
+
+
+# ---------------------------------------------------------------------------
+# Level + simulation engine integration (re-homed from test_levels.py)
+# ---------------------------------------------------------------------------
+
+
+def test_level_1_raw_has_low_success_rate(level_1_blueprint):
+    """Level 1 with no harness should produce low success rate."""
+    engine = SimulationEngine(seed=42)
+    result = engine.monte_carlo(level_1_blueprint, num_runs=100)
+    # Level 1 target is 8%, allow up to 25% due to randomness
+    assert result["success_rate"] <= 0.25
+
+
+def test_level_5_blueprint_has_high_success_rate(level_5_blueprint):
+    """Full Agent + Graph blueprint should achieve high success rate."""
+    engine = SimulationEngine(seed=42)
+    result = engine.monte_carlo(level_5_blueprint, num_runs=100)
+    # Level 5 target is 90%, allow down to 60% due to randomness
+    assert result["success_rate"] >= 0.60

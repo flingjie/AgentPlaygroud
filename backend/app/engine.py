@@ -43,37 +43,57 @@ REFLECTION_KEYS = [
 # ---------------------------------------------------------------------------
 # Warning message templates
 # ---------------------------------------------------------------------------
-WARNING_HALLUCINATED_TOOL = (
+WARNING_HALLUCINATION = (
     "Agent attempted to use a tool that does not exist — "
-    "no tool surface available. Enable has_tool_surface."
+    "no tool surface available. Enable has_tool_registry."
 )
 WARNING_FILE_CORROSION = (
     "Multiple EDIT_FILE actions without persistence caused file corruption. "
-    "Enable has_persistence to track changes and roll back."
+    "Enable has_state_persistence to track changes and roll back."
 )
 WARNING_MEMORY_OVERFLOW = (
     "Memory stack overflow — too many steps without adequate memory buffer. "
     "Increase memory capacity or reduce step count."
 )
-WARNING_CONTEXT_FULL = (
+WARNING_CONTEXT_OVERFLOW = (
     "Context window full — memory capacity exhausted during retry loop. "
-    "Increase memory capacity, use a leaner state_policy, or isolate via graph."
+    "Enable context_manager, use a leaner state_policy, or isolate via graph."
+)
+WARNING_STALE_CONTEXT = (
+    "Agent acted on an outdated snapshot — its observed state lagged the real "
+    "state by 2+ changes. Enable has_context_manager to keep observations fresh."
 )
 WARNING_INFINITE_LOOP = (
     "Agent stuck in infinite retry loop — max_iterations exhausted without "
     "evidence pass. Raise max_iterations or improve feedback/evidence."
+)
+WARNING_NO_RETRY_MECHANISM = (
+    "Loop enabled but no retry mechanism — the harness never made retrying "
+    "possible. Enable has_retry_policy."
 )
 WARNING_TASK_ABANDONED = (
     "Task abandoned after first test failure — no loop enabled. "
     "Enable LoopConfig to retry on evidence."
 )
 WARNING_BUDGET_EXHAUSTED = (
-    "Token budget exhausted — has_budget_guard enforced the cap. "
-    "Raise token_budget_cap or reduce loop iterations."
+    "Run boundary exhausted — timeout_guard enforced the cap. "
+    "Raise run_boundary_cap or reduce loop iterations."
 )
-WARNING_UNGROUNDED_STOP = (
+WARNING_FALSE_COMPLETION = (
     "Agent claimed done without grounded evidence — stop_on=agent_says_done. "
     "Use stop_on=evidence_pass with a real evidence source."
+)
+WARNING_PERMISSION_ERROR = (
+    "Agent attempted an action outside its allowed boundary. Capability != "
+    "permission — enable has_permission_layer to define the boundary."
+)
+WARNING_DEADLOCK = (
+    "Control graph has no reachable recovery path — a failure state can never "
+    "recover. Add an on_fail / on_review_reject recovery edge."
+)
+WARNING_UNSAFE_EXECUTION = (
+    "Destructive action executed without sandbox isolation — environment "
+    "corrupted. Enable has_sandbox_isolation."
 )
 
 
@@ -313,10 +333,10 @@ class SimulationEngine:
                     any_clean = True
                     break
             if any_clean and failure_reason in (
-                FailureReason.HALLUCINATED_TOOL,
+                FailureReason.HALLUCINATION,
                 FailureReason.FILE_CORROSION,
                 FailureReason.MEMORY_STACK_OVERFLOW,
-                FailureReason.CONTEXT_FULL,
+                FailureReason.CONTEXT_OVERFLOW,
             ):
                 failure_reason = FailureReason.NONE
 
@@ -350,8 +370,22 @@ class SimulationEngine:
         # --- Loop / test simulation ---
         if failure_reason == FailureReason.NONE:
             if has_loop:
-                # --- Ungrounded stop ---
-                if loop.stop_on == "agent_says_done":
+                if not harness.has_retry_policy:
+                    # Loop enabled but harness never made retrying possible.
+                    failure_reason = FailureReason.INFINITE_LOOP_TRAP
+                    s = TraceStep(
+                        step=len(steps) + 1,
+                        node=test_node_id,
+                        action="RETRY",
+                        status=StepStatus.FAIL,
+                        memory_used=memory_used,
+                        warning=WARNING_NO_RETRY_MECHANISM,
+                    )
+                    steps.append(s)
+                    yield s
+                    cost_tokens += ACTION_TOKEN_COST["RETRY"]
+                elif loop.stop_on == "agent_says_done":
+                    # --- Ungrounded stop ---
                     evidence_ok = False
                     if loop.evidence != "none":
                         evidence_ok = self.rng.random() > max(0.1, 0.55 - hq)
@@ -365,7 +399,7 @@ class SimulationEngine:
                                 StepStatus.SUCCESS if evidence_ok else StepStatus.FAIL
                             ),
                             memory_used=memory_used,
-                            warning=None if evidence_ok else WARNING_UNGROUNDED_STOP,
+                            warning=None if evidence_ok else WARNING_FALSE_COMPLETION,
                         )
                         steps.append(s)
                         yield s
@@ -374,14 +408,14 @@ class SimulationEngine:
                     if evidence_ok and loop.evidence != "none":
                         # Evidence happened to pass — still often ungrounded
                         if self.rng.random() < 0.7:
-                            failure_reason = FailureReason.UNGROUNDED_STOP
+                            failure_reason = FailureReason.FALSE_COMPLETION
                             s = TraceStep(
                                 step=len(steps) + 1,
                                 node=test_node_id,
                                 action="STOP",
                                 status=StepStatus.FAIL,
                                 memory_used=memory_used,
-                                warning=WARNING_UNGROUNDED_STOP,
+                                warning=WARNING_FALSE_COMPLETION,
                             )
                         else:
                             s = TraceStep(
@@ -395,14 +429,14 @@ class SimulationEngine:
                         yield s
                         cost_tokens += ACTION_TOKEN_COST["STOP"]
                     else:
-                        failure_reason = FailureReason.UNGROUNDED_STOP
+                        failure_reason = FailureReason.FALSE_COMPLETION
                         s = TraceStep(
                             step=len(steps) + 1,
                             node=test_node_id,
                             action="STOP",
                             status=StepStatus.FAIL,
                             memory_used=memory_used,
-                            warning=WARNING_UNGROUNDED_STOP,
+                            warning=WARNING_FALSE_COMPLETION,
                         )
                         steps.append(s)
                         yield s
@@ -414,14 +448,14 @@ class SimulationEngine:
 
                     ctx_risk = self._context_full_risk(loop, harness, memory_used)
                     if ctx_risk > 0 and self.rng.random() < ctx_risk:
-                        failure_reason = FailureReason.CONTEXT_FULL
+                        failure_reason = FailureReason.CONTEXT_OVERFLOW
                         s = TraceStep(
                             step=len(steps) + 1,
                             node=test_node_id,
                             action="RETRY",
                             status=StepStatus.FAIL,
                             memory_used=memory_used,
-                            warning=WARNING_CONTEXT_FULL,
+                            warning=WARNING_CONTEXT_OVERFLOW,
                         )
                         steps.append(s)
                         yield s
@@ -787,13 +821,14 @@ class SimulationEngine:
 
     @staticmethod
     def _harness_quality(harness: HarnessConfig) -> float:
-        """Quality from five effect dims (tracing is observability-only) + memory."""
+        """Quality from six effect dims (retry_policy is a gate, not a booster)."""
         dims = (
-            harness.has_context_injection
-            + harness.has_tool_surface
-            + harness.has_persistence
-            + harness.has_budget_guard
+            harness.has_tool_registry
+            + harness.has_timeout_guard
             + harness.has_sandbox_isolation
+            + harness.has_context_manager
+            + harness.has_state_persistence
+            + harness.has_permission_layer
         )
         return 0.1 * dims + 0.05 * min(harness.memory_capacity, 10)
 
@@ -1027,12 +1062,18 @@ class SimulationEngine:
         harness = blueprint.harness
         loop = blueprint.loop
 
-        if self._check_hallucinated_tool_condition(harness, node.role):
+        # Tool Registry gate: no tool surface -> hallucinated API calls
+        if not harness.has_tool_registry and node.role == "coder":
             rate = 0.65 if not harness.has_sandbox_isolation else 0.5
             if self.rng.random() < rate:
-                return WARNING_HALLUCINATED_TOOL
+                return WARNING_HALLUCINATION
 
-        if self._check_file_corrosion_condition(harness, coder_edit_count, node.role):
+        # State Persistence gate: 2+ edits without versioning -> corruption
+        if (
+            not harness.has_state_persistence
+            and node.role == "coder"
+            and coder_edit_count >= 2
+        ):
             if self.rng.random() < 0.6:
                 return WARNING_FILE_CORROSION
 
@@ -1044,15 +1085,28 @@ class SimulationEngine:
         if loop.enabled and memory_used >= harness.memory_capacity:
             risk = self._context_full_risk(loop, harness, memory_used)
             if risk > 0 and self.rng.random() < risk:
-                return WARNING_CONTEXT_FULL
+                return WARNING_CONTEXT_OVERFLOW
 
+        # Observation gate: STALE_CONTEXT (state_version lags observed_version)
         if (
-            not harness.has_context_injection
+            not harness.has_context_manager
             and node.role == "coder"
-            and total_steps >= 2
-            and self.rng.random() < 0.15
+            and self._stale_risk(blueprint, steps_so_far)
         ):
-            return WARNING_CONTEXT_FULL
+            if self.rng.random() < 0.20:
+                return WARNING_STALE_CONTEXT
+
+        # Permission gate: capability != permission
+        if harness.has_tool_registry and node.role == "coder":
+            if self.rng.random() < 0.20:  # agent attempts an out-of-boundary action
+                if not harness.has_permission_layer:
+                    return WARNING_PERMISSION_ERROR
+                # permission layer cleanly denies -> no failure, agent recovers in-bounds
+
+        # Sandbox gate: UNSAFE_EXECUTION (destructive action, no isolation) — Boss-only
+        if harness.has_tool_registry and not harness.has_sandbox_isolation:
+            if self.rng.random() < 0.15:
+                return WARNING_UNSAFE_EXECUTION
 
         return None
 
@@ -1076,7 +1130,7 @@ class SimulationEngine:
 
         if self._check_hallucinated_tool_condition(harness):
             if self.rng.random() < 0.3:
-                return FailureReason.HALLUCINATED_TOOL
+                return FailureReason.HALLUCINATION
 
         return FailureReason.NONE
 
@@ -1084,7 +1138,7 @@ class SimulationEngine:
     def _context_full_risk(
         loop: LoopConfig, harness: HarnessConfig, memory_used: int
     ) -> float:
-        """CONTEXT_FULL probability; higher when state_policy keeps history."""
+        """CONTEXT_OVERFLOW probability; higher when state_policy keeps history."""
         if memory_used < harness.memory_capacity:
             return 0.0
         if not loop.enabled:
@@ -1102,7 +1156,7 @@ class SimulationEngine:
         """Return True if hallucinated-tool failure is possible given the state."""
         if role is not None and role != "coder":
             return False
-        return not harness.has_tool_surface
+        return not harness.has_tool_registry
 
     @staticmethod
     def _check_file_corrosion_condition(
@@ -1111,7 +1165,7 @@ class SimulationEngine:
         """Return True if file-corrosion failure is possible given the state."""
         if role is not None and role != "coder":
             return False
-        return not harness.has_persistence and coder_edit_count >= 2
+        return not harness.has_state_persistence and coder_edit_count >= 2
 
     @staticmethod
     def _check_memory_overflow_condition(
@@ -1125,11 +1179,27 @@ class SimulationEngine:
         )
 
     @staticmethod
+    def _stale_risk(blueprint: AgentBlueprint, steps_so_far: list[TraceStep]) -> bool:
+        """True when the model's observed state lags the real state by >= 2 changes.
+
+        state_version increments on every EDIT_FILE. observed_version is captured
+        at the last THINK or CHECK_EVIDENCE step. Lag >= 2 => stale snapshot.
+        """
+        state_version = 0
+        observed_version = 0
+        for s in steps_so_far:
+            if s.action == "EDIT_FILE":
+                state_version += 1
+            elif s.action in ("THINK", "CHECK_EVIDENCE"):
+                observed_version = state_version
+        return state_version - observed_version >= 2
+
+    @staticmethod
     def _check_budget(harness: HarnessConfig, cost_tokens: int) -> FailureReason:
         if (
-            harness.has_budget_guard
-            and harness.token_budget_cap is not None
-            and cost_tokens > harness.token_budget_cap
+            harness.has_timeout_guard
+            and harness.run_boundary_cap is not None
+            and cost_tokens > harness.run_boundary_cap
         ):
             return FailureReason.BUDGET_EXHAUSTED
         return FailureReason.NONE
@@ -1234,14 +1304,19 @@ class SimulationEngine:
         )
 
     _WARNING_TO_FAILURE: dict[str, FailureReason] = {
-        WARNING_HALLUCINATED_TOOL: FailureReason.HALLUCINATED_TOOL,
+        WARNING_HALLUCINATION: FailureReason.HALLUCINATION,
         WARNING_FILE_CORROSION: FailureReason.FILE_CORROSION,
         WARNING_MEMORY_OVERFLOW: FailureReason.MEMORY_STACK_OVERFLOW,
-        WARNING_CONTEXT_FULL: FailureReason.CONTEXT_FULL,
+        WARNING_CONTEXT_OVERFLOW: FailureReason.CONTEXT_OVERFLOW,
+        WARNING_STALE_CONTEXT: FailureReason.STALE_CONTEXT,
         WARNING_INFINITE_LOOP: FailureReason.INFINITE_LOOP_TRAP,
+        WARNING_NO_RETRY_MECHANISM: FailureReason.INFINITE_LOOP_TRAP,
         WARNING_TASK_ABANDONED: FailureReason.TASK_ABANDONED,
         WARNING_BUDGET_EXHAUSTED: FailureReason.BUDGET_EXHAUSTED,
-        WARNING_UNGROUNDED_STOP: FailureReason.UNGROUNDED_STOP,
+        WARNING_FALSE_COMPLETION: FailureReason.FALSE_COMPLETION,
+        WARNING_PERMISSION_ERROR: FailureReason.PERMISSION_ERROR,
+        WARNING_DEADLOCK: FailureReason.DEADLOCK,
+        WARNING_UNSAFE_EXECUTION: FailureReason.UNSAFE_EXECUTION,
     }
 
     @classmethod
