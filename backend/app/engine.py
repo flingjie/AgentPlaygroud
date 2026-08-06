@@ -1087,11 +1087,13 @@ class SimulationEngine:
             if risk > 0 and self.rng.random() < risk:
                 return WARNING_CONTEXT_OVERFLOW
 
-        # Observation gate: STALE_CONTEXT (state_version lags observed_version)
+        # Observation gate: STALE_CONTEXT (state_version lags observed_version).
+        # The in-flight EDIT_FILE being validated is one more change the model
+        # is acting on, so a THINK -> EDIT#1 -> EDIT#2 sequence lags by 2.
         if (
             not harness.has_context_manager
             and node.role == "coder"
-            and self._stale_risk(blueprint, steps_so_far)
+            and self._stale_risk(blueprint, steps_so_far, in_flight_edits=1)
         ):
             if self.rng.random() < 0.20:
                 return WARNING_STALE_CONTEXT
@@ -1103,7 +1105,9 @@ class SimulationEngine:
                     return WARNING_PERMISSION_ERROR
                 # permission layer cleanly denies -> no failure, agent recovers in-bounds
 
-        # Sandbox gate: UNSAFE_EXECUTION (destructive action, no isolation) — Boss-only
+        # Sandbox gate: UNSAFE_EXECUTION (destructive action, no isolation).
+        # Fires for any agent with a tool registry but no sandbox — it is a
+        # sandbox-isolation failure, not gated by level or Boss.
         if harness.has_tool_registry and not harness.has_sandbox_isolation:
             if self.rng.random() < 0.15:
                 return WARNING_UNSAFE_EXECUTION
@@ -1124,11 +1128,11 @@ class SimulationEngine:
             if self.rng.random() < 0.3:
                 return FailureReason.MEMORY_STACK_OVERFLOW
 
-        if self._check_file_corrosion_condition(harness, coder_edit_count):
+        if self._check_corrosion_condition(harness, coder_edit_count):
             if self.rng.random() < 0.4:
                 return FailureReason.FILE_CORROSION
 
-        if self._check_hallucinated_tool_condition(harness):
+        if self._check_hallucination_condition(harness):
             if self.rng.random() < 0.3:
                 return FailureReason.HALLUCINATION
 
@@ -1150,7 +1154,7 @@ class SimulationEngine:
         return 0.75  # keep_run_summary
 
     @staticmethod
-    def _check_hallucinated_tool_condition(
+    def _check_hallucination_condition(
         harness: HarnessConfig, role: str | None = None
     ) -> bool:
         """Return True if hallucinated-tool failure is possible given the state."""
@@ -1159,7 +1163,7 @@ class SimulationEngine:
         return not harness.has_tool_registry
 
     @staticmethod
-    def _check_file_corrosion_condition(
+    def _check_corrosion_condition(
         harness: HarnessConfig, coder_edit_count: int, role: str | None = None
     ) -> bool:
         """Return True if file-corrosion failure is possible given the state."""
@@ -1179,11 +1183,18 @@ class SimulationEngine:
         )
 
     @staticmethod
-    def _stale_risk(blueprint: AgentBlueprint, steps_so_far: list[TraceStep]) -> bool:
+    def _stale_risk(
+        blueprint: AgentBlueprint,
+        steps_so_far: list[TraceStep],
+        in_flight_edits: int = 0,
+    ) -> bool:
         """True when the model's observed state lags the real state by >= 2 changes.
 
         state_version increments on every EDIT_FILE. observed_version is captured
-        at the last THINK or CHECK_EVIDENCE step. Lag >= 2 => stale snapshot.
+        at the last THINK or CHECK_EVIDENCE step. ``in_flight_edits`` counts
+        edits that have happened but are not yet in ``steps_so_far`` (the edit
+        currently being validated) — a coder doing THINK -> EDIT#1 -> EDIT#2 is
+        acting on a snapshot that is 2 edits stale by EDIT#2. Lag >= 2 => stale.
         """
         state_version = 0
         observed_version = 0
@@ -1192,6 +1203,7 @@ class SimulationEngine:
                 state_version += 1
             elif s.action in ("THINK", "CHECK_EVIDENCE"):
                 observed_version = state_version
+        state_version += in_flight_edits
         return state_version - observed_version >= 2
 
     @staticmethod

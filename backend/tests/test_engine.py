@@ -4,7 +4,7 @@ import random
 
 import pytest
 
-from app.engine import SimulationEngine, WARNING_NO_RETRY_MECHANISM
+from app.engine import SimulationEngine, WARNING_NO_RETRY_MECHANISM, WARNING_STALE_CONTEXT
 from app.models import (
     AgentBlueprint,
     FailureReason,
@@ -1090,6 +1090,37 @@ class TestStaleContext:
             TraceStep(step=4, node="n2", action="THINK", status=StepStatus.SUCCESS, memory_used=2),
         ]
         assert SimulationEngine._stale_risk(bp, steps) is False
+
+
+class TestStaleContextReachability:
+    def test_stale_context_reachable_in_simulation(self):
+        """STALE_CONTEXT must fire in a real simulation, not just unit tests.
+
+        A coder that performs a second EDIT_FILE (THINK -> EDIT#1 -> EDIT#2)
+        acts on a snapshot 2 edits stale. High harness quality raises the
+        second-edit probability; every other gate is suppressed so STALE is the
+        only failure that can appear at that check point.
+        """
+        bp = make_blueprint(
+            has_tool_registry=True,
+            has_timeout_guard=True,
+            has_sandbox_isolation=True,
+            has_state_persistence=True,
+            has_permission_layer=True,
+            has_context_manager=False,  # the one missing dim -> stale observation
+            memory_capacity=8,
+            loop_enabled=False,
+        )
+        engine = SimulationEngine()
+        count = 0
+        for i in range(300):
+            trace = engine.simulate(bp, seed=70000 + i)
+            if trace.failure_reason == FailureReason.STALE_CONTEXT:
+                count += 1
+                assert any(
+                    s.warning == WARNING_STALE_CONTEXT for s in trace.steps
+                )
+        assert count > 0
 
 
 # ---------------------------------------------------------------------------
