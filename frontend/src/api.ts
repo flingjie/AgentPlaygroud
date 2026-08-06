@@ -11,6 +11,15 @@ import { ApiError } from './types';
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 const BASE = import.meta.env.VITE_API_BASE ?? '';
 
+const HARNESS_SIX_KEYS = [
+  'context_injection',
+  'tool_surface',
+  'persistence',
+  'budget_guard',
+  'sandbox_isolation',
+  'tracing',
+];
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -20,9 +29,9 @@ function delay(ms: number): Promise<void> {
 const MOCK_LEVELS: LevelInfo[] = [
   {
     id: 'level_1_raw',
-    name: 'The Raw Agent',
+    name: 'The Raw Model',
     description:
-      'No harness, no loop, no graph. A single coder node operating without any safety nets. Expect lots of failures — learn what breaks when an agent has zero infrastructure.',
+      'Agent = Model + Harness. With no harness, the runner cannot reliably terminate on real conditions — expect hallucinated tools, corrosion, and abandoned tasks.',
     unlocked_harness: [],
     unlocked_loop: false,
     unlocked_graph: false,
@@ -31,10 +40,10 @@ const MOCK_LEVELS: LevelInfo[] = [
   },
   {
     id: 'level_2_harness',
-    name: 'Safety Harness',
+    name: 'Harness Engineering',
     description:
-      'Unlock workspace, sandbox, Git, and memory buffer. Still no loop strategy, so a single test failure means the task is abandoned. Learn how infrastructure reduces common failure modes.',
-    unlocked_harness: ['workspace', 'sandbox', 'git', 'memory'],
+      'Same model, different harness — results diverge sharply. Unlock all six harness dimensions. Still no loop, so a single failed test abandons the task.',
+    unlocked_harness: [...HARNESS_SIX_KEYS],
     unlocked_loop: false,
     unlocked_graph: false,
     target_success_rate: 0.40,
@@ -42,10 +51,10 @@ const MOCK_LEVELS: LevelInfo[] = [
   },
   {
     id: 'level_3_loop',
-    name: 'The Loop',
+    name: 'Loop Engineering',
     description:
-      'Unlock the ReAct+Reflexion loop strategy with up to 5 retries and a test_pass stop condition. The agent can now recover from failures automatically. Master the feedback loop.',
-    unlocked_harness: ['workspace', 'sandbox', 'git', 'memory'],
+      'Loop on evidence, not confidence. Configure trigger, goal, state/action policy, evidence, feedback, and stop rules. Loop engineering ≠ prompt engineering.',
+    unlocked_harness: [...HARNESS_SIX_KEYS],
     unlocked_loop: true,
     unlocked_graph: false,
     target_success_rate: 0.70,
@@ -53,10 +62,10 @@ const MOCK_LEVELS: LevelInfo[] = [
   },
   {
     id: 'level_4_graph',
-    name: 'The Graph',
+    name: 'Graph Engineering',
     description:
-      'Unlock the multi-agent graph: planner → coder → reviewer. Each agent has isolated memory, and the chain provides built-in review. Full harness + loop enabled. Reach near-perfect reliability.',
-    unlocked_harness: ['workspace', 'sandbox', 'git', 'memory'],
+      'The graph decides who runs next — not what the agent does. Use conditional edges, state schema, and checkpointing. Simple single-agent tasks need no graph.',
+    unlocked_harness: [...HARNESS_SIX_KEYS],
     unlocked_loop: true,
     unlocked_graph: true,
     target_success_rate: 0.90,
@@ -77,7 +86,6 @@ const MOCK_TRACE_SUCCESS: RunTrace = {
     { step: 5, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 4 },
     { step: 6, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 4 },
   ],
-  failure_events: [],
   topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
@@ -93,9 +101,8 @@ const MOCK_TRACE_INFINITE_LOOP: RunTrace = {
     { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 5, warning: 'Same edit applied, test still failing', reflection: 'reflect_test_fail' },
     { step: 5, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 6, warning: 'Retry #2: no progress detected', reflection: 'reflect_wrong_file' },
     { step: 6, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 7, warning: 'Retry #3: same fix applied again', reflection: 'reflect_off_by_one' },
-    { step: 7, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 8, warning: 'Agent stuck in infinite retry loop — retries exhausted without success. Add a stop_condition (test_pass) or increase max_retries.' },
+    { step: 7, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 8, warning: 'Agent stuck in infinite retry loop — iterations exhausted. Set stop_on to evidence_pass or raise max_iterations.' },
   ],
-  failure_events: [{ reason: 'INFINITE_LOOP_TRAP', step: 7 }],
   topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
@@ -110,7 +117,6 @@ const MOCK_TRACE_CONTEXT_FULL: RunTrace = {
     { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 7, warning: 'Test failed — retrying' },
     { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 10, warning: 'Context window full — memory capacity exhausted during retry loop. Increase memory capacity or use sub-agents to isolate context.' },
   ],
-  failure_events: [{ reason: 'CONTEXT_FULL', step: 4 }],
   topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
@@ -123,6 +129,8 @@ function buildMockMonteCarlo(): MonteCarloResult {
     CONTEXT_FULL: 2,
     INFINITE_LOOP_TRAP: 1,
     TASK_ABANDONED: 0,
+    BUDGET_EXHAUSTED: 1,
+    UNGROUNDED_STOP: 1,
   };
 
   const successCount = 91;
@@ -163,14 +171,19 @@ export async function getLevel(id: string): Promise<LevelInfo> {
 export async function simulate(blueprint: AgentBlueprint): Promise<RunTrace> {
   if (USE_MOCKS) {
     await delay(800);
-    const hasLoop = blueprint.loop_strategy.type !== 'none';
-    const hasGraph = blueprint.graph_nodes.length >= 3;
-    const hasHarness = blueprint.harness.has_git || blueprint.harness.has_sandbox;
+    const hasLoop = blueprint.loop.enabled;
+    const hasGraph = blueprint.graph.nodes.length >= 3;
+    const h = blueprint.harness;
+    const hasHarness =
+      h.has_tool_surface ||
+      h.has_persistence ||
+      h.has_sandbox_isolation ||
+      h.has_context_injection;
 
     if (hasGraph && hasLoop) return { ...MOCK_TRACE_SUCCESS, run_id: `run-${Date.now()}` };
     if (hasLoop && !hasGraph) return { ...MOCK_TRACE_INFINITE_LOOP, run_id: `run-${Date.now()}` };
     if (hasHarness && !hasLoop) return { ...MOCK_TRACE_CONTEXT_FULL, run_id: `run-${Date.now()}` };
-    // No harness, no loop, no graph — raw agent
+    // No harness, no loop, no graph — raw model
     const hallucinatedTrace: RunTrace = {
       run_id: `run-${Date.now()}`,
       status: 'FAILED',
@@ -178,9 +191,8 @@ export async function simulate(blueprint: AgentBlueprint): Promise<RunTrace> {
       cost_tokens: 800,
       steps: [
         { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
-        { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'FAIL', memory_used: 2, warning: 'Agent attempted to use a tool that does not exist — no sandbox or workspace available. Add Sandbox or Git Workspace.' },
+        { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'FAIL', memory_used: 2, warning: 'Agent attempted to use a tool that does not exist — no tool surface or sandbox available. Enable tool_surface or sandbox_isolation.' },
       ],
-      failure_events: [{ reason: 'HALLUCINATED_TOOL', step: 2 }],
     };
     return hallucinatedTrace;
   }

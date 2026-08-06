@@ -6,10 +6,12 @@ from pydantic import ValidationError
 from app.models import (
     AgentBlueprint,
     FailureReason,
+    GraphEdge,
     GraphNode,
+    GraphSpec,
     HarnessConfig,
     LevelInfo,
-    LoopStrategy,
+    LoopConfig,
     MonteCarloRequest,
     MonteCarloResponse,
     RunTrace,
@@ -29,29 +31,43 @@ class TestAgentBlueprint:
         assert bp.level_id == "level_1_raw"
         assert bp.run_seed is None
         assert bp.harness == HarnessConfig()
-        assert bp.loop_strategy == LoopStrategy()
-        assert bp.graph_nodes == [GraphNode(id="node_1", role="coder", next=[])]
+        assert bp.loop == LoopConfig()
+        assert bp.graph == GraphSpec()
 
     def test_full_blueprint_roundtrip(self):
         bp = AgentBlueprint(
             level_id="level_4_graph",
             run_seed=42,
             harness=HarnessConfig(
-                has_workspace=True,
-                has_sandbox=True,
-                has_git=True,
+                has_context_injection=True,
+                has_tool_surface=True,
+                has_persistence=True,
+                has_budget_guard=True,
+                has_sandbox_isolation=True,
+                has_tracing=True,
                 memory_capacity=9,
             ),
-            loop_strategy=LoopStrategy(
-                type="react_reflexion",
-                max_retries=5,
-                stop_condition="test_pass",
+            loop=LoopConfig(
+                enabled=True,
+                evidence="test_runner",
+                feedback="reflexion",
+                stop_on="evidence_pass",
+                max_iterations=5,
             ),
-            graph_nodes=[
-                GraphNode(id="n1", role="planner", next=["n2"]),
-                GraphNode(id="n2", role="coder", next=["n3"]),
-                GraphNode(id="n3", role="reviewer", next=[]),
-            ],
+            graph=GraphSpec(
+                nodes=[
+                    GraphNode(id="n1", role="planner", state_writes=["plan"]),
+                    GraphNode(id="n2", role="coder", state_writes=["diff"]),
+                    GraphNode(id="n3", role="reviewer"),
+                ],
+                edges=[
+                    GraphEdge(source="n1", target="n2"),
+                    GraphEdge(source="n2", target="n3"),
+                ],
+                entry="n1",
+                checkpointing=True,
+                state_schema=["plan", "diff", "test_report"],
+            ),
         )
 
         js = bp.model_dump_json()
@@ -69,6 +85,16 @@ class TestAgentBlueprint:
         assert h.memory_capacity == 1
         h = HarnessConfig(memory_capacity=10)
         assert h.memory_capacity == 10
+
+    def test_loop_max_iterations_bounds(self):
+        with pytest.raises(ValidationError):
+            LoopConfig(max_iterations=0)
+        with pytest.raises(ValidationError):
+            LoopConfig(max_iterations=11)
+
+    def test_new_failure_reasons(self):
+        assert FailureReason.BUDGET_EXHAUSTED.value == "BUDGET_EXHAUSTED"
+        assert FailureReason.UNGROUNDED_STOP.value == "UNGROUNDED_STOP"
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +133,20 @@ class TestRunTrace:
                     memory_used=3,
                     warning="Agent attempted to use a tool that does not exist",
                 ),
+                TraceStep(
+                    step=3,
+                    node="node_1",
+                    action="CHECK_EVIDENCE",
+                    status=StepStatus.FAIL,
+                    memory_used=3,
+                ),
+                TraceStep(
+                    step=4,
+                    node="node_1",
+                    action="STOP",
+                    status=StepStatus.FAIL,
+                    memory_used=3,
+                ),
             ],
         )
 
@@ -114,7 +154,7 @@ class TestRunTrace:
         restored = RunTrace.model_validate_json(js)
         assert restored == trace
         assert restored.failure_reason == FailureReason.HALLUCINATED_TOOL
-        assert len(restored.steps) == 2
+        assert len(restored.steps) == 4
 
 
 # ---------------------------------------------------------------------------
@@ -128,14 +168,14 @@ class TestLevelInfo:
             id="test_level",
             name="Test Level",
             description="A test",
-            unlocked_harness=["workspace"],
+            unlocked_harness=["tool_surface"],
             unlocked_loop=False,
             unlocked_graph=False,
             target_success_rate=0.5,
             token_budget=10000,
         )
         assert level.id == "test_level"
-        assert level.unlocked_harness == ["workspace"]
+        assert level.unlocked_harness == ["tool_surface"]
 
 
 # ---------------------------------------------------------------------------

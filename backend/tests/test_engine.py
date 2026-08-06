@@ -1,14 +1,18 @@
 """Tests for the simulation engine: failure injection, determinism, Monte Carlo."""
 
+import random
+
 import pytest
 
 from app.engine import SimulationEngine
 from app.models import (
     AgentBlueprint,
     FailureReason,
+    GraphEdge,
     GraphNode,
+    GraphSpec,
     HarnessConfig,
-    LoopStrategy,
+    LoopConfig,
 )
 
 
@@ -17,33 +21,119 @@ from app.models import (
 # ---------------------------------------------------------------------------
 
 
+def full_harness(**overrides) -> HarnessConfig:
+    base = dict(
+        has_context_injection=True,
+        has_tool_surface=True,
+        has_persistence=True,
+        has_budget_guard=False,
+        has_sandbox_isolation=True,
+        has_tracing=True,
+        memory_capacity=5,
+    )
+    base.update(overrides)
+    return HarnessConfig(**base)
+
+
 def make_blueprint(
     level_id: str = "level_1_raw",
     run_seed: int = 42,
-    has_workspace: bool = False,
-    has_sandbox: bool = False,
-    has_git: bool = False,
+    has_context_injection: bool = False,
+    has_tool_surface: bool = False,
+    has_persistence: bool = False,
+    has_budget_guard: bool = False,
+    token_budget_cap: int | None = None,
+    has_sandbox_isolation: bool = False,
+    has_tracing: bool = False,
     memory_capacity: int = 3,
-    loop_type: str = "none",
-    max_retries: int = 1,
-    stop_condition: str = "none",
-    graph_nodes: list[GraphNode] | None = None,
+    loop_enabled: bool = False,
+    evidence: str = "none",
+    feedback: str = "none",
+    stop_on: str = "agent_says_done",
+    state_policy: str = "stateless",
+    max_iterations: int = 1,
+    graph: GraphSpec | None = None,
+    nodes: list[GraphNode] | None = None,
+    edges: list[GraphEdge] | None = None,
+    checkpointing: bool = False,
 ) -> AgentBlueprint:
+    if graph is None:
+        graph = GraphSpec(
+            nodes=nodes or [GraphNode(id="node_1", role="coder")],
+            edges=edges or [],
+            checkpointing=checkpointing,
+        )
     return AgentBlueprint(
         level_id=level_id,
         run_seed=run_seed,
         harness=HarnessConfig(
-            has_workspace=has_workspace,
-            has_sandbox=has_sandbox,
-            has_git=has_git,
+            has_context_injection=has_context_injection,
+            has_tool_surface=has_tool_surface,
+            has_persistence=has_persistence,
+            has_budget_guard=has_budget_guard,
+            token_budget_cap=token_budget_cap,
+            has_sandbox_isolation=has_sandbox_isolation,
+            has_tracing=has_tracing,
             memory_capacity=memory_capacity,
         ),
-        loop_strategy=LoopStrategy(
-            type=loop_type,  # type: ignore[arg-type]
-            max_retries=max_retries,
-            stop_condition=stop_condition,  # type: ignore[arg-type]
+        loop=LoopConfig(
+            enabled=loop_enabled,
+            evidence=evidence,  # type: ignore[arg-type]
+            feedback=feedback,  # type: ignore[arg-type]
+            stop_on=stop_on,  # type: ignore[arg-type]
+            state_policy=state_policy,  # type: ignore[arg-type]
+            max_iterations=max_iterations,
         ),
-        graph_nodes=graph_nodes or [GraphNode(id="node_1", role="coder", next=[])],
+        graph=graph,
+    )
+
+
+def chain_graph() -> GraphSpec:
+    return GraphSpec(
+        nodes=[
+            GraphNode(id="n1", role="planner"),
+            GraphNode(id="n2", role="coder"),
+            GraphNode(id="n3", role="reviewer"),
+        ],
+        edges=[
+            GraphEdge(source="n1", target="n2"),
+            GraphEdge(source="n2", target="n3"),
+        ],
+        entry="n1",
+    )
+
+
+def feedback_graph() -> GraphSpec:
+    return GraphSpec(
+        nodes=[
+            GraphNode(id="n1", role="planner"),
+            GraphNode(id="n2", role="coder"),
+            GraphNode(id="n3", role="reviewer"),
+        ],
+        edges=[
+            GraphEdge(source="n1", target="n2"),
+            GraphEdge(source="n2", target="n3"),
+            GraphEdge(source="n3", target="n2", condition="on_review_reject"),
+        ],
+        entry="n1",
+    )
+
+
+def parallel_graph() -> GraphSpec:
+    return GraphSpec(
+        nodes=[
+            GraphNode(id="p", role="planner"),
+            GraphNode(id="c1", role="coder"),
+            GraphNode(id="c2", role="coder"),
+            GraphNode(id="r", role="reviewer"),
+        ],
+        edges=[
+            GraphEdge(source="p", target="c1"),
+            GraphEdge(source="p", target="c2"),
+            GraphEdge(source="c1", target="r"),
+            GraphEdge(source="c2", target="r"),
+        ],
+        entry="p",
     )
 
 
@@ -66,8 +156,6 @@ class TestDeterminism:
         engine = SimulationEngine()
         t1 = engine.simulate(bp, seed=123)
         t2 = engine.simulate(bp, seed=456)
-        # They *could* coincidentally match, but with the default blueprint
-        # having randomness in failure injection, they should differ.
         assert t1.run_id != t2.run_id
 
 
@@ -78,21 +166,64 @@ class TestDeterminism:
 
 class TestHarnessQuality:
     def test_no_harness(self):
-        bp = make_blueprint(has_workspace=False, has_sandbox=False, has_git=False, memory_capacity=3)
-        assert SimulationEngine._harness_quality(bp.harness) == pytest.approx(0.15)  # 0 + 0.05*3
+        bp = make_blueprint(memory_capacity=3)
+        assert SimulationEngine._harness_quality(bp.harness) == pytest.approx(0.15)
 
     def test_full_harness_max_memory(self):
-        bp = make_blueprint(has_workspace=True, has_sandbox=True, has_git=True, memory_capacity=10)
-        assert SimulationEngine._harness_quality(bp.harness) == pytest.approx(0.8)  # 0.3 + 0.5
+        h = full_harness(has_budget_guard=True, memory_capacity=10)
+        # 5 effect dims * 0.1 + 0.05*10 = 1.0
+        assert SimulationEngine._harness_quality(h) == pytest.approx(1.0)
+
+    def test_tracing_does_not_affect_quality(self):
+        h_off = full_harness(has_tracing=False, has_budget_guard=True, memory_capacity=5)
+        h_on = full_harness(has_tracing=True, has_budget_guard=True, memory_capacity=5)
+        assert SimulationEngine._harness_quality(h_off) == SimulationEngine._harness_quality(
+            h_on
+        )
 
     def test_memory_capped_at_10(self):
-        """The _harness_quality formula caps memory at 10 via min(cap, 10)."""
-        # Create a harness config with max valid capacity and verify
-        # the formula uses min(capacity, 10) — capacity=10 and capacity=100
-        # would give the same result, but we can only test valid inputs.
         h = HarnessConfig(memory_capacity=10)
         q10 = SimulationEngine._harness_quality(h)
-        assert q10 == pytest.approx(0.5)  # 0.05 * 10 = 0.5
+        assert q10 == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# Harness dimensions
+# ---------------------------------------------------------------------------
+
+
+class TestHarnessDimensions:
+    def test_no_tool_surface_causes_hallucination(self):
+        bp = make_blueprint(
+            has_tool_surface=False,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            memory_capacity=5,
+        )
+        engine = SimulationEngine()
+        count = 0
+        for i in range(200):
+            trace = engine.simulate(bp, seed=1000 + i)
+            if trace.failure_reason == FailureReason.HALLUCINATED_TOOL:
+                count += 1
+        assert count > 0
+
+    def test_tool_surface_eliminates_hallucination(self):
+        bp = make_blueprint(
+            has_context_injection=True,
+            has_tool_surface=True,
+            has_persistence=True,
+            has_sandbox_isolation=True,
+            memory_capacity=5,
+        )
+        engine = SimulationEngine()
+        count = 0
+        total = 500
+        for i in range(total):
+            trace = engine.simulate(bp, seed=2000 + i)
+            if trace.failure_reason == FailureReason.HALLUCINATED_TOOL:
+                count += 1
+        assert count < total * 0.15
 
 
 # ---------------------------------------------------------------------------
@@ -102,182 +233,211 @@ class TestHarnessQuality:
 
 class TestFailureHallucinatedTool:
     def test_level_1_often_fails_with_hallucination(self):
-        """Level 1 has no sandbox, no workspace → high hallucination rate."""
-        bp = make_blueprint(
-            level_id="level_1_raw",
-            run_seed=42,
-            has_workspace=False,
-            has_sandbox=False,
-            has_git=False,
-            memory_capacity=3,
-        )
+        bp = make_blueprint(level_id="level_1_raw", run_seed=42, memory_capacity=3)
         engine = SimulationEngine()
-        failure_counts = {FailureReason.HALLUCINATED_TOOL: 0}
+        count = 0
         for seed_offset in range(200):
             trace = engine.simulate(bp, seed=1000 + seed_offset)
             if trace.failure_reason == FailureReason.HALLUCINATED_TOOL:
-                failure_counts[FailureReason.HALLUCINATED_TOOL] += 1
-        # At least some should fail with hallucinated tool
-        assert failure_counts[FailureReason.HALLUCINATED_TOOL] > 0
+                count += 1
+        assert count > 0
 
-    def test_with_sandbox_no_hallucination(self):
-        """With sandbox enabled, hallucinated tool failure should not be the
-        primary failure mode (though other failures may still occur)."""
+    def test_with_tool_surface_no_hallucination(self):
         bp = make_blueprint(
             level_id="level_2_harness",
-            run_seed=42,
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_context_injection=True,
+            has_tool_surface=True,
+            has_persistence=True,
+            has_sandbox_isolation=True,
             memory_capacity=5,
         )
         engine = SimulationEngine()
-        # Run many simulations — HALLUCINATED_TOOL should be rare/absent
-        hallucination_count = 0
+        count = 0
         total = 500
         for seed_offset in range(total):
             trace = engine.simulate(bp, seed=2000 + seed_offset)
             if trace.failure_reason == FailureReason.HALLUCINATED_TOOL:
-                hallucination_count += 1
-        # With workspace+sandbox, hallucination should be much less common
-        assert hallucination_count < total * 0.15, (
-            f"Hallucination rate too high: {hallucination_count}/{total}"
-        )
+                count += 1
+        assert count < total * 0.15
 
 
 class TestFailureFileCorrosion:
-    def test_no_git_many_edits_causes_corrosion(self):
-        """Without git, multiple EDIT_FILE actions can cause file corruption."""
+    def test_no_persistence_many_edits_causes_corrosion(self):
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=False,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=False,
             memory_capacity=5,
         )
         engine = SimulationEngine()
-        corrosion_count = 0
-        total = 500
-        for seed_offset in range(total):
+        count = 0
+        for seed_offset in range(500):
             trace = engine.simulate(bp, seed=3000 + seed_offset)
             if trace.failure_reason == FailureReason.FILE_CORROSION:
-                corrosion_count += 1
-        assert corrosion_count > 0
+                count += 1
+        assert count > 0
 
-    def test_with_git_no_corrosion(self):
-        """With git enabled, file corrosion should be eliminated."""
+    def test_with_persistence_no_corrosion(self):
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
             memory_capacity=5,
         )
         engine = SimulationEngine()
-        corrosion_count = 0
-        total = 500
-        for seed_offset in range(total):
+        count = 0
+        for seed_offset in range(500):
             trace = engine.simulate(bp, seed=4000 + seed_offset)
             if trace.failure_reason == FailureReason.FILE_CORROSION:
-                corrosion_count += 1
-        assert corrosion_count == 0
+                count += 1
+        assert count == 0
 
 
 class TestFailureMemoryStackOverflow:
     def test_low_memory_can_overflow(self):
-        """With memory_capacity <= 3 and many steps, overflow can occur."""
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
             memory_capacity=2,
         )
         engine = SimulationEngine()
-        overflow_count = 0
-        total = 500
-        for seed_offset in range(total):
+        count = 0
+        for seed_offset in range(500):
             trace = engine.simulate(bp, seed=5000 + seed_offset)
             if trace.failure_reason == FailureReason.MEMORY_STACK_OVERFLOW:
-                overflow_count += 1
-        assert overflow_count > 0
+                count += 1
+        assert count > 0
 
     def test_high_memory_no_overflow(self):
-        """With high memory capacity, overflow should be rare."""
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
             memory_capacity=10,
         )
         engine = SimulationEngine()
-        overflow_count = 0
-        total = 500
-        for seed_offset in range(total):
+        count = 0
+        for seed_offset in range(500):
             trace = engine.simulate(bp, seed=6000 + seed_offset)
             if trace.failure_reason == FailureReason.MEMORY_STACK_OVERFLOW:
-                overflow_count += 1
-        # Should still be 0 for capacity=10
-        assert overflow_count == 0
+                count += 1
+        assert count == 0
 
 
 class TestFailureTaskAbandoned:
     def test_no_loop_test_fails(self):
-        """Without a loop, a single test failure abandons the task."""
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
             memory_capacity=5,
-            loop_type="none",
+            loop_enabled=False,
         )
         engine = SimulationEngine()
-        abandoned_count = 0
-        total = 500
-        for seed_offset in range(total):
+        count = 0
+        for seed_offset in range(500):
             trace = engine.simulate(bp, seed=7000 + seed_offset)
             if trace.failure_reason == FailureReason.TASK_ABANDONED:
-                abandoned_count += 1
-        assert abandoned_count > 0
+                count += 1
+        assert count > 0
 
     def test_with_loop_no_abandoned(self):
-        """With a loop, TASK_ABANDONED should never occur — the agent retries."""
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
             memory_capacity=5,
-            loop_type="react_reflexion",
-            max_retries=3,
-            stop_condition="test_pass",
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=3,
         )
         engine = SimulationEngine()
-        abandoned_count = 0
-        total = 500
-        for seed_offset in range(total):
+        count = 0
+        for seed_offset in range(500):
             trace = engine.simulate(bp, seed=8000 + seed_offset)
             if trace.failure_reason == FailureReason.TASK_ABANDONED:
-                abandoned_count += 1
-        assert abandoned_count == 0
+                count += 1
+        assert count == 0
 
 
 class TestFailureInfiniteLoop:
-    def test_loop_without_stop_condition_can_trap(self):
-        """Without stop_condition, retries may run out → INFINITE_LOOP_TRAP."""
+    def test_loop_can_trap(self):
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
             memory_capacity=5,
-            loop_type="react_reflexion",
-            max_retries=2,
-            stop_condition="none",
+            loop_enabled=True,
+            evidence="none",
+            feedback="none",
+            stop_on="evidence_pass",
+            max_iterations=2,
         )
         engine = SimulationEngine()
-        loop_trap_count = 0
-        total = 500
-        for seed_offset in range(total):
+        count = 0
+        for seed_offset in range(500):
             trace = engine.simulate(bp, seed=9000 + seed_offset)
             if trace.failure_reason == FailureReason.INFINITE_LOOP_TRAP:
-                loop_trap_count += 1
-        assert loop_trap_count > 0
+                count += 1
+        assert count > 0
+
+
+# ---------------------------------------------------------------------------
+# Evidence / stop conditions
+# ---------------------------------------------------------------------------
+
+
+class TestEvidenceStop:
+    def test_agent_says_done_ungrounded(self):
+        """stop_on=agent_says_done → UNGROUNDED_STOP dominates."""
+        bp = make_blueprint(
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            has_context_injection=True,
+            memory_capacity=8,
+            loop_enabled=True,
+            evidence="none",
+            feedback="none",
+            stop_on="agent_says_done",
+            max_iterations=3,
+        )
+        engine = SimulationEngine()
+        ungrounded = 0
+        total = 200
+        for i in range(total):
+            trace = engine.simulate(bp, seed=15000 + i)
+            if trace.failure_reason == FailureReason.UNGROUNDED_STOP:
+                ungrounded += 1
+        assert ungrounded > total * 0.5
+
+    def test_evidence_pass_can_succeed(self):
+        """stop_on=evidence_pass with reflexion can succeed."""
+        bp = make_blueprint(
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            has_context_injection=True,
+            memory_capacity=8,
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=5,
+        )
+        engine = SimulationEngine()
+        result = engine.monte_carlo(bp, num_runs=200)
+        assert result["success_rate"] >= 0.5
+        found_evidence = False
+        for t in result["sample_traces"]:
+            actions = {s.action for s in t.steps}
+            if "CHECK_EVIDENCE" in actions or "STOP" in actions:
+                found_evidence = True
+                break
+        assert found_evidence
 
 
 # ---------------------------------------------------------------------------
@@ -291,22 +451,21 @@ class TestLoopSimulation:
         successes = 0
         total = 500
         for i in range(total):
-            ok, retries, reason = engine._simulate_loop(max_retries=10, harness_quality=0.8)
+            engine.rng = random.Random(42 + i)
+            ok, _, _ = engine._simulate_loop(10, 0.8, "reflexion")
             if ok:
                 successes += 1
-        assert successes > total * 0.7  # high quality → high success
+        assert successes > total * 0.7
 
     def test_low_quality_often_fails(self):
         engine = SimulationEngine(seed=42)
         failures = 0
         total = 500
         for i in range(total):
-            ok, _, reason = engine._simulate_loop(max_retries=3, harness_quality=0.1)
+            engine.rng = random.Random(42 + i)
+            ok, _, _ = engine._simulate_loop(3, 0.1, "reflexion")
             if not ok:
                 failures += 1
-        # With harness_quality=0.1 and 3 retries:
-        #   error_rate progression: 0.7 → 0.45 → 0.2
-        #   P(all fail) ≈ 0.063, so expect ~31 out of 500
         assert failures > 20
 
 
@@ -317,7 +476,13 @@ class TestLoopSimulation:
 
 class TestMonteCarlo:
     def test_returns_correct_structure(self):
-        bp = make_blueprint(run_seed=1, has_workspace=True, has_sandbox=True, has_git=True, memory_capacity=5)
+        bp = make_blueprint(
+            run_seed=1,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            memory_capacity=5,
+        )
         engine = SimulationEngine()
         result = engine.monte_carlo(bp, num_runs=50)
         assert "success_rate" in result
@@ -347,46 +512,56 @@ class TestMonteCarlo:
 class TestGraphBonus:
     def test_has_graph_bonus_true(self):
         nodes = [
-            GraphNode(id="n1", role="planner", next=["n2"]),
-            GraphNode(id="n2", role="coder", next=["n3"]),
-            GraphNode(id="n3", role="reviewer", next=[]),
+            GraphNode(id="n1", role="planner"),
+            GraphNode(id="n2", role="coder"),
+            GraphNode(id="n3", role="reviewer"),
         ]
         assert SimulationEngine._has_graph_bonus(nodes) is True
 
     def test_has_graph_bonus_false_for_fewer_nodes(self):
-        nodes = [GraphNode(id="n1", role="coder", next=[])]
+        nodes = [GraphNode(id="n1", role="coder")]
         assert SimulationEngine._has_graph_bonus(nodes) is False
 
     def test_has_graph_bonus_false_for_wrong_roles(self):
         nodes = [
-            GraphNode(id="n1", role="planner", next=["n2"]),
-            GraphNode(id="n2", role="tester", next=["n3"]),
-            GraphNode(id="n3", role="coder", next=[]),
+            GraphNode(id="n1", role="planner"),
+            GraphNode(id="n2", role="tester"),
+            GraphNode(id="n3", role="coder"),
         ]
         assert SimulationEngine._has_graph_bonus(nodes) is False
 
     def test_graph_level_simulation(self):
-        """Level 4 graph with full harness should have high success rate."""
         bp = make_blueprint(
             level_id="level_4_graph",
             run_seed=42,
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_context_injection=True,
+            has_tool_surface=True,
+            has_persistence=True,
+            has_sandbox_isolation=True,
+            has_budget_guard=True,
             memory_capacity=9,
-            loop_type="react_reflexion",
-            max_retries=5,
-            stop_condition="test_pass",
-            graph_nodes=[
-                GraphNode(id="n1", role="planner", next=["n2"]),
-                GraphNode(id="n2", role="coder", next=["n3"]),
-                GraphNode(id="n3", role="reviewer", next=[]),
-            ],
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=5,
+            graph=chain_graph(),
         )
         engine = SimulationEngine()
         result = engine.monte_carlo(bp, num_runs=200)
-        # With full harness + loop + graph, success rate should be strong
         assert result["success_rate"] >= 0.70
+
+    def test_empty_graph_defaults_to_single_coder(self):
+        bp = AgentBlueprint(
+            level_id="level_1_raw",
+            run_seed=42,
+            harness=HarnessConfig(has_tool_surface=True, memory_capacity=5),
+            loop=LoopConfig(enabled=False),
+            graph=GraphSpec(),
+        )
+        engine = SimulationEngine()
+        trace = engine.simulate(bp, seed=42)
+        assert any(s.node == "node_1" for s in trace.steps)
 
 
 # ---------------------------------------------------------------------------
@@ -411,7 +586,6 @@ class TestStreaming:
 
         assert len(steps) > 0
         assert len(steps) == len(trace.steps)
-        # Steps yielded should match trace steps
         for i, s in enumerate(steps):
             assert s["step"] == trace.steps[i].step
             assert s["node"] == trace.steps[i].node
@@ -426,25 +600,28 @@ class TestStreaming:
 class TestNodeOrdering:
     def test_simple_chain(self):
         nodes = [
-            GraphNode(id="a", role="planner", next=["b"]),
-            GraphNode(id="b", role="coder", next=["c"]),
-            GraphNode(id="c", role="reviewer", next=[]),
+            GraphNode(id="a", role="planner"),
+            GraphNode(id="b", role="coder"),
+            GraphNode(id="c", role="reviewer"),
         ]
-        order = SimulationEngine._resolve_node_order(nodes)
+        edges = [
+            GraphEdge(source="a", target="b"),
+            GraphEdge(source="b", target="c"),
+        ]
+        order = SimulationEngine._resolve_node_order(nodes, edges)
         assert [n.id for n in order] == ["a", "b", "c"]
 
     def test_single_node(self):
-        nodes = [GraphNode(id="only", role="coder", next=[])]
-        order = SimulationEngine._resolve_node_order(nodes)
+        nodes = [GraphNode(id="only", role="coder")]
+        order = SimulationEngine._resolve_node_order(nodes, [])
         assert [n.id for n in order] == ["only"]
 
     def test_disconnected_nodes(self):
         nodes = [
-            GraphNode(id="a", role="coder", next=[]),
-            GraphNode(id="b", role="tester", next=[]),
+            GraphNode(id="a", role="coder"),
+            GraphNode(id="b", role="tester"),
         ]
-        order = SimulationEngine._resolve_node_order(nodes)
-        # Both should appear, order is definition order since both are roots
+        order = SimulationEngine._resolve_node_order(nodes, [])
         assert len(order) == 2
         assert {n.id for n in order} == {"a", "b"}
 
@@ -456,50 +633,61 @@ class TestNodeOrdering:
 
 class TestTopologyAnalysis:
     def test_single(self):
-        nodes = [GraphNode(id="n1", role="coder", next=[])]
-        topo = SimulationEngine._analyze_topology(nodes)
+        nodes = [GraphNode(id="n1", role="coder")]
+        topo = SimulationEngine._analyze_topology(nodes, [])
         assert topo.kind == "single"
         assert topo.has_feedback is False
 
     def test_chain(self):
-        nodes = [
-            GraphNode(id="n1", role="planner", next=["n2"]),
-            GraphNode(id="n2", role="coder", next=["n3"]),
-            GraphNode(id="n3", role="reviewer", next=[]),
-        ]
-        topo = SimulationEngine._analyze_topology(nodes)
+        g = chain_graph()
+        topo = SimulationEngine._analyze_topology(g.nodes, g.edges)
         assert topo.kind == "chain"
         assert topo.has_feedback is False
         assert topo.parallel_coders == 0
 
     def test_parallel(self):
         nodes = [
-            GraphNode(id="p", role="planner", next=["c1", "c2"]),
-            GraphNode(id="c1", role="coder", next=["t"]),
-            GraphNode(id="c2", role="coder", next=["t"]),
-            GraphNode(id="t", role="tester", next=[]),
+            GraphNode(id="p", role="planner"),
+            GraphNode(id="c1", role="coder"),
+            GraphNode(id="c2", role="coder"),
+            GraphNode(id="t", role="tester"),
         ]
-        topo = SimulationEngine._analyze_topology(nodes)
+        edges = [
+            GraphEdge(source="p", target="c1"),
+            GraphEdge(source="p", target="c2"),
+            GraphEdge(source="c1", target="t"),
+            GraphEdge(source="c2", target="t"),
+        ]
+        topo = SimulationEngine._analyze_topology(nodes, edges)
         assert topo.kind == "parallel"
         assert topo.parallel_coders >= 2
 
     def test_feedback(self):
-        nodes = [
-            GraphNode(id="n1", role="planner", next=["n2"]),
-            GraphNode(id="n2", role="coder", next=["n3"]),
-            GraphNode(id="n3", role="reviewer", next=["n2"]),
-        ]
-        topo = SimulationEngine._analyze_topology(nodes)
+        g = feedback_graph()
+        topo = SimulationEngine._analyze_topology(g.nodes, g.edges)
         assert topo.kind == "feedback"
+        assert topo.has_feedback is True
+
+    def test_feedback_via_on_fail_edge(self):
+        nodes = [
+            GraphNode(id="c", role="coder"),
+            GraphNode(id="t", role="tester"),
+        ]
+        edges = [
+            GraphEdge(source="c", target="t"),
+            GraphEdge(source="t", target="c", condition="on_fail"),
+        ]
+        topo = SimulationEngine._analyze_topology(nodes, edges)
         assert topo.has_feedback is True
 
     def test_isolated(self):
         nodes = [
-            GraphNode(id="n1", role="planner", next=["n2"]),
-            GraphNode(id="n2", role="coder", next=[]),
-            GraphNode(id="orphan", role="tester", next=[]),
+            GraphNode(id="n1", role="planner"),
+            GraphNode(id="n2", role="coder"),
+            GraphNode(id="orphan", role="tester"),
         ]
-        topo = SimulationEngine._analyze_topology(nodes)
+        edges = [GraphEdge(source="n1", target="n2")]
+        topo = SimulationEngine._analyze_topology(nodes, edges)
         assert "orphan" in topo.isolated_nodes
 
 
@@ -510,54 +698,48 @@ class TestTopologyAnalysis:
 
 class TestMemoryIsolation:
     def test_multi_agent_full_capacity_per_node(self):
-        """With graph bonus and capacity=6, coder local memory can reach 6
-        (not capacity // num_nodes = 2)."""
         bp = make_blueprint(
             level_id="level_4_graph",
             run_seed=42,
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_context_injection=True,
+            has_tool_surface=True,
+            has_persistence=True,
+            has_sandbox_isolation=True,
             memory_capacity=6,
-            loop_type="react_reflexion",
-            max_retries=3,
-            stop_condition="test_pass",
-            graph_nodes=[
-                GraphNode(id="n1", role="planner", next=["n2"]),
-                GraphNode(id="n2", role="coder", next=["n3"]),
-                GraphNode(id="n3", role="reviewer", next=[]),
-            ],
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=3,
+            graph=chain_graph(),
         )
         engine = SimulationEngine()
-        # Find a run where coder did enough work to use memory
         max_coder_mem = 0
         for seed_offset in range(50):
             trace = engine.simulate(bp, seed=10000 + seed_offset)
             for step in trace.steps:
                 if step.node == "n2":
                     max_coder_mem = max(max_coder_mem, step.memory_used)
-        # Under old formula, cap would be 6//3=2; now full 6 is available
         assert max_coder_mem > 2
 
 
 # ---------------------------------------------------------------------------
-# Retry blind vs reflexion
+# Blind evidence vs reflexion
 # ---------------------------------------------------------------------------
 
 
-class TestRetryBlind:
+class TestEvidenceFeedback:
     def test_blind_lower_success_than_reflexion(self):
-        """With 4 retries and low hq, blind success rate << reflexion."""
         engine = SimulationEngine()
         total = 500
         blind_ok = 0
         reflex_ok = 0
         hq = 0.1
         for i in range(total):
-            engine.rng = __import__("random").Random(20000 + i)
-            ok_b, _, _ = engine._simulate_loop(4, hq, "retry_blind")
-            engine.rng = __import__("random").Random(20000 + i)
-            ok_r, _, _ = engine._simulate_loop(4, hq, "react_reflexion")
+            engine.rng = random.Random(20000 + i)
+            ok_b, _, _ = engine._simulate_loop(4, hq, "blind")
+            engine.rng = random.Random(20000 + i)
+            ok_r, _, _ = engine._simulate_loop(4, hq, "reflexion")
             if ok_b:
                 blind_ok += 1
             if ok_r:
@@ -566,16 +748,15 @@ class TestRetryBlind:
         assert reflex_ok - blind_ok > total * 0.1
 
     def test_one_retry_equal(self):
-        """With 1 retry, both modes have identical error_rate formula start."""
         engine = SimulationEngine()
         total = 200
         blind_ok = 0
         reflex_ok = 0
         for i in range(total):
-            engine.rng = __import__("random").Random(30000 + i)
-            ok_b, _, _ = engine._simulate_loop(1, 0.3, "retry_blind")
-            engine.rng = __import__("random").Random(30000 + i)
-            ok_r, _, _ = engine._simulate_loop(1, 0.3, "react_reflexion")
+            engine.rng = random.Random(30000 + i)
+            ok_b, _, _ = engine._simulate_loop(1, 0.3, "blind")
+            engine.rng = random.Random(30000 + i)
+            ok_r, _, _ = engine._simulate_loop(1, 0.3, "reflexion")
             if ok_b:
                 blind_ok += 1
             if ok_r:
@@ -591,13 +772,16 @@ class TestRetryBlind:
 class TestReflections:
     def test_reflexion_produces_reflection_text(self):
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            has_context_injection=True,
             memory_capacity=8,
-            loop_type="react_reflexion",
-            max_retries=5,
-            stop_condition="test_pass",
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=5,
         )
         engine = SimulationEngine()
         found = False
@@ -610,15 +794,18 @@ class TestReflections:
                 break
         assert found, "Expected at least one RETRY with reflection in reflexion mode"
 
-    def test_blind_no_reflection(self):
+    def test_no_evidence_no_reflection(self):
         bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            has_context_injection=True,
             memory_capacity=8,
-            loop_type="retry_blind",
-            max_retries=5,
-            stop_condition="test_pass",
+            loop_enabled=True,
+            evidence="none",
+            feedback="none",
+            stop_on="evidence_pass",
+            max_iterations=5,
         )
         engine = SimulationEngine()
         for seed_offset in range(50):
@@ -628,88 +815,27 @@ class TestReflections:
 
 
 # ---------------------------------------------------------------------------
-# Failure events
-# ---------------------------------------------------------------------------
-
-
-class TestFailureEvents:
-    def test_failed_run_has_events(self):
-        bp = make_blueprint(
-            has_workspace=False,
-            has_sandbox=False,
-            has_git=False,
-            memory_capacity=2,
-            loop_type="none",
-        )
-        engine = SimulationEngine()
-        found_failed = False
-        for seed_offset in range(100):
-            trace = engine.simulate(bp, seed=50000 + seed_offset)
-            if trace.status == "FAILED":
-                found_failed = True
-                assert len(trace.failure_events) > 0
-                for ev in trace.failure_events:
-                    assert ev.reason != FailureReason.NONE
-                break
-        assert found_failed
-
-    def test_success_run_empty_events(self):
-        bp = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
-            memory_capacity=10,
-            loop_type="react_reflexion",
-            max_retries=5,
-            stop_condition="test_pass",
-            graph_nodes=[
-                GraphNode(id="n1", role="planner", next=["n2"]),
-                GraphNode(id="n2", role="coder", next=["n3"]),
-                GraphNode(id="n3", role="reviewer", next=[]),
-            ],
-        )
-        engine = SimulationEngine()
-        found_success = False
-        for seed_offset in range(100):
-            trace = engine.simulate(bp, seed=51000 + seed_offset)
-            if trace.status == "SUCCESS":
-                found_success = True
-                assert trace.failure_events == []
-                break
-        assert found_success
-
-
-# ---------------------------------------------------------------------------
 # Feedback rework & parallel coders
 # ---------------------------------------------------------------------------
 
 
 class TestFeedbackRework:
     def test_feedback_improves_success_rate(self):
-        """Feedback graph should succeed more often than plain chain at low hq."""
         chain = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
             memory_capacity=5,
-            loop_type="none",
-            graph_nodes=[
-                GraphNode(id="n1", role="planner", next=["n2"]),
-                GraphNode(id="n2", role="coder", next=["n3"]),
-                GraphNode(id="n3", role="reviewer", next=[]),
-            ],
+            loop_enabled=False,
+            graph=chain_graph(),
         )
         feedback = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
             memory_capacity=5,
-            loop_type="none",
-            graph_nodes=[
-                GraphNode(id="n1", role="planner", next=["n2"]),
-                GraphNode(id="n2", role="coder", next=["n3"]),
-                GraphNode(id="n3", role="reviewer", next=["n2"]),
-            ],
+            loop_enabled=False,
+            graph=feedback_graph(),
         )
         engine = SimulationEngine()
         r_chain = engine.monte_carlo(chain, num_runs=200)
@@ -719,42 +845,61 @@ class TestFeedbackRework:
 
 class TestParallelCoders:
     def test_parallel_improves_or_matches_success(self):
-        """Parallel coders should not hurt success rate vs single coder chain."""
         single = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            has_context_injection=True,
             memory_capacity=6,
-            loop_type="react_reflexion",
-            max_retries=3,
-            stop_condition="test_pass",
-            graph_nodes=[
-                GraphNode(id="p", role="planner", next=["c"]),
-                GraphNode(id="c", role="coder", next=["r"]),
-                GraphNode(id="r", role="reviewer", next=[]),
-            ],
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=3,
+            graph=chain_graph(),
         )
         parallel = make_blueprint(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            has_context_injection=True,
             memory_capacity=6,
-            loop_type="react_reflexion",
-            max_retries=3,
-            stop_condition="test_pass",
-            graph_nodes=[
-                GraphNode(id="p", role="planner", next=["c1", "c2"]),
-                GraphNode(id="c1", role="coder", next=["r"]),
-                GraphNode(id="c2", role="coder", next=["r"]),
-                GraphNode(id="r", role="reviewer", next=[]),
-            ],
+            loop_enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=3,
+            graph=parallel_graph(),
         )
         engine = SimulationEngine()
         r_single = engine.monte_carlo(single, num_runs=200)
         r_parallel = engine.monte_carlo(parallel, num_runs=200)
-        # Parallel should be at least as good (risk spreading)
         assert r_parallel["success_rate"] >= r_single["success_rate"] - 0.05
-        # And topology should be detected
         sample = r_parallel["sample_traces"][0]
         assert sample.topology is not None
         assert sample.topology.kind == "parallel"
+
+
+# ---------------------------------------------------------------------------
+# Budget guard
+# ---------------------------------------------------------------------------
+
+
+class TestBudgetGuard:
+    def test_budget_exhausted_when_cap_low(self):
+        bp = make_blueprint(
+            has_tool_surface=True,
+            has_sandbox_isolation=True,
+            has_persistence=True,
+            has_budget_guard=True,
+            token_budget_cap=100,
+            memory_capacity=5,
+            loop_enabled=False,
+        )
+        engine = SimulationEngine()
+        count = 0
+        for i in range(50):
+            trace = engine.simulate(bp, seed=50000 + i)
+            if trace.failure_reason == FailureReason.BUDGET_EXHAUSTED:
+                count += 1
+        assert count > 0

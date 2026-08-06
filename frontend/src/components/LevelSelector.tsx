@@ -11,15 +11,15 @@ export default function LevelSelector() {
     setSelectedLevelId,
     selectedLevel,
     monteCarloResult,
-    reopenIntro,
-    dismissedIntros,
   } = useGame();
 
   const harnessLabels: Record<string, string> = {
-    workspace: t('harness.workspace'),
-    sandbox: t('harness.sandbox'),
-    git: t('harness.git'),
-    memory: t('harness.memoryCapacity'),
+    context_injection: t('harness.contextInjection'),
+    tool_surface: t('harness.toolSurface'),
+    persistence: t('harness.persistence'),
+    budget_guard: t('harness.budgetGuard'),
+    sandbox_isolation: t('harness.sandboxIsolation'),
+    tracing: t('harness.tracing'),
   };
 
   const getLevelName = (id: string) => {
@@ -155,15 +155,6 @@ export default function LevelSelector() {
                   {t(`levels.${selectedLevel.id}.tutorial`, '')}
                 </p>
               </div>
-
-              {dismissedIntros.includes(selectedLevelId) && (
-                <button
-                  onClick={() => reopenIntro(selectedLevelId)}
-                  className="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  {t('intro.reopen')}
-                </button>
-              )}
 
               {hasBeatenCurrent && nextLevel && (
                 <div className="pt-2">

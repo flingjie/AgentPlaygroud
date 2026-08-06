@@ -1,6 +1,6 @@
 """Tests for level definitions."""
 
-from app.levels import ALL_LEVELS, LEVELS_BY_ID
+from app.levels import ALL_LEVELS, HARNESS_SIX_KEYS, LEVELS_BY_ID
 
 
 class TestLevels:
@@ -53,21 +53,20 @@ class TestLevels:
 
     def test_level_2_has_harness_no_loop(self):
         l2 = LEVELS_BY_ID["level_2_harness"]
-        assert "workspace" in l2.unlocked_harness
-        assert "sandbox" in l2.unlocked_harness
-        assert "git" in l2.unlocked_harness
-        assert "memory" in l2.unlocked_harness
+        assert set(l2.unlocked_harness) == set(HARNESS_SIX_KEYS)
         assert l2.unlocked_loop is False
         assert l2.unlocked_graph is False
 
     def test_level_3_has_loop_no_graph(self):
         l3 = LEVELS_BY_ID["level_3_loop"]
+        assert set(l3.unlocked_harness) == set(HARNESS_SIX_KEYS)
         assert l3.unlocked_loop is True
         assert l3.unlocked_graph is False
 
     def test_level_4_has_everything(self):
         l4 = LEVELS_BY_ID["level_4_graph"]
-        assert len(l4.unlocked_harness) == 4
+        assert len(l4.unlocked_harness) == 6
+        assert set(l4.unlocked_harness) == set(HARNESS_SIX_KEYS)
         assert l4.unlocked_loop is True
         assert l4.unlocked_graph is True
 
@@ -77,5 +76,4 @@ class TestLevels:
     def test_all_levels_are_valid_pydantic(self):
         """LevelInfo models should validate without error."""
         for lvl in ALL_LEVELS:
-            # Accessing fields confirms deserialization succeeded
             _ = lvl.id, lvl.name, lvl.target_success_rate, lvl.token_budget

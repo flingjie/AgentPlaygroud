@@ -2,7 +2,14 @@
 
 import pytest
 
-from app.models import AgentBlueprint, GraphNode, HarnessConfig, LoopStrategy
+from app.models import (
+    AgentBlueprint,
+    GraphEdge,
+    GraphNode,
+    GraphSpec,
+    HarnessConfig,
+    LoopConfig,
+)
 
 
 @pytest.fixture
@@ -11,14 +18,9 @@ def level_1_blueprint() -> AgentBlueprint:
     return AgentBlueprint(
         level_id="level_1_raw",
         run_seed=42,
-        harness=HarnessConfig(
-            has_workspace=False,
-            has_sandbox=False,
-            has_git=False,
-            memory_capacity=3,
-        ),
-        loop_strategy=LoopStrategy(type="none", max_retries=1, stop_condition="none"),
-        graph_nodes=[GraphNode(id="node_1", role="coder", next=[])],
+        harness=HarnessConfig(memory_capacity=3),
+        loop=LoopConfig(enabled=False),
+        graph=GraphSpec(nodes=[GraphNode(id="node_1", role="coder")]),
     )
 
 
@@ -29,19 +31,31 @@ def level_4_blueprint() -> AgentBlueprint:
         level_id="level_4_graph",
         run_seed=42,
         harness=HarnessConfig(
-            has_workspace=True,
-            has_sandbox=True,
-            has_git=True,
+            has_context_injection=True,
+            has_tool_surface=True,
+            has_persistence=True,
+            has_budget_guard=True,
+            has_sandbox_isolation=True,
+            has_tracing=True,
             memory_capacity=9,
         ),
-        loop_strategy=LoopStrategy(
-            type="react_reflexion",
-            max_retries=5,
-            stop_condition="test_pass",
+        loop=LoopConfig(
+            enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            stop_on="evidence_pass",
+            max_iterations=5,
         ),
-        graph_nodes=[
-            GraphNode(id="n1", role="planner", next=["n2"]),
-            GraphNode(id="n2", role="coder", next=["n3"]),
-            GraphNode(id="n3", role="reviewer", next=[]),
-        ],
+        graph=GraphSpec(
+            nodes=[
+                GraphNode(id="n1", role="planner"),
+                GraphNode(id="n2", role="coder"),
+                GraphNode(id="n3", role="reviewer"),
+            ],
+            edges=[
+                GraphEdge(source="n1", target="n2"),
+                GraphEdge(source="n2", target="n3"),
+            ],
+            entry="n1",
+        ),
     )

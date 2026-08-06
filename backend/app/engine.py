@@ -7,9 +7,12 @@ from typing import Generator, Literal
 
 from app.models import (
     AgentBlueprint,
-    FailureEvent,
     FailureReason,
+    GraphEdge,
     GraphNode,
+    GraphSpec,
+    HarnessConfig,
+    LoopConfig,
     RunTrace,
     StepStatus,
     TopologyInfo,
@@ -25,6 +28,8 @@ ACTION_TOKEN_COST: dict[str, int] = {
     "EDIT_FILE": 2500,
     "RUN_TEST": 1500,
     "RETRY": 800,
+    "CHECK_EVIDENCE": 500,
+    "STOP": 100,
 }
 
 REFLECTION_KEYS = [
@@ -40,11 +45,11 @@ REFLECTION_KEYS = [
 # ---------------------------------------------------------------------------
 WARNING_HALLUCINATED_TOOL = (
     "Agent attempted to use a tool that does not exist — "
-    "no sandbox or workspace available. Add Sandbox or Git Workspace."
+    "no tool surface available. Enable has_tool_surface."
 )
 WARNING_FILE_CORROSION = (
-    "Multiple EDIT_FILE actions without Git tracking caused file corruption. "
-    "Enable Git harness to track changes and roll back."
+    "Multiple EDIT_FILE actions without persistence caused file corruption. "
+    "Enable has_persistence to track changes and roll back."
 )
 WARNING_MEMORY_OVERFLOW = (
     "Memory stack overflow — too many steps without adequate memory buffer. "
@@ -52,15 +57,23 @@ WARNING_MEMORY_OVERFLOW = (
 )
 WARNING_CONTEXT_FULL = (
     "Context window full — memory capacity exhausted during retry loop. "
-    "Increase memory capacity or use sub-agents to isolate context."
+    "Increase memory capacity, use a leaner state_policy, or isolate via graph."
 )
 WARNING_INFINITE_LOOP = (
-    "Agent stuck in infinite retry loop — retries exhausted without success. "
-    "Add a stop_condition (test_pass) or increase max_retries."
+    "Agent stuck in infinite retry loop — max_iterations exhausted without "
+    "evidence pass. Raise max_iterations or improve feedback/evidence."
 )
 WARNING_TASK_ABANDONED = (
-    "Task abandoned after first test failure — no loop strategy configured. "
-    "Add a Loop strategy (react_reflexion) to enable retries."
+    "Task abandoned after first test failure — no loop enabled. "
+    "Enable LoopConfig to retry on evidence."
+)
+WARNING_BUDGET_EXHAUSTED = (
+    "Token budget exhausted — has_budget_guard enforced the cap. "
+    "Raise token_budget_cap or reduce loop iterations."
+)
+WARNING_UNGROUNDED_STOP = (
+    "Agent claimed done without grounded evidence — stop_on=agent_says_done. "
+    "Use stop_on=evidence_pass with a real evidence source."
 )
 
 
@@ -85,9 +98,7 @@ class SimulationEngine:
         self.rng = random.Random(run_seed)
         run_id = str(uuid.UUID(int=self.rng.getrandbits(128)))
 
-        steps, cost_tokens, failure_reason, failure_events, topology = (
-            self._run_simulation(blueprint)
-        )
+        steps, cost_tokens, failure_reason, topology = self._run_simulation(blueprint)
 
         status = "SUCCESS" if failure_reason == FailureReason.NONE else "FAILED"
 
@@ -97,7 +108,6 @@ class SimulationEngine:
             failure_reason=failure_reason,
             cost_tokens=cost_tokens,
             steps=steps,
-            failure_events=failure_events,
             topology=topology,
         )
 
@@ -114,7 +124,6 @@ class SimulationEngine:
         collected_steps: list[TraceStep] = []
         cost_tokens = 0
         failure_reason = FailureReason.NONE
-        failure_events: list[FailureEvent] = []
         topology: TopologyInfo | None = None
 
         while True:
@@ -125,7 +134,6 @@ class SimulationEngine:
                 if result is not None:
                     cost_tokens = result["cost_tokens"]
                     failure_reason = result["failure_reason"]
-                    failure_events = result["failure_events"]
                     topology = result["topology"]
                 break
 
@@ -140,7 +148,6 @@ class SimulationEngine:
             failure_reason=failure_reason,
             cost_tokens=cost_tokens,
             steps=collected_steps,
-            failure_events=failure_events,
             topology=topology,
         )
 
@@ -177,7 +184,7 @@ class SimulationEngine:
 
     def _run_simulation(
         self, blueprint: AgentBlueprint
-    ) -> tuple[list[TraceStep], int, FailureReason, list[FailureEvent], TopologyInfo]:
+    ) -> tuple[list[TraceStep], int, FailureReason, TopologyInfo]:
         """Non-streaming simulation core."""
         gen = self._run_simulation_iter(blueprint)
         steps: list[TraceStep] = []
@@ -195,9 +202,22 @@ class SimulationEngine:
             steps,
             result["cost_tokens"],
             result["failure_reason"],
-            result["failure_events"],
             result["topology"],
         )
+
+    @staticmethod
+    def _effective_graph(blueprint: AgentBlueprint) -> GraphSpec:
+        """Return graph with a default single coder when nodes are empty."""
+        graph = blueprint.graph
+        if not graph.nodes:
+            return GraphSpec(
+                state_schema=list(graph.state_schema),
+                nodes=[GraphNode(id="node_1", role="coder")],
+                edges=list(graph.edges),
+                entry=graph.entry or "node_1",
+                checkpointing=graph.checkpointing,
+            )
+        return graph
 
     def _run_simulation_iter(
         self, blueprint: AgentBlueprint
@@ -207,29 +227,27 @@ class SimulationEngine:
         memory_used = 0
         cost_tokens = 0
         failure_reason = FailureReason.NONE
-        failure_events: list[FailureEvent] = []
 
         harness = blueprint.harness
-        loop = blueprint.loop_strategy
-        nodes = blueprint.graph_nodes
+        loop = blueprint.loop
+        graph = self._effective_graph(blueprint)
+        nodes = graph.nodes
+        edges = graph.edges
 
-        topology = self._analyze_topology(nodes)
-        node_order = self._resolve_node_order(nodes)
+        topology = self._analyze_topology(nodes, edges)
+        node_order = self._resolve_node_order(nodes, edges, graph.entry)
         hq = self._harness_quality(harness)
         graph_bonus = self._has_graph_bonus(nodes)
         num_nodes = len(node_order)
         multi_agent = num_nodes > 1 and graph_bonus
 
         coder_edit_count = 0
-        has_loop = loop.type != "none"
+        has_loop = loop.enabled
         has_tester = any(n.role == "tester" for n in node_order)
-
-        # Group parallel coders for risk-spreading semantics
-        parallel_coder_ids = self._parallel_coder_ids(nodes, topology)
+        parallel_coder_ids = self._parallel_coder_ids(nodes, edges, topology)
 
         # --- Simulate each node in order ---
         for node in node_order:
-            # Skip isolated nodes in multi-node graphs (still simulate but mark)
             node_steps, node_memory, node_tokens, node_failure = self._simulate_node(
                 node=node,
                 blueprint=blueprint,
@@ -245,14 +263,8 @@ class SimulationEngine:
                 s.step = len(steps) + 1
                 steps.append(s)
                 yield s
-                if s.warning:
-                    fr = self._warning_to_failure(s.warning)
-                    if fr != FailureReason.NONE:
-                        failure_events.append(FailureEvent(reason=fr, step=s.step))
 
-            # Memory: isolated per-node for multi-agent; cumulative otherwise
             if multi_agent:
-                # Track peak local memory for capacity checks; don't accumulate
                 memory_used = max(memory_used, node_memory)
             else:
                 memory_used += node_memory
@@ -263,29 +275,29 @@ class SimulationEngine:
                     1 for s in node_steps if s.action == "EDIT_FILE"
                 )
 
-            # Parallel coder risk-spreading: if this coder failed but another
-            # parallel coder already succeeded (or will), defer failure.
             if (
                 node.role == "coder"
                 and node.id in parallel_coder_ids
                 and node_failure != FailureReason.NONE
             ):
-                # Check if any sibling parallel coder produced clean EDIT_FILE
                 sibling_ok = False
                 for sib_id in parallel_coder_ids:
                     if sib_id == node.id:
                         continue
-                    sib_steps = [s for s in steps if s.node == sib_id and s.action == "EDIT_FILE"]
-                    if sib_steps and all(s.status == StepStatus.SUCCESS for s in sib_steps):
+                    sib_steps = [
+                        s for s in steps if s.node == sib_id and s.action == "EDIT_FILE"
+                    ]
+                    if sib_steps and all(
+                        s.status == StepStatus.SUCCESS for s in sib_steps
+                    ):
                         sibling_ok = True
                         break
-                # Also check: if this is the first parallel coder and others
-                # haven't run yet, keep the failure tentatively — we'll
-                # re-evaluate after all parallel coders finish.
                 remaining = [
-                    n for n in node_order
+                    n
+                    for n in node_order
                     if n.id in parallel_coder_ids
-                    and n.id not in {s.node for s in steps if s.action == "EDIT_FILE"}
+                    and n.id
+                    not in {s.node for s in steps if s.action == "EDIT_FILE"}
                 ]
                 if sibling_ok or remaining:
                     node_failure = FailureReason.NONE
@@ -293,7 +305,6 @@ class SimulationEngine:
             if failure_reason == FailureReason.NONE and node_failure != FailureReason.NONE:
                 failure_reason = node_failure
 
-        # After all nodes: re-check parallel coder success
         if parallel_coder_ids and failure_reason != FailureReason.NONE:
             any_clean = False
             for cid in parallel_coder_ids:
@@ -301,53 +312,157 @@ class SimulationEngine:
                 if edits and all(s.status == StepStatus.SUCCESS for s in edits):
                     any_clean = True
                     break
-            if any_clean:
-                # Clear node-level failure if at least one coder succeeded
-                # (keep failure_events for pedagogy — player sees the failed branch)
-                if failure_reason in (
-                    FailureReason.HALLUCINATED_TOOL,
-                    FailureReason.FILE_CORROSION,
-                    FailureReason.MEMORY_STACK_OVERFLOW,
-                    FailureReason.CONTEXT_FULL,
-                ):
-                    failure_reason = FailureReason.NONE
+            if any_clean and failure_reason in (
+                FailureReason.HALLUCINATED_TOOL,
+                FailureReason.FILE_CORROSION,
+                FailureReason.MEMORY_STACK_OVERFLOW,
+                FailureReason.CONTEXT_FULL,
+            ):
+                failure_reason = FailureReason.NONE
 
-        # --- Post-simulation failure checks ---
         if failure_reason == FailureReason.NONE:
             cross = self._check_cross_cut_failures(
                 blueprint, steps, memory_used, coder_edit_count
             )
             if cross != FailureReason.NONE:
                 failure_reason = cross
-                failure_events.append(
-                    FailureEvent(reason=cross, step=len(steps))
-                )
 
         last_node_id = node_order[-1].id if node_order else "node_1"
-        # Prefer tester node for final RUN_TEST if present
         tester_node = next((n for n in node_order if n.role == "tester"), None)
         test_node_id = tester_node.id if tester_node else last_node_id
 
-        # --- Run loop / test simulation ---
+        if failure_reason == FailureReason.NONE:
+            budget_fail = self._check_budget(harness, cost_tokens)
+            if budget_fail != FailureReason.NONE:
+                failure_reason = budget_fail
+                s = TraceStep(
+                    step=len(steps) + 1,
+                    node=test_node_id,
+                    action="STOP",
+                    status=StepStatus.FAIL,
+                    memory_used=memory_used,
+                    warning=WARNING_BUDGET_EXHAUSTED,
+                )
+                steps.append(s)
+                yield s
+                cost_tokens += ACTION_TOKEN_COST["STOP"]
+
+        # --- Loop / test simulation ---
         if failure_reason == FailureReason.NONE:
             if has_loop:
-                loop_ok, retries_used, _ = self._simulate_loop(
-                    loop.max_retries, hq, loop.type
-                )
-                if not loop_ok:
-                    failure_reason = FailureReason.INFINITE_LOOP_TRAP
-                    # Attempt feedback rework before committing the failure
-                    if topology.has_feedback:
-                        rescued, rework_steps, rework_tokens = self._attempt_feedback_rework(
-                            blueprint, node_order, memory_used, hq
+                # --- Ungrounded stop ---
+                if loop.stop_on == "agent_says_done":
+                    evidence_ok = False
+                    if loop.evidence != "none":
+                        evidence_ok = self.rng.random() > max(0.1, 0.55 - hq)
+
+                    if loop.evidence != "none":
+                        s = TraceStep(
+                            step=len(steps) + 1,
+                            node=test_node_id,
+                            action="CHECK_EVIDENCE",
+                            status=(
+                                StepStatus.SUCCESS if evidence_ok else StepStatus.FAIL
+                            ),
+                            memory_used=memory_used,
+                            warning=None if evidence_ok else WARNING_UNGROUNDED_STOP,
                         )
-                        for s in rework_steps:
-                            s.step = len(steps) + 1
-                            steps.append(s)
-                            yield s
-                        cost_tokens += rework_tokens
-                        if rescued:
-                            failure_reason = FailureReason.NONE
+                        steps.append(s)
+                        yield s
+                        cost_tokens += ACTION_TOKEN_COST["CHECK_EVIDENCE"]
+
+                    if evidence_ok and loop.evidence != "none":
+                        # Evidence happened to pass — still often ungrounded
+                        if self.rng.random() < 0.7:
+                            failure_reason = FailureReason.UNGROUNDED_STOP
+                            s = TraceStep(
+                                step=len(steps) + 1,
+                                node=test_node_id,
+                                action="STOP",
+                                status=StepStatus.FAIL,
+                                memory_used=memory_used,
+                                warning=WARNING_UNGROUNDED_STOP,
+                            )
+                        else:
+                            s = TraceStep(
+                                step=len(steps) + 1,
+                                node=test_node_id,
+                                action="STOP",
+                                status=StepStatus.SUCCESS,
+                                memory_used=memory_used,
+                            )
+                        steps.append(s)
+                        yield s
+                        cost_tokens += ACTION_TOKEN_COST["STOP"]
+                    else:
+                        failure_reason = FailureReason.UNGROUNDED_STOP
+                        s = TraceStep(
+                            step=len(steps) + 1,
+                            node=test_node_id,
+                            action="STOP",
+                            status=StepStatus.FAIL,
+                            memory_used=memory_used,
+                            warning=WARNING_UNGROUNDED_STOP,
+                        )
+                        steps.append(s)
+                        yield s
+                        cost_tokens += ACTION_TOKEN_COST["STOP"]
+
+                else:
+                    # evidence_pass or budget_or_max
+                    loop_ok, retries_used, _ = self._simulate_loop(loop, hq)
+
+                    ctx_risk = self._context_full_risk(loop, harness, memory_used)
+                    if ctx_risk > 0 and self.rng.random() < ctx_risk:
+                        failure_reason = FailureReason.CONTEXT_FULL
+                        s = TraceStep(
+                            step=len(steps) + 1,
+                            node=test_node_id,
+                            action="RETRY",
+                            status=StepStatus.FAIL,
+                            memory_used=memory_used,
+                            warning=WARNING_CONTEXT_FULL,
+                        )
+                        steps.append(s)
+                        yield s
+                        cost_tokens += ACTION_TOKEN_COST["RETRY"]
+                    elif not loop_ok:
+                        failure_reason = FailureReason.INFINITE_LOOP_TRAP
+                        if topology.has_feedback:
+                            rescued, rework_steps, rework_tokens = (
+                                self._attempt_feedback_rework(
+                                    blueprint, node_order, memory_used, hq
+                                )
+                            )
+                            for s in rework_steps:
+                                s.step = len(steps) + 1
+                                steps.append(s)
+                                yield s
+                            cost_tokens += rework_tokens
+                            if rescued:
+                                failure_reason = FailureReason.NONE
+                                s = TraceStep(
+                                    step=len(steps) + 1,
+                                    node=test_node_id,
+                                    action="STOP",
+                                    status=StepStatus.SUCCESS,
+                                    memory_used=memory_used,
+                                )
+                                steps.append(s)
+                                yield s
+                                cost_tokens += ACTION_TOKEN_COST["STOP"]
+                            else:
+                                s = TraceStep(
+                                    step=len(steps) + 1,
+                                    node=test_node_id,
+                                    action="RETRY",
+                                    status=StepStatus.FAIL,
+                                    memory_used=memory_used,
+                                    warning=WARNING_INFINITE_LOOP,
+                                )
+                                steps.append(s)
+                                yield s
+                                cost_tokens += ACTION_TOKEN_COST["RETRY"]
                         else:
                             s = TraceStep(
                                 step=len(steps) + 1,
@@ -360,62 +475,56 @@ class SimulationEngine:
                             steps.append(s)
                             yield s
                             cost_tokens += ACTION_TOKEN_COST["RETRY"]
-                            failure_events.append(
-                                FailureEvent(
-                                    reason=FailureReason.INFINITE_LOOP_TRAP,
-                                    step=s.step,
-                                )
-                            )
                     else:
-                        s = TraceStep(
-                            step=len(steps) + 1,
-                            node=test_node_id,
-                            action="RETRY",
-                            status=StepStatus.FAIL,
-                            memory_used=memory_used,
-                            warning=WARNING_INFINITE_LOOP,
+                        use_reflexion = (
+                            loop.evidence != "none" and loop.feedback == "reflexion"
                         )
-                        steps.append(s)
-                        yield s
-                        cost_tokens += ACTION_TOKEN_COST["RETRY"]
-                        failure_events.append(
-                            FailureEvent(
-                                reason=FailureReason.INFINITE_LOOP_TRAP,
-                                step=s.step,
+                        for r in range(retries_used):
+                            if r == 0:
+                                action = "RUN_TEST"
+                                reflection = None
+                            else:
+                                action = "RETRY"
+                                reflection = None
+                                if use_reflexion:
+                                    reflection = REFLECTION_KEYS[
+                                        (r - 1) % len(REFLECTION_KEYS)
+                                    ]
+                            s = TraceStep(
+                                step=len(steps) + 1,
+                                node=test_node_id,
+                                action=action,
+                                status=StepStatus.SUCCESS,
+                                memory_used=memory_used,
+                                reflection=reflection,
                             )
-                        )
-                else:
-                    for r in range(retries_used):
-                        action = "RUN_TEST" if r == 0 else "RETRY"
-                        reflection = None
-                        if (
-                            action == "RETRY"
-                            and loop.type == "react_reflexion"
-                        ):
-                            reflection = REFLECTION_KEYS[
-                                (r - 1) % len(REFLECTION_KEYS)
-                            ]
+                            steps.append(s)
+                            yield s
+                            cost_tokens += ACTION_TOKEN_COST.get(action, 1000)
+
+                        if loop.evidence != "none":
+                            s = TraceStep(
+                                step=len(steps) + 1,
+                                node=test_node_id,
+                                action="CHECK_EVIDENCE",
+                                status=StepStatus.SUCCESS,
+                                memory_used=memory_used,
+                            )
+                            steps.append(s)
+                            yield s
+                            cost_tokens += ACTION_TOKEN_COST["CHECK_EVIDENCE"]
+
                         s = TraceStep(
                             step=len(steps) + 1,
                             node=test_node_id,
-                            action=action,
+                            action="STOP",
                             status=StepStatus.SUCCESS,
                             memory_used=memory_used,
-                            reflection=reflection,
                         )
                         steps.append(s)
                         yield s
-                        cost_tokens += ACTION_TOKEN_COST.get(action, 1000)
-                    s = TraceStep(
-                        step=len(steps) + 1,
-                        node=test_node_id,
-                        action="RUN_TEST",
-                        status=StepStatus.SUCCESS,
-                        memory_used=memory_used,
-                    )
-                    steps.append(s)
-                    yield s
-                    cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
+                        cost_tokens += ACTION_TOKEN_COST["STOP"]
+
             else:
                 # No loop — single test attempt
                 test_pass = self.rng.random() > max(0.1, 0.7 - hq)
@@ -431,22 +540,28 @@ class SimulationEngine:
                     yield s
                     cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
                 else:
-                    # Tester safety net: one extra retest before abandoning
+                    abandoned = True
                     if has_tester:
                         retest_pass = self.rng.random() > max(0.1, 0.55 - hq)
                         s = TraceStep(
                             step=len(steps) + 1,
                             node=test_node_id,
                             action="RUN_TEST",
-                            status=StepStatus.FAIL if not retest_pass else StepStatus.SUCCESS,
+                            status=(
+                                StepStatus.SUCCESS
+                                if retest_pass
+                                else StepStatus.FAIL
+                            ),
                             memory_used=memory_used,
-                            warning=WARNING_TASK_ABANDONED if not retest_pass else None,
+                            warning=(
+                                None if retest_pass else WARNING_TASK_ABANDONED
+                            ),
                         )
                         steps.append(s)
                         yield s
                         cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
                         if retest_pass:
-                            # Extra confirmation RUN_TEST
+                            abandoned = False
                             s2 = TraceStep(
                                 step=len(steps) + 1,
                                 node=test_node_id,
@@ -457,53 +572,22 @@ class SimulationEngine:
                             steps.append(s2)
                             yield s2
                             cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
-                        else:
-                            # Feedback rework chance
-                            if topology.has_feedback:
-                                rescued, rework_steps, rework_tokens = (
-                                    self._attempt_feedback_rework(
-                                        blueprint, node_order, memory_used, hq
-                                    )
-                                )
-                                for rs in rework_steps:
-                                    rs.step = len(steps) + 1
-                                    steps.append(rs)
-                                    yield rs
-                                cost_tokens += rework_tokens
-                                if rescued:
-                                    pass  # SUCCESS
-                                else:
-                                    failure_reason = FailureReason.TASK_ABANDONED
-                                    failure_events.append(
-                                        FailureEvent(
-                                            reason=FailureReason.TASK_ABANDONED,
-                                            step=s.step,
-                                        )
-                                    )
-                            else:
-                                failure_reason = FailureReason.TASK_ABANDONED
-                                failure_events.append(
-                                    FailureEvent(
-                                        reason=FailureReason.TASK_ABANDONED,
-                                        step=s.step,
-                                    )
-                                )
                     else:
-                        # Feedback rework before abandoning
-                        if topology.has_feedback:
-                            # Record the failed test first
-                            s = TraceStep(
-                                step=len(steps) + 1,
-                                node=test_node_id,
-                                action="RUN_TEST",
-                                status=StepStatus.FAIL,
-                                memory_used=memory_used,
-                                warning=WARNING_TASK_ABANDONED,
-                            )
-                            steps.append(s)
-                            yield s
-                            cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
+                        s = TraceStep(
+                            step=len(steps) + 1,
+                            node=test_node_id,
+                            action="RUN_TEST",
+                            status=StepStatus.FAIL,
+                            memory_used=memory_used,
+                            warning=WARNING_TASK_ABANDONED,
+                        )
+                        steps.append(s)
+                        yield s
+                        cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
 
+                    if abandoned:
+                        rescued = False
+                        if topology.has_feedback:
                             rescued, rework_steps, rework_tokens = (
                                 self._attempt_feedback_rework(
                                     blueprint, node_order, memory_used, hq
@@ -514,84 +598,104 @@ class SimulationEngine:
                                 steps.append(rs)
                                 yield rs
                             cost_tokens += rework_tokens
-                            if rescued:
-                                pass
-                            else:
-                                failure_reason = FailureReason.TASK_ABANDONED
-                                failure_events.append(
-                                    FailureEvent(
-                                        reason=FailureReason.TASK_ABANDONED,
-                                        step=s.step,
-                                    )
-                                )
-                        else:
-                            failure_reason = FailureReason.TASK_ABANDONED
-                            s = TraceStep(
+
+                        if rescued:
+                            failure_reason = FailureReason.NONE
+                        elif graph.checkpointing and self.rng.random() < 0.45:
+                            failure_reason = FailureReason.NONE
+                            s3 = TraceStep(
                                 step=len(steps) + 1,
                                 node=test_node_id,
                                 action="RUN_TEST",
-                                status=StepStatus.FAIL,
+                                status=StepStatus.SUCCESS,
                                 memory_used=memory_used,
-                                warning=WARNING_TASK_ABANDONED,
                             )
-                            steps.append(s)
-                            yield s
+                            steps.append(s3)
+                            yield s3
                             cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
-                            failure_events.append(
-                                FailureEvent(
-                                    reason=FailureReason.TASK_ABANDONED,
-                                    step=s.step,
-                                )
-                            )
+                        else:
+                            failure_reason = FailureReason.TASK_ABANDONED
+
+        # Final budget check
+        if failure_reason == FailureReason.NONE:
+            budget_fail = self._check_budget(harness, cost_tokens)
+            if budget_fail != FailureReason.NONE:
+                failure_reason = budget_fail
+                s = TraceStep(
+                    step=len(steps) + 1,
+                    node=test_node_id,
+                    action="STOP",
+                    status=StepStatus.FAIL,
+                    memory_used=memory_used,
+                    warning=WARNING_BUDGET_EXHAUSTED,
+                )
+                steps.append(s)
+                yield s
+                cost_tokens += ACTION_TOKEN_COST["STOP"]
 
         return {
             "cost_tokens": cost_tokens,
             "failure_reason": failure_reason,
-            "failure_events": failure_events,
             "topology": topology,
         }
 
     # ------------------------------------------------------------------
-    # Topology analysis
+    # Topology analysis (adapted to GraphSpec edges)
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _analyze_topology(nodes: list[GraphNode]) -> TopologyInfo:
+    def _adjacency(
+        nodes: list[GraphNode], edges: list[GraphEdge]
+    ) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+        node_ids = {n.id for n in nodes}
+        outgoing: dict[str, list[str]] = defaultdict(list)
+        incoming: dict[str, list[str]] = defaultdict(list)
+        for e in edges:
+            if e.source in node_ids and e.target in node_ids:
+                outgoing[e.source].append(e.target)
+                incoming[e.target].append(e.source)
+        return outgoing, incoming
+
+    @staticmethod
+    def _analyze_topology(
+        nodes: list[GraphNode], edges: list[GraphEdge] | None = None
+    ) -> TopologyInfo:
         """Classify graph topology: single / chain / parallel / feedback."""
         if not nodes:
             return TopologyInfo(kind="single")
         if len(nodes) == 1:
             return TopologyInfo(kind="single")
 
+        edges = edges or []
         node_map = {n.id: n for n in nodes}
-        incoming: dict[str, list[str]] = defaultdict(list)
-        for n in nodes:
-            for nxt in n.next:
-                if nxt in node_map:
-                    incoming[nxt].append(n.id)
+        outgoing, incoming = SimulationEngine._adjacency(nodes, edges)
 
-        # Isolated: no in, no out, in a multi-node graph with other connected nodes
         isolated = [
-            n.id for n in nodes if not n.next and n.id not in incoming
+            n.id for n in nodes if not outgoing[n.id] and n.id not in incoming
         ]
         connected = [n for n in nodes if n.id not in isolated]
         if len(connected) <= 1:
             isolated = []
 
-        # True feedback = cycle (back-edge), not mere diamond/join convergence
-        has_feedback = SimulationEngine._has_cycle(nodes)
-        # Also treat explicit reviewer → coder/planner as feedback even if
-        # topological walk skipped the back-edge for ordering
+        has_feedback = SimulationEngine._has_cycle(nodes, edges)
         if not has_feedback:
-            for n in nodes:
-                if n.role == "reviewer":
-                    for nxt in n.next:
-                        target = node_map.get(nxt)
-                        if target and target.role in ("coder", "planner"):
-                            has_feedback = True
-                            break
+            for e in edges:
+                if e.condition in ("on_fail", "on_review_reject"):
+                    has_feedback = True
+                    break
+        if not has_feedback:
+            for e in edges:
+                src = node_map.get(e.source)
+                tgt = node_map.get(e.target)
+                if (
+                    src
+                    and tgt
+                    and src.role == "reviewer"
+                    and tgt.role in ("coder", "planner")
+                ):
+                    has_feedback = True
+                    break
 
-        # Parallel: ≥2 coders that share a predecessor or are both roots
         coders = [n for n in nodes if n.role == "coder"]
         parallel_coders = 0
         if len(coders) >= 2:
@@ -622,15 +726,15 @@ class SimulationEngine:
         )
 
     @staticmethod
-    def _has_cycle(nodes: list[GraphNode]) -> bool:
+    def _has_cycle(nodes: list[GraphNode], edges: list[GraphEdge]) -> bool:
         """DFS cycle detection (gray-node back-edge)."""
         WHITE, GRAY, BLACK = 0, 1, 2
         color = {n.id: WHITE for n in nodes}
-        node_map = {n.id: n for n in nodes}
+        outgoing, _ = SimulationEngine._adjacency(nodes, edges)
 
         def dfs(uid: str) -> bool:
             color[uid] = GRAY
-            for nxt in node_map[uid].next:
+            for nxt in outgoing[uid]:
                 if nxt not in color:
                     continue
                 if color[nxt] == GRAY:
@@ -647,7 +751,9 @@ class SimulationEngine:
 
     @staticmethod
     def _parallel_coder_ids(
-        nodes: list[GraphNode], topology: TopologyInfo
+        nodes: list[GraphNode],
+        edges: list[GraphEdge],
+        topology: TopologyInfo,
     ) -> set[str]:
         """Return the set of coder node IDs that are considered parallel."""
         if topology.parallel_coders < 2:
@@ -656,12 +762,7 @@ class SimulationEngine:
         if len(coders) < 2:
             return set()
 
-        node_map = {n.id: n for n in nodes}
-        incoming: dict[str, list[str]] = defaultdict(list)
-        for n in nodes:
-            for nxt in n.next:
-                if nxt in node_map:
-                    incoming[nxt].append(n.id)
+        _, incoming = SimulationEngine._adjacency(nodes, edges)
 
         roots = [n for n in coders if n.id not in incoming]
         if len(roots) >= 2:
@@ -678,37 +779,44 @@ class SimulationEngine:
 
     @staticmethod
     def _has_graph_bonus(nodes: list[GraphNode]) -> bool:
-        """Return True if the graph forms a planner→coder→reviewer chain.
-
-        Kept as a thin wrapper for backward-compatible tests.
-        """
+        """Return True if the graph forms a planner→coder→reviewer chain."""
         if len(nodes) < 3:
             return False
         roles = {n.role for n in nodes}
         return roles >= {"planner", "coder", "reviewer"}
 
     @staticmethod
-    def _harness_quality(harness) -> float:
-        return 0.1 * (
-            harness.has_workspace + harness.has_sandbox + harness.has_git
-        ) + 0.05 * min(harness.memory_capacity, 10)
+    def _harness_quality(harness: HarnessConfig) -> float:
+        """Quality from five effect dims (tracing is observability-only) + memory."""
+        dims = (
+            harness.has_context_injection
+            + harness.has_tool_surface
+            + harness.has_persistence
+            + harness.has_budget_guard
+            + harness.has_sandbox_isolation
+        )
+        return 0.1 * dims + 0.05 * min(harness.memory_capacity, 10)
 
     @staticmethod
-    def _resolve_node_order(nodes: list[GraphNode]) -> list[GraphNode]:
-        """Topological traversal of graph nodes.  Falls back to definition
-        order if the graph is a simple chain or has no edges."""
+    def _resolve_node_order(
+        nodes: list[GraphNode],
+        edges: list[GraphEdge] | None = None,
+        entry: str | None = None,
+    ) -> list[GraphNode]:
+        """Topological traversal via edges. Falls back to definition order."""
         if not nodes:
             return []
 
+        edges = edges or []
         node_map = {n.id: n for n in nodes}
-        all_targets = set()
-        for n in nodes:
-            for nxt in n.next:
-                all_targets.add(nxt)
-        roots = [n for n in nodes if n.id not in all_targets]
+        outgoing, incoming = SimulationEngine._adjacency(nodes, edges)
 
-        if not roots:
-            roots = [nodes[0]]
+        if entry and entry in node_map:
+            roots = [node_map[entry]]
+        else:
+            roots = [n for n in nodes if n.id not in incoming]
+            if not roots:
+                roots = [nodes[0]]
 
         order: list[GraphNode] = []
         visited: set[str] = set()
@@ -718,11 +826,8 @@ class SimulationEngine:
                 return
             visited.add(n.id)
             order.append(n)
-            for nxt_id in n.next:
-                if nxt_id in node_map:
-                    # Skip back-edges for ordering (feedback handled separately)
-                    if nxt_id in visited:
-                        continue
+            for nxt_id in outgoing[n.id]:
+                if nxt_id in node_map and nxt_id not in visited:
                     walk(node_map[nxt_id])
 
         for root in roots:
@@ -749,16 +854,14 @@ class SimulationEngine:
         global_memory: int,
         coder_edit_count: int,
     ) -> tuple[list[TraceStep], int, int, FailureReason]:
-        """Simulate a single graph node and return (steps, memory_delta, tokens, failure)."""
+        """Simulate a single graph node; return (steps, memory_delta, tokens, failure)."""
         steps: list[TraceStep] = []
         memory_delta = 0
         tokens = 0
         failure = FailureReason.NONE
         harness = blueprint.harness
 
-        # Isolated full capacity per node when multi-agent; else shared
         node_memory_cap = harness.memory_capacity
-        # Local memory starts at 0 for multi-agent isolation
         local_memory = 0
 
         if node.role == "planner":
@@ -779,7 +882,9 @@ class SimulationEngine:
             memory_delta = local_memory
             tokens += ACTION_TOKEN_COST["THINK"]
 
-            mem_for_check = local_memory if multi_agent else global_memory + local_memory
+            mem_for_check = (
+                local_memory if multi_agent else global_memory + local_memory
+            )
             warning = self._check_step_failure(
                 blueprint, node, steps, mem_for_check, coder_edit_count + 1
             )
@@ -790,7 +895,9 @@ class SimulationEngine:
                 step_status = StepStatus.SUCCESS
                 step_failure = FailureReason.NONE
 
-            s = self._make_step(node.id, "EDIT_FILE", local_memory, warning, step_status)
+            s = self._make_step(
+                node.id, "EDIT_FILE", local_memory, warning, step_status
+            )
             steps.append(s)
             cost = self._memory_cost("EDIT_FILE", node_memory_cap, local_memory)
             local_memory += cost
@@ -802,7 +909,9 @@ class SimulationEngine:
 
             if self.rng.random() < 0.4 + hq * 0.3 and failure == FailureReason.NONE:
                 edit_count = coder_edit_count + 2
-                mem_for_check = local_memory if multi_agent else global_memory + local_memory
+                mem_for_check = (
+                    local_memory if multi_agent else global_memory + local_memory
+                )
                 warning2 = self._check_step_failure(
                     blueprint, node, steps, mem_for_check, edit_count
                 )
@@ -856,17 +965,16 @@ class SimulationEngine:
         memory_used: int,
         hq: float,
     ) -> tuple[bool, list[TraceStep], int]:
-        """One rework cycle: coder EDIT + reviewer THINK + RUN_TEST with halved error.
-
-        Returns (rescued, steps, tokens).
-        """
+        """One rework cycle: coder EDIT + reviewer THINK + RUN_TEST with halved error."""
         steps: list[TraceStep] = []
         tokens = 0
         coder = next((n for n in node_order if n.role == "coder"), None)
         reviewer = next((n for n in node_order if n.role == "reviewer"), None)
         tester = next((n for n in node_order if n.role == "tester"), None)
         test_id = (
-            tester.id if tester else (reviewer.id if reviewer else (coder.id if coder else "node_1"))
+            tester.id
+            if tester
+            else (reviewer.id if reviewer else (coder.id if coder else "node_1"))
         )
 
         if coder:
@@ -892,7 +1000,6 @@ class SimulationEngine:
             steps.append(s)
             tokens += ACTION_TOKEN_COST["THINK"]
 
-        # Halved error rate for rework test
         error_rate = max(0.05, (0.7 - hq) * 0.5)
         rescued = self.rng.random() > error_rate
         s = TraceStep(
@@ -916,15 +1023,20 @@ class SimulationEngine:
         memory_used: int,
         coder_edit_count: int,
     ) -> str | None:
-        """Check per-step failure injection rules. Returns a warning string or None."""
+        """Check per-step failure injection. Returns a warning string or None."""
         harness = blueprint.harness
-        loop = blueprint.loop_strategy
+        loop = blueprint.loop
 
-        if node.role == "coder" and not harness.has_sandbox and not harness.has_workspace:
-            if self.rng.random() < 0.5:
+        if node.role == "coder" and not harness.has_tool_surface:
+            rate = 0.65 if not harness.has_sandbox_isolation else 0.5
+            if self.rng.random() < rate:
                 return WARNING_HALLUCINATED_TOOL
 
-        if node.role == "coder" and not harness.has_git and coder_edit_count >= 2:
+        if (
+            node.role == "coder"
+            and not harness.has_persistence
+            and coder_edit_count >= 2
+        ):
             if self.rng.random() < 0.6:
                 return WARNING_FILE_CORROSION
 
@@ -937,9 +1049,18 @@ class SimulationEngine:
             if self.rng.random() < 0.5:
                 return WARNING_MEMORY_OVERFLOW
 
-        if loop.type != "none" and memory_used >= harness.memory_capacity:
-            if self.rng.random() < 0.4:
+        if loop.enabled and memory_used >= harness.memory_capacity:
+            risk = self._context_full_risk(loop, harness, memory_used)
+            if risk > 0 and self.rng.random() < risk:
                 return WARNING_CONTEXT_FULL
+
+        if (
+            not harness.has_context_injection
+            and node.role == "coder"
+            and total_steps >= 2
+            and self.rng.random() < 0.15
+        ):
+            return WARNING_CONTEXT_FULL
 
         return None
 
@@ -961,29 +1082,96 @@ class SimulationEngine:
             if self.rng.random() < 0.3:
                 return FailureReason.MEMORY_STACK_OVERFLOW
 
-        if not harness.has_git and coder_edit_count >= 2:
+        if not harness.has_persistence and coder_edit_count >= 2:
             if self.rng.random() < 0.4:
                 return FailureReason.FILE_CORROSION
 
-        if not harness.has_sandbox and not harness.has_workspace:
+        if not harness.has_tool_surface:
             if self.rng.random() < 0.3:
                 return FailureReason.HALLUCINATED_TOOL
 
         return FailureReason.NONE
 
+    @staticmethod
+    def _context_full_risk(
+        loop: LoopConfig, harness: HarnessConfig, memory_used: int
+    ) -> float:
+        """CONTEXT_FULL probability; higher when state_policy keeps history."""
+        if memory_used < harness.memory_capacity:
+            return 0.0
+        if not loop.enabled:
+            return 0.0
+        if loop.state_policy == "stateless":
+            return 0.2
+        if loop.state_policy == "keep_last_error":
+            return 0.55
+        return 0.75  # keep_run_summary
+
+    @staticmethod
+    def _check_budget(harness: HarnessConfig, cost_tokens: int) -> FailureReason:
+        if (
+            harness.has_budget_guard
+            and harness.token_budget_cap is not None
+            and cost_tokens > harness.token_budget_cap
+        ):
+            return FailureReason.BUDGET_EXHAUSTED
+        return FailureReason.NONE
+
     def _simulate_loop(
         self,
-        max_retries: int,
-        harness_quality: float,
-        loop_type: str = "react_reflexion",
+        loop: LoopConfig | int,
+        harness_quality: float = 0.0,
+        feedback_mode: str | None = None,
     ) -> tuple[bool, int, str | None]:
-        """Simulate a retry loop. Returns (success, retries_used, failure_reason)."""
-        for attempt in range(max_retries):
-            if loop_type == "retry_blind":
-                error_rate = max(0.1, 0.8 - harness_quality)
+        """Simulate a retry loop. Returns (success, retries_used, failure_reason).
+
+        Accepts either a LoopConfig or (max_retries, harness_quality, feedback_mode)
+        for test convenience: ``_simulate_loop(max_retries, hq, mode)``.
+        """
+        if isinstance(loop, int):
+            # Legacy/test call style: _simulate_loop(max_retries, hq, mode)
+            max_retries = loop
+            mode = feedback_mode or "reflexion"
+            if mode in ("none", "blind", "retry_blind"):
+                cfg = LoopConfig(
+                    enabled=True,
+                    evidence="none",
+                    feedback="none",
+                    max_iterations=max_retries,
+                    stop_on="evidence_pass",
+                )
+            elif mode == "compact_error":
+                cfg = LoopConfig(
+                    enabled=True,
+                    evidence="test_runner",
+                    feedback="compact_error",
+                    max_iterations=max_retries,
+                    stop_on="evidence_pass",
+                )
             else:
-                # react_reflexion: error decays with each attempt
+                cfg = LoopConfig(
+                    enabled=True,
+                    evidence="test_runner",
+                    feedback="reflexion",
+                    max_iterations=max_retries,
+                    stop_on="evidence_pass",
+                )
+            loop = cfg
+
+        max_retries = loop.max_iterations
+        has_evidence = loop.evidence != "none"
+        use_reflexion = has_evidence and loop.feedback == "reflexion"
+        use_compact = has_evidence and loop.feedback == "compact_error"
+
+        for attempt in range(max_retries):
+            if not has_evidence:
+                error_rate = max(0.1, 0.8 - harness_quality)
+            elif use_reflexion:
                 error_rate = max(0.1, 0.8 - (attempt * 0.25) - harness_quality)
+            elif use_compact:
+                error_rate = max(0.1, 0.8 - (attempt * 0.12) - harness_quality)
+            else:
+                error_rate = max(0.1, 0.8 - (attempt * 0.05) - harness_quality)
             if self.rng.random() > error_rate:
                 return True, attempt + 1, None
         return False, max_retries, "INFINITE_LOOP_TRAP"
@@ -991,7 +1179,14 @@ class SimulationEngine:
     @staticmethod
     def _memory_cost(action: str, capacity: int, current: int) -> int:
         """How many memory units a given action consumes."""
-        base = {"THINK": 1, "EDIT_FILE": 2, "RUN_TEST": 1, "RETRY": 1}
+        base = {
+            "THINK": 1,
+            "EDIT_FILE": 2,
+            "RUN_TEST": 1,
+            "RETRY": 1,
+            "CHECK_EVIDENCE": 1,
+            "STOP": 0,
+        }
         cost = base.get(action, 1)
         return min(cost, capacity - current) if current < capacity else 0
 
@@ -1005,7 +1200,7 @@ class SimulationEngine:
         reflection: str | None = None,
     ) -> TraceStep:
         return TraceStep(
-            step=0,  # filled in by caller
+            step=0,
             node=node_id,
             action=action,
             status=status,
@@ -1024,8 +1219,12 @@ class SimulationEngine:
             return FailureReason.MEMORY_STACK_OVERFLOW
         if "CONTEXT_FULL" in warning or "Context window full" in warning:
             return FailureReason.CONTEXT_FULL
-        if "INFINITE_LOOP" in warning:
+        if "INFINITE_LOOP" in warning or "max_iterations" in warning:
             return FailureReason.INFINITE_LOOP_TRAP
-        if "TASK_ABANDONED" in warning:
+        if "TASK_ABANDONED" in warning or "no loop enabled" in warning:
             return FailureReason.TASK_ABANDONED
+        if "budget" in warning.lower():
+            return FailureReason.BUDGET_EXHAUSTED
+        if "UNGROUNDED" in warning or "agent_says_done" in warning:
+            return FailureReason.UNGROUNDED_STOP
         return FailureReason.NONE

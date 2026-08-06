@@ -9,67 +9,64 @@ import {
 } from 'react';
 import type {
   AgentBlueprint,
-  FailureReason,
+  GraphEdge,
   GraphNode,
+  GraphSpec,
   HarnessConfig,
   LevelInfo,
-  LoopStrategy,
+  LoopConfig,
   MonteCarloResult,
   RunTrace,
 } from '../types';
 import { getLevels } from '../api';
-
-// ── localStorage keys ──────────────────────────────────────────────────────
-
-const LS_BESTIARY = 'apg.bestiary.v1';
-const LS_CLEARED = 'apg.cleared.v1';
-const LS_INTROS = 'apg.intros.v1';
-
-function loadStringArray(key: string): string[] {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveStringArray(key: string, value: string[]) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* ignore quota errors */
-  }
-}
 
 /** Normalize success_rate to 0–100 whether backend sent 0–1 or 0–100. */
 export function successRatePct(rate: number): number {
   return rate <= 1 ? rate * 100 : rate;
 }
 
-// ── Default Blueprint ──────────────────────────────────────────────────────
+function defaultGraph(): GraphSpec {
+  return {
+    state_schema: [],
+    nodes: [],
+    edges: [],
+    entry: null,
+    checkpointing: false,
+  };
+}
 
 function defaultBlueprint(levelId: string): AgentBlueprint {
   return {
     level_id: levelId,
     harness: {
-      has_workspace: false,
-      has_sandbox: false,
-      has_git: false,
-      memory_capacity: 4,
+      has_context_injection: false,
+      has_tool_surface: false,
+      has_persistence: false,
+      has_budget_guard: false,
+      token_budget_cap: null,
+      has_sandbox_isolation: false,
+      has_tracing: false,
+      memory_capacity: 3,
     },
-    loop_strategy: {
-      type: 'none',
-      max_retries: 1,
-      stop_condition: 'none',
+    loop: {
+      enabled: false,
+      trigger: 'on_task_start',
+      goal: 'tests_green',
+      state_policy: 'stateless',
+      action_policy: 'retry_same',
+      evidence: 'none',
+      feedback: 'none',
+      stop_on: 'agent_says_done',
+      max_iterations: 1,
     },
-    graph_nodes: [],
+    graph: defaultGraph(),
   };
 }
 
-// ── Context Type ───────────────────────────────────────────────────────────
+type GraphUpdate =
+  | GraphSpec
+  | Partial<GraphSpec>
+  | { nodes: GraphNode[]; edges: GraphEdge[] };
 
 interface GameContextType {
   levels: LevelInfo[];
@@ -80,33 +77,24 @@ interface GameContextType {
   setSelectedLevelId: (id: string) => void;
   blueprint: AgentBlueprint;
   updateHarness: (partial: Partial<HarnessConfig>) => void;
-  updateLoop: (partial: Partial<LoopStrategy>) => void;
-  updateGraph: (nodes: GraphNode[]) => void;
+  updateLoop: (partial: Partial<LoopConfig>) => void;
+  updateGraph: (update: GraphUpdate) => void;
   latestTrace: RunTrace | null;
   setLatestTrace: (trace: RunTrace | null) => void;
   monteCarloResult: MonteCarloResult | null;
   setMonteCarloResult: (result: MonteCarloResult | null) => void;
   isLive: boolean;
   setIsLive: (live: boolean) => void;
-  // Teaching layer
-  prediction: number | null;
-  setPrediction: (value: number | null) => void;
-  unlockedFailures: FailureReason[];
-  unlockFailures: (reasons: FailureReason[]) => void;
-  newUnlock: FailureReason | null;
-  clearNewUnlock: () => void;
-  clearedLevels: string[];
-  markLevelCleared: (levelId: string) => void;
-  showDebrief: boolean;
-  setShowDebrief: (show: boolean) => void;
-  dismissedIntros: string[];
-  dismissIntro: (levelId: string) => void;
-  reopenIntro: (levelId: string) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
 
-// ── Provider ───────────────────────────────────────────────────────────────
+function inferEntry(nodes: GraphNode[], edges: GraphEdge[]): string | null {
+  if (nodes.length === 0) return null;
+  const targets = new Set(edges.map((e) => e.target));
+  const sources = nodes.filter((n) => !targets.has(n.id));
+  return sources[0]?.id ?? nodes[0].id;
+}
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [levels, setLevels] = useState<LevelInfo[]>([]);
@@ -121,77 +109,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     useState<MonteCarloResult | null>(null);
   const [isLive, setIsLive] = useState(false);
 
-  const [prediction, setPrediction] = useState<number | null>(null);
-  const [unlockedFailures, setUnlockedFailures] = useState<FailureReason[]>(
-    () => loadStringArray(LS_BESTIARY) as FailureReason[],
-  );
-  const [newUnlock, setNewUnlock] = useState<FailureReason | null>(null);
-  const [clearedLevels, setClearedLevels] = useState<string[]>(() =>
-    loadStringArray(LS_CLEARED),
-  );
-  const [showDebrief, setShowDebrief] = useState(false);
-  const [dismissedIntros, setDismissedIntros] = useState<string[]>(() =>
-    loadStringArray(LS_INTROS),
-  );
-
   const selectedLevel = useMemo(
     () => levels.find((l) => l.id === selectedLevelId) ?? null,
     [levels, selectedLevelId],
   );
 
-  const unlockFailures = useCallback((reasons: FailureReason[]) => {
-    setUnlockedFailures((prev) => {
-      const next = [...prev];
-      let firstNew: FailureReason | null = null;
-      for (const r of reasons) {
-        if (r === 'NONE') continue;
-        if (!next.includes(r)) {
-          next.push(r);
-          if (!firstNew) firstNew = r;
-        }
-      }
-      if (firstNew) {
-        setNewUnlock(firstNew);
-        saveStringArray(LS_BESTIARY, next);
-        return next;
-      }
-      if (next.length !== prev.length) {
-        saveStringArray(LS_BESTIARY, next);
-        return next;
-      }
-      return prev;
-    });
-  }, []);
-
-  const clearNewUnlock = useCallback(() => setNewUnlock(null), []);
-
-  const markLevelCleared = useCallback((levelId: string) => {
-    setClearedLevels((prev) => {
-      if (prev.includes(levelId)) return prev;
-      const next = [...prev, levelId];
-      saveStringArray(LS_CLEARED, next);
-      return next;
-    });
-  }, []);
-
-  const dismissIntro = useCallback((levelId: string) => {
-    setDismissedIntros((prev) => {
-      if (prev.includes(levelId)) return prev;
-      const next = [...prev, levelId];
-      saveStringArray(LS_INTROS, next);
-      return next;
-    });
-  }, []);
-
-  const reopenIntro = useCallback((levelId: string) => {
-    setDismissedIntros((prev) => {
-      const next = prev.filter((id) => id !== levelId);
-      saveStringArray(LS_INTROS, next);
-      return next;
-    });
-  }, []);
-
-  // Fetch levels on mount
   useEffect(() => {
     getLevels()
       .then((data) => {
@@ -209,69 +131,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  // Reset blueprint + prediction when level changes
   useEffect(() => {
     setBlueprint(defaultBlueprint(selectedLevelId));
     setLatestTrace(null);
     setMonteCarloResult(null);
     setIsLive(false);
-    setPrediction(null);
-    setShowDebrief(false);
   }, [selectedLevelId]);
-
-  // Unlock failures from traces
-  useEffect(() => {
-    const reasons: FailureReason[] = [];
-    if (latestTrace?.failure_events) {
-      for (const ev of latestTrace.failure_events) {
-        if (ev.reason !== 'NONE') reasons.push(ev.reason);
-      }
-    }
-    if (latestTrace?.failure_reason && latestTrace.failure_reason !== 'NONE') {
-      reasons.push(latestTrace.failure_reason);
-    }
-    if (monteCarloResult) {
-      for (const [reason, count] of Object.entries(
-        monteCarloResult.failure_distribution,
-      )) {
-        if (count > 0 && reason !== 'NONE') {
-          reasons.push(reason as FailureReason);
-        }
-      }
-      for (const trace of monteCarloResult.sample_traces) {
-        if (trace.failure_events) {
-          for (const ev of trace.failure_events) {
-            if (ev.reason !== 'NONE') reasons.push(ev.reason);
-          }
-        }
-        if (trace.failure_reason && trace.failure_reason !== 'NONE') {
-          reasons.push(trace.failure_reason);
-        }
-      }
-    }
-    if (reasons.length > 0) {
-      unlockFailures(reasons);
-    }
-  }, [latestTrace, monteCarloResult, unlockFailures]);
-
-  // Auto-clear level + show debrief on first clear
-  useEffect(() => {
-    if (!monteCarloResult || !selectedLevel) return;
-    const pct = successRatePct(monteCarloResult.success_rate);
-    const target = selectedLevel.target_success_rate <= 1
-      ? selectedLevel.target_success_rate * 100
-      : selectedLevel.target_success_rate;
-    if (pct >= target && !clearedLevels.includes(selectedLevelId)) {
-      markLevelCleared(selectedLevelId);
-      setShowDebrief(true);
-    }
-  }, [
-    monteCarloResult,
-    selectedLevel,
-    selectedLevelId,
-    clearedLevels,
-    markLevelCleared,
-  ]);
 
   const updateHarness = useCallback(
     (partial: Partial<HarnessConfig>) => {
@@ -284,17 +149,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
   );
 
   const updateLoop = useCallback(
-    (partial: Partial<LoopStrategy>) => {
+    (partial: Partial<LoopConfig>) => {
       setBlueprint((prev) => ({
         ...prev,
-        loop_strategy: { ...prev.loop_strategy, ...partial },
+        loop: { ...prev.loop, ...partial },
       }));
     },
     [],
   );
 
-  const updateGraph = useCallback((nodes: GraphNode[]) => {
-    setBlueprint((prev) => ({ ...prev, graph_nodes: nodes }));
+  const updateGraph = useCallback((update: GraphUpdate) => {
+    setBlueprint((prev) => {
+      const merged: GraphSpec = {
+        ...prev.graph,
+        ...update,
+      };
+      if ('nodes' in update || 'edges' in update) {
+        const nodes = merged.nodes;
+        const edges = merged.edges;
+        if (merged.entry == null || !nodes.some((n) => n.id === merged.entry)) {
+          merged.entry = inferEntry(nodes, edges);
+        }
+      }
+      return { ...prev, graph: merged };
+    });
   }, []);
 
   return (
@@ -316,19 +194,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setMonteCarloResult,
         isLive,
         setIsLive,
-        prediction,
-        setPrediction,
-        unlockedFailures,
-        unlockFailures,
-        newUnlock,
-        clearNewUnlock,
-        clearedLevels,
-        markLevelCleared,
-        showDebrief,
-        setShowDebrief,
-        dismissedIntros,
-        dismissIntro,
-        reopenIntro,
       }}
     >
       {children}

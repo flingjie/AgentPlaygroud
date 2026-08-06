@@ -12,32 +12,56 @@ from pydantic import BaseModel, Field
 
 
 class HarnessConfig(BaseModel):
-    has_workspace: bool = False
-    has_sandbox: bool = False
-    has_git: bool = False
+    has_context_injection: bool = False
+    has_tool_surface: bool = False
+    has_persistence: bool = False
+    has_budget_guard: bool = False
+    token_budget_cap: int | None = None
+    has_sandbox_isolation: bool = False
+    has_tracing: bool = False
     memory_capacity: int = Field(default=3, ge=1, le=10)
 
 
-class LoopStrategy(BaseModel):
-    type: Literal["none", "retry_blind", "react_reflexion"] = "none"
-    max_retries: int = Field(default=1, ge=1)
-    stop_condition: Literal["none", "test_pass"] = "none"
+class LoopConfig(BaseModel):
+    enabled: bool = False
+    trigger: Literal["on_task_start", "on_test_fail"] = "on_task_start"
+    goal: Literal["tests_green", "schema_valid"] = "tests_green"
+    state_policy: Literal["stateless", "keep_last_error", "keep_run_summary"] = "stateless"
+    action_policy: Literal["retry_same", "edit_then_retest", "escalate_review"] = "retry_same"
+    evidence: Literal["none", "test_runner", "schema_check", "reviewer_signoff"] = "none"
+    feedback: Literal["none", "compact_error", "reflexion"] = "none"
+    stop_on: Literal["agent_says_done", "evidence_pass", "budget_or_max"] = "agent_says_done"
+    max_iterations: int = Field(default=1, ge=1, le=10)
+
+
+class GraphEdge(BaseModel):
+    source: str
+    target: str
+    condition: Literal[
+        "always", "on_pass", "on_fail", "on_review_reject", "on_human_approve"
+    ] = "always"
 
 
 class GraphNode(BaseModel):
     id: str
     role: Literal["planner", "coder", "reviewer", "tester"]
-    next: list[str] = []
+    state_writes: list[str] = []
+
+
+class GraphSpec(BaseModel):
+    state_schema: list[str] = []
+    nodes: list[GraphNode] = Field(default_factory=list)
+    edges: list[GraphEdge] = Field(default_factory=list)
+    entry: str | None = None
+    checkpointing: bool = False
 
 
 class AgentBlueprint(BaseModel):
     level_id: str
     run_seed: int | None = None  # None → random; int → deterministic replay
     harness: HarnessConfig = Field(default_factory=HarnessConfig)
-    loop_strategy: LoopStrategy = Field(default_factory=LoopStrategy)
-    graph_nodes: list[GraphNode] = Field(
-        default_factory=lambda: [GraphNode(id="node_1", role="coder", next=[])]
-    )
+    loop: LoopConfig = Field(default_factory=LoopConfig)
+    graph: GraphSpec = Field(default_factory=GraphSpec)
 
 
 # ---------------------------------------------------------------------------
@@ -58,21 +82,18 @@ class FailureReason(str, Enum):
     CONTEXT_FULL = "CONTEXT_FULL"
     INFINITE_LOOP_TRAP = "INFINITE_LOOP_TRAP"
     TASK_ABANDONED = "TASK_ABANDONED"
+    BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
+    UNGROUNDED_STOP = "UNGROUNDED_STOP"
 
 
 class TraceStep(BaseModel):
     step: int
     node: str
-    action: str  # EDIT_FILE, RUN_TEST, RETRY, THINK
+    action: str  # THINK, EDIT_FILE, RUN_TEST, RETRY, CHECK_EVIDENCE, STOP
     status: StepStatus
     memory_used: int
     warning: str | None = None
     reflection: str | None = None  # i18n key, e.g. "reflect_test_fail"
-
-
-class FailureEvent(BaseModel):
-    reason: FailureReason
-    step: int
 
 
 class TopologyInfo(BaseModel):
@@ -88,7 +109,6 @@ class RunTrace(BaseModel):
     failure_reason: FailureReason = FailureReason.NONE
     cost_tokens: int = 0
     steps: list[TraceStep] = []
-    failure_events: list[FailureEvent] = []
     topology: TopologyInfo | None = None
 
 
@@ -101,7 +121,7 @@ class LevelInfo(BaseModel):
     id: str
     name: str
     description: str
-    unlocked_harness: list[str]  # e.g. ["workspace", "sandbox", "git", "memory"]
+    unlocked_harness: list[str]  # six dim keys, e.g. context_injection, tool_surface, …
     unlocked_loop: bool
     unlocked_graph: bool
     target_success_rate: float

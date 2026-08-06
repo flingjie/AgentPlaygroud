@@ -9,22 +9,40 @@ const TOGGLES: {
   unlockKey: string;
 }[] = [
   {
-    key: 'has_workspace',
-    labelKey: 'harness.workspace',
-    descKey: 'harness.workspaceDesc',
-    unlockKey: 'workspace',
+    key: 'has_context_injection',
+    labelKey: 'harness.contextInjection',
+    descKey: 'harness.contextInjectionDesc',
+    unlockKey: 'context_injection',
   },
   {
-    key: 'has_sandbox',
-    labelKey: 'harness.sandbox',
-    descKey: 'harness.sandboxDesc',
-    unlockKey: 'sandbox',
+    key: 'has_tool_surface',
+    labelKey: 'harness.toolSurface',
+    descKey: 'harness.toolSurfaceDesc',
+    unlockKey: 'tool_surface',
   },
   {
-    key: 'has_git',
-    labelKey: 'harness.git',
-    descKey: 'harness.gitDesc',
-    unlockKey: 'git',
+    key: 'has_persistence',
+    labelKey: 'harness.persistence',
+    descKey: 'harness.persistenceDesc',
+    unlockKey: 'persistence',
+  },
+  {
+    key: 'has_budget_guard',
+    labelKey: 'harness.budgetGuard',
+    descKey: 'harness.budgetGuardDesc',
+    unlockKey: 'budget_guard',
+  },
+  {
+    key: 'has_sandbox_isolation',
+    labelKey: 'harness.sandboxIsolation',
+    descKey: 'harness.sandboxIsolationDesc',
+    unlockKey: 'sandbox_isolation',
+  },
+  {
+    key: 'has_tracing',
+    labelKey: 'harness.tracing',
+    descKey: 'harness.tracingDesc',
+    unlockKey: 'tracing',
   },
 ];
 
@@ -34,6 +52,7 @@ export default function HarnessConfigPanel() {
   const { harness } = blueprint;
 
   const unlocked = selectedLevel?.unlocked_harness ?? [];
+  const memoryUnlocked = unlocked.length > 0;
 
   return (
     <div className="space-y-4">
@@ -41,7 +60,6 @@ export default function HarnessConfigPanel() {
         {t('harness.title')}
       </h3>
 
-      {/* Toggle cards */}
       <div className="grid grid-cols-1 gap-2">
         {TOGGLES.map(({ key, labelKey, descKey, unlockKey }) => {
           const isUnlocked = unlocked.includes(unlockKey);
@@ -51,7 +69,14 @@ export default function HarnessConfigPanel() {
             <button
               key={key}
               disabled={!isUnlocked}
-              onClick={() => updateHarness({ [key]: !enabled })}
+              onClick={() => {
+                const next = !enabled;
+                if (key === 'has_budget_guard' && !next) {
+                  updateHarness({ has_budget_guard: false, token_budget_cap: null });
+                } else {
+                  updateHarness({ [key]: next });
+                }
+              }}
               className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
                 !isUnlocked
                   ? 'border-gray-200 dark:border-gray-800 bg-gray-50/30 dark:bg-gray-900/30 opacity-40 cursor-not-allowed'
@@ -107,7 +132,33 @@ export default function HarnessConfigPanel() {
         })}
       </div>
 
-      {/* Memory slider */}
+      {harness.has_budget_guard && unlocked.includes('budget_guard') && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+              {t('harness.tokenBudgetCap')}
+            </label>
+            <span className="font-mono text-sm text-green-600 dark:text-green-400">
+              {harness.token_budget_cap ?? '—'}
+            </span>
+          </div>
+          <input
+            type="number"
+            min={1000}
+            step={1000}
+            value={harness.token_budget_cap ?? ''}
+            placeholder={t('harness.tokenBudgetCapPlaceholder')}
+            onChange={(e) => {
+              const raw = e.target.value;
+              updateHarness({
+                token_budget_cap: raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0),
+              });
+            }}
+            className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-200 font-mono focus:outline-none focus:border-green-500"
+          />
+        </div>
+      )}
+
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="text-sm text-gray-700 dark:text-gray-300 font-medium">
@@ -122,10 +173,11 @@ export default function HarnessConfigPanel() {
           min={1}
           max={10}
           value={harness.memory_capacity}
+          disabled={!memoryUnlocked}
           onChange={(e) =>
             updateHarness({ memory_capacity: parseInt(e.target.value) })
           }
-          className="w-full h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full appearance-none cursor-pointer accent-green-400"
+          className="w-full h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full appearance-none cursor-pointer accent-green-400 disabled:opacity-40 disabled:cursor-not-allowed"
         />
         <div className="flex justify-between text-xs text-gray-400 dark:text-gray-600 font-mono">
           <span>1</span>

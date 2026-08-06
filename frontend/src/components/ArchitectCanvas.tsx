@@ -17,7 +17,7 @@ import '@xyflow/react/dist/style.css';
 import { useTranslation } from 'react-i18next';
 import { useGame } from '../context/GameContext';
 import { useTheme } from '../context/ThemeContext';
-import type { GraphNode } from '../types';
+import type { GraphEdge, GraphEdgeCondition, GraphNode } from '../types';
 import NodePalette from './NodePalette';
 import AgentNode from './AgentNode';
 import GraphValidator from './GraphValidator';
@@ -44,14 +44,28 @@ function createFlowNode(gn: GraphNode, x: number, y: number): Node {
   };
 }
 
-function buildGraphNodes(currentNodes: Node[], currentEdges: Edge[]): GraphNode[] {
-  return currentNodes.map((n) => ({
+function edgeCondition(edge: Edge): GraphEdgeCondition {
+  const raw = (edge.data as { condition?: GraphEdgeCondition } | undefined)?.condition;
+  return raw ?? 'always';
+}
+
+function buildGraphSpec(
+  currentNodes: Node[],
+  currentEdges: Edge[],
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const nodes: GraphNode[] = currentNodes.map((n) => ({
     id: n.id,
     role: (n.data?.role as GraphNode['role']) || 'coder',
-    next: currentEdges
-      .filter((e) => e.source === n.id)
-      .map((e) => e.target),
+    state_writes: (n.data?.state_writes as string[]) || [],
   }));
+
+  const edges: GraphEdge[] = currentEdges.map((e) => ({
+    source: e.source,
+    target: e.target,
+    condition: edgeCondition(e),
+  }));
+
+  return { nodes, edges };
 }
 
 export default function ArchitectCanvas() {
@@ -61,9 +75,8 @@ export default function ArchitectCanvas() {
   const isDark = theme === 'dark';
   const edgeColor = isDark ? '#94a3b8' : '#475569';
 
-  // Initialize flow nodes from blueprint (only on mount)
   const initialNodes: Node[] = useMemo(() => {
-    const existing = blueprint.graph_nodes;
+    const existing = blueprint.graph.nodes;
     if (existing.length === 0) return [];
     return existing.map((gn, i) =>
       createFlowNode(gn, 100 + (i % 3) * 280, 80 + Math.floor(i / 3) * 200),
@@ -72,30 +85,25 @@ export default function ArchitectCanvas() {
   }, []);
 
   const initialEdges: Edge[] = useMemo(() => {
-    const existing = blueprint.graph_nodes;
+    const existing = blueprint.graph.edges;
     if (existing.length === 0) return [];
-    const edgeSet: Edge[] = [];
-    existing.forEach((gn) => {
-      gn.next.forEach((targetId) => {
-        edgeSet.push({
-          id: `${gn.id}->${targetId}`,
-          source: gn.id,
-          target: targetId,
-          markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
-          style: { stroke: edgeColor, strokeWidth: 2 },
-        });
-      });
-    });
-    return edgeSet;
+    return existing.map((ge) => ({
+      id: `${ge.source}->${ge.target}`,
+      source: ge.source,
+      target: ge.target,
+      data: { condition: ge.condition },
+      label: ge.condition !== 'always' ? ge.condition : undefined,
+      markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
+      style: { stroke: edgeColor, strokeWidth: 2 },
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Sync flow state to context whenever nodes or edges change
   useEffect(() => {
-    updateGraph(buildGraphNodes(nodes, edges));
+    updateGraph(buildGraphSpec(nodes, edges));
   }, [nodes, edges, updateGraph]);
 
   const onConnect = useCallback(
@@ -104,6 +112,7 @@ export default function ArchitectCanvas() {
         addEdge(
           {
             ...connection,
+            data: { condition: 'always' as GraphEdgeCondition },
             markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
             style: { stroke: edgeColor, strokeWidth: 2 },
           },
@@ -111,7 +120,7 @@ export default function ArchitectCanvas() {
         ),
       );
     },
-    [setEdges],
+    [setEdges, edgeColor],
   );
 
   const onDrop = useCallback(
@@ -130,7 +139,7 @@ export default function ArchitectCanvas() {
         id,
         type: 'agentNode',
         position,
-        data: { role, label: id },
+        data: { role, label: id, state_writes: [] },
       };
 
       setNodes((nds) => [...nds, newNode]);
@@ -143,7 +152,6 @@ export default function ArchitectCanvas() {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  // Validation
   const validation = useMemo(() => {
     const issues: string[] = [];
     const inDegree = new Map<string, number>();
@@ -159,7 +167,6 @@ export default function ArchitectCanvas() {
       inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
     });
 
-    // Disconnected nodes
     nodes.forEach((n) => {
       const inDeg = inDegree.get(n.id) ?? 0;
       const outDeg = outDegree.get(n.id) ?? 0;
@@ -168,7 +175,6 @@ export default function ArchitectCanvas() {
       }
     });
 
-    // Multiple sinks
     const sinks = nodes.filter(
       (n) => (outDegree.get(n.id) ?? 0) === 0 && (inDegree.get(n.id) ?? 0) > 0,
     );
@@ -176,7 +182,6 @@ export default function ArchitectCanvas() {
       issues.push(t('graphValidator.multipleSinks', { ids: sinks.map((n) => n.id).join(', ') }));
     }
 
-    // Entry point checks
     const sources = nodes.filter(
       (n) => (inDegree.get(n.id) ?? 0) === 0 && (outDegree.get(n.id) ?? 0) > 0,
     );
@@ -188,7 +193,7 @@ export default function ArchitectCanvas() {
     }
 
     return issues;
-  }, [nodes, edges]);
+  }, [nodes, edges, t]);
 
   const minimapMaskColor = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.08)';
 

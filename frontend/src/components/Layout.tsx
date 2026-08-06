@@ -14,7 +14,6 @@ import { useTheme } from '../context/ThemeContext';
 import FactoryView from './FactoryView';
 import ArchitectCanvas from './ArchitectCanvas';
 import Debugger from './Debugger';
-import BestiaryToast from './BestiaryToast';
 
 type Tab = 'factory' | 'architect' | 'debugger';
 
@@ -148,8 +147,6 @@ export default function Layout() {
           {activeTab === 'debugger' && <Debugger />}
         </div>
       </main>
-
-      <BestiaryToast onNavigateFactory={() => setActiveTab('factory')} />
     </div>
   );
 }
