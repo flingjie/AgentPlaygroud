@@ -138,10 +138,10 @@ Observability (`has_tracing`) was removed — **tracing is always-on** in this s
 | `has_tool_registry` | Tool Registry | `HALLUCINATION` — the model invents APIs with no tool surface |
 | `has_retry_policy` | Retry Policy | **Gate:** a loop enabled without it cannot actually retry → `INFINITE_LOOP_TRAP` (no retry mechanism). Not a quality booster. |
 | `has_timeout_guard` | Timeout Guard | + `run_boundary_cap` (tokens) — unified run boundary → `BUDGET_EXHAUSTED` when exceeded |
-| `has_sandbox_isolation` | Sandbox Isolation | `UNSAFE_EXECUTION` — destructive actions corrupt the environment |
+| `has_sandbox_isolation` | Sandbox Isolation | `UNSAFE_EXECUTION` — destructive actions corrupt the environment (requires `has_tool_registry` present) |
 | `has_context_manager` | Context Manager | `STALE_CONTEXT` — agent acts on an observation ≥2 changes stale |
 | `has_state_persistence` | State Persistence | `FILE_CORROSION` — 2+ edits without versioning overwrite prior work |
-| `has_permission_layer` | Permission Layer | `PERMISSION_ERROR` — capability ≠ permission; allowlist absent |
+| `has_permission_layer` | Permission Layer | `PERMISSION_ERROR` — capability ≠ permission; allowlist absent (requires `has_tool_registry` present) |
 
 Sibling params: `memory_capacity` (int, 1–10, default 3) and `run_boundary_cap` (int, tokens).
 
@@ -191,7 +191,7 @@ Unlocks per level: L4/L5 → `["single", "dual"]`; L6 → `["factory"]`.
   "steps": [
     {"step": 1, "node": "coder", "action": "EDIT_FILE", "status": "SUCCESS", "memory_used": 2},
     {"step": 2, "node": "coder", "action": "RUN_TEST", "status": "FAIL", "memory_used": 3},
-    {"step": 3, "node": "coder", "action": "RETRY", "status": "FAIL", "memory_used": 5, "warning": "CONTEXT_OVERFLOW"}
+    {"step": 3, "node": "coder", "action": "RETRY", "status": "FAIL", "memory_used": 5, "warning": "Context window full — memory capacity exhausted during retry loop. Enable context_manager, use a leaner state_policy, or isolate via graph."}
   ]
 }
 ```
@@ -248,7 +248,7 @@ Target success rate is an **experiment benchmark**, not a pass/fail game score. 
 ## Educational UI (frontend/src/components)
 
 - **LevelSelector** — free selection dropdown; shows formal name + teaching label, target rate, token budget, current measured success rate; renders the level's static flow diagram.
-- **ArchitectureDelta** — fixed 0–100% reliability bars for all six levels with a target marker (upgrades visibly move success toward target; nothing is locked).
+- **ArchitectureDelta** — fixed 0–100% reliability bars for all six levels with a target marker (each architecture stage's theoretical reliability on a fixed 0–100% scale; nothing is locked).
 - **StaticFlowDiagram** — per-level Mermaid diagram. **Static allowlist keyed by level_id** — NEVER derive diagram source from user input, API responses, or blueprint fields (mermaid output is injected via `innerHTML`; a dynamic source would be an XSS path). `mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' })`.
 - **ArchitectCanvas** (React Flow) — drag-and-drop nodes, edge conditions, `state_schema`/`checkpointing`; available only when `level.unlocked_graph`.
 - **Debugger** — Timeline, Memory Monitor, Event Bus, Monte Carlo Summary (failure distribution + sample traces), **RuntimeGraph** (active-node highlight from the latest trace), live WebSocket stream, and failure-diagnosis hints (why it failed + how to fix).
@@ -271,7 +271,7 @@ Target success rate is an **experiment benchmark**, not a pass/fail game score. 
 
 ### Built now (MVP complete)
 
-- Deterministic Simulation Engine (seeded Monte Carlo), all 13 failure injections, live 8-field loop, loop-stack templates, graph topology + structural DEADLOCK, budget enforcement.
+- Deterministic Simulation Engine (seeded Monte Carlo), all 13 failure injections live — including `TOOL_FAILURE` (a real tool returns garbage; only a grounded verification loop catches it), the 8-field loop, loop-stack templates, graph topology + structural DEADLOCK, and budget enforcement.
 - Six-level progression, 7-dim harness config, Architecture Delta, static flow diagrams, runtime graph, export bridge, en/zh i18n.
 
 ### Deferred (Phase 2 / intentionally out of scope)

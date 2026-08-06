@@ -14,14 +14,15 @@ export default function LevelSelector() {
     monteCarloResult,
   } = useGame();
 
-  const harnessLabels: Record<string, string> = {
-    tool_registry: 'Tool Registry',
-    retry_policy: 'Retry Policy',
-    timeout_guard: 'Timeout Guard',
-    sandbox_isolation: 'Sandbox Isolation',
-    context_manager: 'Context Manager',
-    state_persistence: 'State Persistence',
-    permission_layer: 'Permission Layer',
+  // snake_case level key -> camelCase i18n key under harness.*
+  const harnessLabelKeys: Record<string, string> = {
+    tool_registry: 'harness.toolRegistry',
+    retry_policy: 'harness.retryPolicy',
+    timeout_guard: 'harness.timeoutGuard',
+    sandbox_isolation: 'harness.sandboxIsolation',
+    context_manager: 'harness.contextManager',
+    state_persistence: 'harness.statePersistence',
+    permission_layer: 'harness.permissionLayer',
   };
 
   const targetPct = (rate: number) => (rate <= 1 ? rate * 100 : rate);
@@ -109,7 +110,7 @@ export default function LevelSelector() {
                       key={h}
                       className="px-2 py-0.5 rounded text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono"
                     >
-                      {harnessLabels[h] || h}
+                      {t(harnessLabelKeys[h] ?? h)}
                     </span>
                   ))}
                   {selectedLevel.unlocked_loop && (

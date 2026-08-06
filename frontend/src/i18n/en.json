@@ -141,6 +141,7 @@
     "single": "Single Loop",
     "dual": "Dual Loop",
     "factory": "Agent Factory Loop",
+    "singleHint": "Single Loop is the Level 3 loop — the Loop panel governs its behavior. Pick Dual or Factory to run a preset loop-stack template.",
     "lockedNote": "Preset — click a field to see why it exists",
     "inner": "Inner (verify)",
     "outer": "Outer (improve)",

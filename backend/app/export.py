@@ -6,8 +6,8 @@ from app.models import AgentBlueprint
 def _node_lines(blueprint: AgentBlueprint) -> list[str]:
     graph = blueprint.graph
     if not graph.nodes:
-        return ['    graph.add_node("coder", coder_agent)']
-    return [f'    graph.add_node("{n.id}", {n.role}_agent)' for n in graph.nodes]
+        return ['graph.add_node("coder", coder_agent)']
+    return [f'graph.add_node("{n.id}", {n.role}_agent)' for n in graph.nodes]
 
 
 def _edge_lines(blueprint: AgentBlueprint) -> list[str]:
@@ -18,11 +18,24 @@ def _edge_lines(blueprint: AgentBlueprint) -> list[str]:
         return []
     out: list[str] = []
     for e in graph.edges:
-        cond = {"always": "", "on_pass": ", condition='pass'",
-                "on_fail": ", condition='fail'",
-                "on_review_reject": ", condition='review_reject'",
-                "on_human_approve": ", condition='human_approve'"}[e.condition]
-        out.append(f'    graph.add_edge("{e.source}", "{e.target}"{cond})')
+        if e.condition == "always":
+            out.append(f'graph.add_edge("{e.source}", "{e.target}")')
+            continue
+        # LangGraph 1.x add_edge takes exactly 2 args; conditional routing uses
+        # add_conditional_edges. Emit a commented template so the file stays
+        # syntactically valid AND the intended routing is not silently dropped.
+        state_key = {
+            "on_pass": "passed",
+            "on_fail": "failed",
+            "on_review_reject": "review_rejected",
+            "on_human_approve": "human_approved",
+        }[e.condition]
+        out.append(f"# conditional: {e.source} -> {e.target} on {e.condition}")
+        out.append(
+            f'# graph.add_conditional_edges("{e.source}", lambda state: '
+            f'"{e.target}" if state.get("{state_key}") else "__end__", '
+            f'{{"{e.target}": "{e.target}", "__end__": "__end__"}})'
+        )
     return out
 
 
@@ -37,14 +50,14 @@ def render_langgraph(blueprint: AgentBlueprint) -> str:
     lines += _node_lines(blueprint)
     lines += _edge_lines(blueprint)
     if not graph.nodes:
-        lines.append('    graph.add_edge(START, "coder")')
-        lines.append('    graph.add_edge("coder", END)')
+        lines.append('graph.add_edge(START, "coder")')
+        lines.append('graph.add_edge("coder", END)')
     else:
-        lines.append(f'    graph.add_edge(START, "{entry}")')
+        lines.append(f'graph.add_edge(START, "{entry}")')
         sinks = [n.id for n in graph.nodes if not any(
             e.source == n.id for e in graph.edges)]
         for s in sinks:
-            lines.append(f'    graph.add_edge("{s}", END)')
+            lines.append(f'graph.add_edge("{s}", END)')
     if graph.checkpointing:
         lines += [
             "",

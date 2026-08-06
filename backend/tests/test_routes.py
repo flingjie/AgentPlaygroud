@@ -215,3 +215,128 @@ def test_export_arlo_has_harness_permission_layer():
     arlo = res.json()["arlo_yaml"]
     assert "permission_layer: true" in arlo
     assert "state_schema: ['messages', 'task']" in arlo
+
+
+def test_export_langgraph_roundtrip_parses_for_default_blueprint():
+    """render_langgraph must emit module-scope Python that ast.parse accepts."""
+    import ast
+
+    from app.export import render_langgraph
+    from app.models import AgentBlueprint
+
+    bp = AgentBlueprint(level_id="level_1_raw")
+    source = render_langgraph(bp)
+    ast.parse(source)  # raises SyntaxError if the module is not valid Python
+
+
+def test_export_langgraph_roundtrip_parses_for_full_graph():
+    """A full graph (nodes + conditional edges + checkpointing) must parse."""
+    import ast
+
+    from app.export import render_langgraph
+    from app.models import AgentBlueprint
+
+    bp = AgentBlueprint(
+        level_id="level_6_agent_system",
+        graph={
+            "state_schema": ["messages", "task"],
+            "nodes": [
+                {"id": "p1", "role": "planner"},
+                {"id": "c1", "role": "coder"},
+                {"id": "r1", "role": "reviewer"},
+            ],
+            "edges": [
+                {"source": "p1", "target": "c1", "condition": "always"},
+                {"source": "c1", "target": "r1", "condition": "on_pass"},
+                {"source": "c1", "target": "c1", "condition": "on_fail"},
+                {"source": "r1", "target": "c1", "condition": "on_review_reject"},
+                {"source": "r1", "target": "r1", "condition": "on_human_approve"},
+            ],
+            "entry": "p1",
+            "checkpointing": True,
+        },
+    )
+    source = render_langgraph(bp)
+    ast.parse(source)
+    # always edges are emitted as real add_edge calls; conditional routing is
+    # preserved as a commented add_conditional_edges template
+    assert 'graph.add_edge("p1", "c1")' in source
+    assert "add_conditional_edges" in source
+    assert 'graph.add_edge("p1", "c1",' not in source  # no 3-arg add_edge
+
+
+def test_export_langgraph_roundtrip_conditional_edges_are_commented():
+    """Conditional edges must not emit a non-existent condition= kwarg."""
+    import ast
+
+    from app.export import render_langgraph
+    from app.models import AgentBlueprint
+
+    bp = AgentBlueprint(
+        level_id="level_6_agent_system",
+        graph={
+            "nodes": [
+                {"id": "a", "role": "planner"},
+                {"id": "r", "role": "coder"},
+            ],
+            "edges": [{"source": "a", "target": "r", "condition": "on_fail"}],
+            "entry": "a",
+        },
+    )
+    source = render_langgraph(bp)
+    ast.parse(source)
+    assert "# conditional: a -> r on on_fail" in source
+    assert "graph.add_conditional_edges(" in source
+
+
+# ---------------------------------------------------------------------------
+# TOOL_FAILURE reachability (L2 -> L3 bridge injection)
+# ---------------------------------------------------------------------------
+
+
+def _tool_failure_bp(level_id: str, loop: dict):
+    """Tool registry on, loop configurable, all other failure gates suppressed."""
+    from app.models import AgentBlueprint
+
+    return AgentBlueprint(
+        level_id=level_id,
+        harness={
+            "has_tool_registry": True,
+            "has_retry_policy": True,
+            "has_sandbox_isolation": True,
+            "has_context_manager": True,
+            "has_state_persistence": True,
+            "has_permission_layer": True,
+            "memory_capacity": 8,
+        },
+        loop=loop,
+    )
+
+
+def test_tool_failure_injected_without_grounded_loop():
+    """TOOL_FAILURE must appear when a tool registry exists but the loop is off."""
+    from app.engine import SimulationEngine
+
+    bp = _tool_failure_bp(level_id="level_2_harness", loop={})
+    result = SimulationEngine(seed=7).monte_carlo(bp, num_runs=300)
+    dist = result["failure_distribution"]
+    assert dist.get("TOOL_FAILURE", 0) > 0, f"TOOL_FAILURE absent: {dist}"
+
+
+def test_tool_failure_suppressed_by_grounded_verification_loop():
+    """A grounded verification loop (enabled + real evidence) removes the ghost."""
+    from app.engine import SimulationEngine
+
+    bp = _tool_failure_bp(
+        level_id="level_3_loop",
+        loop={
+            "enabled": True,
+            "evidence": "test_runner",
+            "feedback": "reflexion",
+            "stop_on": "evidence_pass",
+            "max_iterations": 3,
+        },
+    )
+    result = SimulationEngine(seed=7).monte_carlo(bp, num_runs=300)
+    dist = result["failure_distribution"]
+    assert dist.get("TOOL_FAILURE", 0) == 0, f"TOOL_FAILURE leaked: {dist}"

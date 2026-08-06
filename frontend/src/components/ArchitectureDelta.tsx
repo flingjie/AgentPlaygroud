@@ -16,7 +16,7 @@ export default function ArchitectureDelta() {
         return (
           <div key={lvl.id} className={`${active ? 'opacity-100' : 'opacity-60'}`}>
             <div className="flex justify-between text-xs font-mono">
-              <span>{active ? lvl.learning_label : lvl.learning_label}</span>
+              <span>{lvl.learning_label}</span>
               <span>{Math.round(pct)}%</span>
             </div>
             <div className="relative h-3 bg-gray-200 dark:bg-gray-800 rounded-full">

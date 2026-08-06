@@ -71,7 +71,7 @@ function TemplateOption({
 
 export default function LoopStackConfigPanel() {
   const { t } = useTranslation();
-  const { blueprint, updateLoopStack, selectedLevel } = useGame();
+  const { blueprint, updateLoop, updateLoopStack, selectedLevel } = useGame();
   const { loop_stack } = blueprint;
 
   const unlocked = selectedLevel?.unlocked_loop_stack ?? false;
@@ -80,6 +80,19 @@ export default function LoopStackConfigPanel() {
   const showFactory = (selectedLevel?.unlocked_loop_templates ?? []).includes('factory');
   const selected: LoopStackTemplate = loop_stack.enabled ? loop_stack.template : 'none';
   const fields = selected !== 'none' ? TEMPLATES[selected]?.fields ?? [] : [];
+
+  // Selecting a template must also enable the Loop, otherwise the engine's
+  // loop-stack branch (which only runs `if has_loop`) is never reached and the
+  // player sees a bare TASK_ABANDONED with no explanation. Deselecting to none
+  // leaves the Loop panel's own state untouched.
+  const selectTemplate = (template: LoopStackTemplate) => {
+    if (template === 'none') {
+      updateLoopStack({ enabled: false, template: 'none' });
+      return;
+    }
+    updateLoop({ enabled: true });
+    updateLoopStack({ enabled: true, template });
+  };
 
   return (
     <div className="space-y-4">
@@ -95,26 +108,32 @@ export default function LoopStackConfigPanel() {
         <TemplateOption
           label={t('loop.evidenceOptions.none')}
           selected={selected === 'none'}
-          onSelect={() => updateLoopStack({ enabled: false, template: 'none' })}
+          onSelect={() => selectTemplate('none')}
         />
         <TemplateOption
           label={t('loopStack.single')}
           selected={selected === 'single'}
-          onSelect={() => updateLoopStack({ enabled: true, template: 'single' })}
+          onSelect={() => selectTemplate('single')}
         />
         <TemplateOption
           label={t('loopStack.dual')}
           selected={selected === 'dual'}
-          onSelect={() => updateLoopStack({ enabled: true, template: 'dual' })}
+          onSelect={() => selectTemplate('dual')}
         />
         {showFactory && (
           <TemplateOption
             label={t('loopStack.factory')}
             selected={selected === 'factory'}
-            onSelect={() => updateLoopStack({ enabled: true, template: 'factory' })}
+            onSelect={() => selectTemplate('factory')}
           />
         )}
       </div>
+
+      {selected === 'single' && (
+        <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed">
+          {t('loopStack.singleHint')}
+        </p>
+      )}
 
       {fields.length > 0 && (
         <div className="space-y-2">

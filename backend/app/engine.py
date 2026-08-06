@@ -47,6 +47,10 @@ WARNING_HALLUCINATION = (
     "Agent attempted to use a tool that does not exist — "
     "no tool surface available. Enable has_tool_registry."
 )
+WARNING_TOOL_FAILURE = (
+    "A real tool returned garbage — tool_registry gives capability, not "
+    "reliability. Add an evidence-based loop to catch it."
+)
 WARNING_FILE_CORROSION = (
     "Multiple EDIT_FILE actions without persistence caused file corruption. "
     "Enable has_state_persistence to track changes and roll back."
@@ -1159,6 +1163,18 @@ class SimulationEngine:
             if self.rng.random() < rate:
                 return WARNING_HALLUCINATION
 
+        # Tool reliability gate: a registry gives capability, not reliability.
+        # A real tool can still return garbage; only a grounded verification
+        # loop (enabled + real evidence) catches it. This is the L2 -> L3
+        # bridge lesson: tools that CAN be called are not tools that are RIGHT.
+        if (
+            harness.has_tool_registry
+            and node.role == "coder"
+            and not (loop.enabled and loop.evidence != "none")
+        ):
+            if self.rng.random() < 0.15:
+                return WARNING_TOOL_FAILURE
+
         # State Persistence gate: 2+ edits without versioning -> corruption
         if (
             not harness.has_state_persistence
@@ -1394,13 +1410,22 @@ class SimulationEngine:
             # Plan -> Build -> Test -> Review -> Release pipeline.
             # Each stage runs a test; every executed stage incurs its cost.
             stages = ["planner", "coder", "tester", "reviewer"]
+            stage_memory = memory_used
             for i, role in enumerate(stages):
                 failed = self.rng.random() <= max(0.05, 0.25 - hq * 0.2)
+                stage_memory += 1  # each RUN_TEST consumes one memory unit
+                # tester-stage failure is FALSE_COMPLETION: the suite claimed
+                # green without grounded evidence — keep reason/warning coherent.
+                warning = (
+                    WARNING_FALSE_COMPLETION
+                    if (failed and i == 2)
+                    else (WARNING_TASK_ABANDONED if failed else None)
+                )
                 s = TraceStep(
                     step=0, node=f"stage_{role}", action="RUN_TEST",
                     status=StepStatus.FAIL if failed else StepStatus.SUCCESS,
-                    memory_used=memory_used,
-                    warning=WARNING_TASK_ABANDONED if failed else None,
+                    memory_used=stage_memory,
+                    warning=warning,
                 )
                 steps.append(s)
                 cost_tokens += ACTION_TOKEN_COST["RUN_TEST"]
@@ -1410,7 +1435,7 @@ class SimulationEngine:
                     return (FailureReason.TASK_ABANDONED, steps, cost_tokens)
             steps.append(TraceStep(
                 step=0, node="release", action="STOP", status=StepStatus.SUCCESS,
-                memory_used=memory_used,
+                memory_used=stage_memory,
             ))
             cost_tokens += ACTION_TOKEN_COST["STOP"] + ACTION_TOKEN_COST["CHECK_EVIDENCE"]
             return (FailureReason.NONE, steps, cost_tokens)
@@ -1493,6 +1518,7 @@ class SimulationEngine:
 
     _WARNING_TO_FAILURE: dict[str, FailureReason] = {
         WARNING_HALLUCINATION: FailureReason.HALLUCINATION,
+        WARNING_TOOL_FAILURE: FailureReason.TOOL_FAILURE,
         WARNING_FILE_CORROSION: FailureReason.FILE_CORROSION,
         WARNING_MEMORY_OVERFLOW: FailureReason.MEMORY_STACK_OVERFLOW,
         WARNING_CONTEXT_OVERFLOW: FailureReason.CONTEXT_OVERFLOW,

@@ -1,25 +1,22 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { GraphNode } from '../types';
-import { useGame } from '../context/GameContext';
+import type { GraphNode, TraceStep } from '../types';
 
-export default function RuntimeGraph() {
+export default function RuntimeGraph({ steps }: { steps: TraceStep[] }) {
   const { t } = useTranslation();
-  const { latestTrace } = useGame();
 
   const activeNode = useMemo(() => {
-    if (!latestTrace || latestTrace.steps.length === 0) return null;
-    const last = latestTrace.steps[latestTrace.steps.length - 1];
+    if (steps.length === 0) return null;
+    const last = steps[steps.length - 1];
     return last.node;
-  }, [latestTrace]);
+  }, [steps]);
 
   const nodes: GraphNode[] = useMemo(() => {
-    if (!latestTrace) return [];
-    const ids = Array.from(new Set(latestTrace.steps.map((s) => s.node)));
+    const ids = Array.from(new Set(steps.map((s) => s.node)));
     return ids.map((id) => ({ id, role: 'coder', state_writes: [] } as GraphNode));
-  }, [latestTrace]);
+  }, [steps]);
 
-  if (!latestTrace || nodes.length === 0) {
+  if (steps.length === 0) {
     return <div className="text-xs text-gray-400">{t('runtimeGraph.empty')}</div>;
   }
 

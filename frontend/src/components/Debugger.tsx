@@ -236,7 +236,7 @@ export default function Debugger() {
 
       {/* Runtime position strip — live "you are here" on the control flow */}
       <div className="shrink-0 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
-        <RuntimeGraph />
+        <RuntimeGraph steps={steps} />
       </div>
 
       {/* Main debugger content */}
