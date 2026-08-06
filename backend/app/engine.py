@@ -102,7 +102,7 @@ WARNING_UNSAFE_EXECUTION = (
 
 
 class SimulationEngine:
-    """Deterministic simulation engine for Agent Playground.
+    """Deterministic simulation engine for Agent Engineering Simulator.
 
     All randomness is derived from a seeded ``random.Random`` instance so
     that the same ``AgentBlueprint`` + seed always produces identical output.
