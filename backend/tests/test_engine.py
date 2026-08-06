@@ -447,3 +447,314 @@ class TestNodeOrdering:
         # Both should appear, order is definition order since both are roots
         assert len(order) == 2
         assert {n.id for n in order} == {"a", "b"}
+
+
+# ---------------------------------------------------------------------------
+# Topology analysis
+# ---------------------------------------------------------------------------
+
+
+class TestTopologyAnalysis:
+    def test_single(self):
+        nodes = [GraphNode(id="n1", role="coder", next=[])]
+        topo = SimulationEngine._analyze_topology(nodes)
+        assert topo.kind == "single"
+        assert topo.has_feedback is False
+
+    def test_chain(self):
+        nodes = [
+            GraphNode(id="n1", role="planner", next=["n2"]),
+            GraphNode(id="n2", role="coder", next=["n3"]),
+            GraphNode(id="n3", role="reviewer", next=[]),
+        ]
+        topo = SimulationEngine._analyze_topology(nodes)
+        assert topo.kind == "chain"
+        assert topo.has_feedback is False
+        assert topo.parallel_coders == 0
+
+    def test_parallel(self):
+        nodes = [
+            GraphNode(id="p", role="planner", next=["c1", "c2"]),
+            GraphNode(id="c1", role="coder", next=["t"]),
+            GraphNode(id="c2", role="coder", next=["t"]),
+            GraphNode(id="t", role="tester", next=[]),
+        ]
+        topo = SimulationEngine._analyze_topology(nodes)
+        assert topo.kind == "parallel"
+        assert topo.parallel_coders >= 2
+
+    def test_feedback(self):
+        nodes = [
+            GraphNode(id="n1", role="planner", next=["n2"]),
+            GraphNode(id="n2", role="coder", next=["n3"]),
+            GraphNode(id="n3", role="reviewer", next=["n2"]),
+        ]
+        topo = SimulationEngine._analyze_topology(nodes)
+        assert topo.kind == "feedback"
+        assert topo.has_feedback is True
+
+    def test_isolated(self):
+        nodes = [
+            GraphNode(id="n1", role="planner", next=["n2"]),
+            GraphNode(id="n2", role="coder", next=[]),
+            GraphNode(id="orphan", role="tester", next=[]),
+        ]
+        topo = SimulationEngine._analyze_topology(nodes)
+        assert "orphan" in topo.isolated_nodes
+
+
+# ---------------------------------------------------------------------------
+# Memory isolation
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryIsolation:
+    def test_multi_agent_full_capacity_per_node(self):
+        """With graph bonus and capacity=6, coder local memory can reach 6
+        (not capacity // num_nodes = 2)."""
+        bp = make_blueprint(
+            level_id="level_4_graph",
+            run_seed=42,
+            has_workspace=True,
+            has_sandbox=True,
+            has_git=True,
+            memory_capacity=6,
+            loop_type="react_reflexion",
+            max_retries=3,
+            stop_condition="test_pass",
+            graph_nodes=[
+                GraphNode(id="n1", role="planner", next=["n2"]),
+                GraphNode(id="n2", role="coder", next=["n3"]),
+                GraphNode(id="n3", role="reviewer", next=[]),
+            ],
+        )
+        engine = SimulationEngine()
+        # Find a run where coder did enough work to use memory
+        max_coder_mem = 0
+        for seed_offset in range(50):
+            trace = engine.simulate(bp, seed=10000 + seed_offset)
+            for step in trace.steps:
+                if step.node == "n2":
+                    max_coder_mem = max(max_coder_mem, step.memory_used)
+        # Under old formula, cap would be 6//3=2; now full 6 is available
+        assert max_coder_mem > 2
+
+
+# ---------------------------------------------------------------------------
+# Retry blind vs reflexion
+# ---------------------------------------------------------------------------
+
+
+class TestRetryBlind:
+    def test_blind_lower_success_than_reflexion(self):
+        """With 4 retries and low hq, blind success rate << reflexion."""
+        engine = SimulationEngine()
+        total = 500
+        blind_ok = 0
+        reflex_ok = 0
+        hq = 0.1
+        for i in range(total):
+            engine.rng = __import__("random").Random(20000 + i)
+            ok_b, _, _ = engine._simulate_loop(4, hq, "retry_blind")
+            engine.rng = __import__("random").Random(20000 + i)
+            ok_r, _, _ = engine._simulate_loop(4, hq, "react_reflexion")
+            if ok_b:
+                blind_ok += 1
+            if ok_r:
+                reflex_ok += 1
+        assert reflex_ok > blind_ok
+        assert reflex_ok - blind_ok > total * 0.1
+
+    def test_one_retry_equal(self):
+        """With 1 retry, both modes have identical error_rate formula start."""
+        engine = SimulationEngine()
+        total = 200
+        blind_ok = 0
+        reflex_ok = 0
+        for i in range(total):
+            engine.rng = __import__("random").Random(30000 + i)
+            ok_b, _, _ = engine._simulate_loop(1, 0.3, "retry_blind")
+            engine.rng = __import__("random").Random(30000 + i)
+            ok_r, _, _ = engine._simulate_loop(1, 0.3, "react_reflexion")
+            if ok_b:
+                blind_ok += 1
+            if ok_r:
+                reflex_ok += 1
+        assert blind_ok == reflex_ok
+
+
+# ---------------------------------------------------------------------------
+# Reflections
+# ---------------------------------------------------------------------------
+
+
+class TestReflections:
+    def test_reflexion_produces_reflection_text(self):
+        bp = make_blueprint(
+            has_workspace=True,
+            has_sandbox=True,
+            has_git=True,
+            memory_capacity=8,
+            loop_type="react_reflexion",
+            max_retries=5,
+            stop_condition="test_pass",
+        )
+        engine = SimulationEngine()
+        found = False
+        for seed_offset in range(100):
+            trace = engine.simulate(bp, seed=40000 + seed_offset)
+            retries = [s for s in trace.steps if s.action == "RETRY" and s.reflection]
+            if retries:
+                found = True
+                assert retries[0].reflection.startswith("reflect_")
+                break
+        assert found, "Expected at least one RETRY with reflection in reflexion mode"
+
+    def test_blind_no_reflection(self):
+        bp = make_blueprint(
+            has_workspace=True,
+            has_sandbox=True,
+            has_git=True,
+            memory_capacity=8,
+            loop_type="retry_blind",
+            max_retries=5,
+            stop_condition="test_pass",
+        )
+        engine = SimulationEngine()
+        for seed_offset in range(50):
+            trace = engine.simulate(bp, seed=41000 + seed_offset)
+            for s in trace.steps:
+                assert s.reflection is None
+
+
+# ---------------------------------------------------------------------------
+# Failure events
+# ---------------------------------------------------------------------------
+
+
+class TestFailureEvents:
+    def test_failed_run_has_events(self):
+        bp = make_blueprint(
+            has_workspace=False,
+            has_sandbox=False,
+            has_git=False,
+            memory_capacity=2,
+            loop_type="none",
+        )
+        engine = SimulationEngine()
+        found_failed = False
+        for seed_offset in range(100):
+            trace = engine.simulate(bp, seed=50000 + seed_offset)
+            if trace.status == "FAILED":
+                found_failed = True
+                assert len(trace.failure_events) > 0
+                for ev in trace.failure_events:
+                    assert ev.reason != FailureReason.NONE
+                break
+        assert found_failed
+
+    def test_success_run_empty_events(self):
+        bp = make_blueprint(
+            has_workspace=True,
+            has_sandbox=True,
+            has_git=True,
+            memory_capacity=10,
+            loop_type="react_reflexion",
+            max_retries=5,
+            stop_condition="test_pass",
+            graph_nodes=[
+                GraphNode(id="n1", role="planner", next=["n2"]),
+                GraphNode(id="n2", role="coder", next=["n3"]),
+                GraphNode(id="n3", role="reviewer", next=[]),
+            ],
+        )
+        engine = SimulationEngine()
+        found_success = False
+        for seed_offset in range(100):
+            trace = engine.simulate(bp, seed=51000 + seed_offset)
+            if trace.status == "SUCCESS":
+                found_success = True
+                assert trace.failure_events == []
+                break
+        assert found_success
+
+
+# ---------------------------------------------------------------------------
+# Feedback rework & parallel coders
+# ---------------------------------------------------------------------------
+
+
+class TestFeedbackRework:
+    def test_feedback_improves_success_rate(self):
+        """Feedback graph should succeed more often than plain chain at low hq."""
+        chain = make_blueprint(
+            has_workspace=True,
+            has_sandbox=True,
+            has_git=True,
+            memory_capacity=5,
+            loop_type="none",
+            graph_nodes=[
+                GraphNode(id="n1", role="planner", next=["n2"]),
+                GraphNode(id="n2", role="coder", next=["n3"]),
+                GraphNode(id="n3", role="reviewer", next=[]),
+            ],
+        )
+        feedback = make_blueprint(
+            has_workspace=True,
+            has_sandbox=True,
+            has_git=True,
+            memory_capacity=5,
+            loop_type="none",
+            graph_nodes=[
+                GraphNode(id="n1", role="planner", next=["n2"]),
+                GraphNode(id="n2", role="coder", next=["n3"]),
+                GraphNode(id="n3", role="reviewer", next=["n2"]),
+            ],
+        )
+        engine = SimulationEngine()
+        r_chain = engine.monte_carlo(chain, num_runs=200)
+        r_fb = engine.monte_carlo(feedback, num_runs=200)
+        assert r_fb["success_rate"] >= r_chain["success_rate"]
+
+
+class TestParallelCoders:
+    def test_parallel_improves_or_matches_success(self):
+        """Parallel coders should not hurt success rate vs single coder chain."""
+        single = make_blueprint(
+            has_workspace=True,
+            has_sandbox=True,
+            has_git=True,
+            memory_capacity=6,
+            loop_type="react_reflexion",
+            max_retries=3,
+            stop_condition="test_pass",
+            graph_nodes=[
+                GraphNode(id="p", role="planner", next=["c"]),
+                GraphNode(id="c", role="coder", next=["r"]),
+                GraphNode(id="r", role="reviewer", next=[]),
+            ],
+        )
+        parallel = make_blueprint(
+            has_workspace=True,
+            has_sandbox=True,
+            has_git=True,
+            memory_capacity=6,
+            loop_type="react_reflexion",
+            max_retries=3,
+            stop_condition="test_pass",
+            graph_nodes=[
+                GraphNode(id="p", role="planner", next=["c1", "c2"]),
+                GraphNode(id="c1", role="coder", next=["r"]),
+                GraphNode(id="c2", role="coder", next=["r"]),
+                GraphNode(id="r", role="reviewer", next=[]),
+            ],
+        )
+        engine = SimulationEngine()
+        r_single = engine.monte_carlo(single, num_runs=200)
+        r_parallel = engine.monte_carlo(parallel, num_runs=200)
+        # Parallel should be at least as good (risk spreading)
+        assert r_parallel["success_rate"] >= r_single["success_rate"] - 0.05
+        # And topology should be detected
+        sample = r_parallel["sample_traces"][0]
+        assert sample.topology is not None
+        assert sample.topology.kind == "parallel"

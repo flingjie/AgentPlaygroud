@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useGame } from '../context/GameContext';
+import { useGame, successRatePct } from '../context/GameContext';
 
 export default function LevelSelector() {
   const { t } = useTranslation();
@@ -11,6 +11,8 @@ export default function LevelSelector() {
     setSelectedLevelId,
     selectedLevel,
     monteCarloResult,
+    reopenIntro,
+    dismissedIntros,
   } = useGame();
 
   const harnessLabels: Record<string, string> = {
@@ -25,17 +27,28 @@ export default function LevelSelector() {
     return level ? t(`levels.${id}.name`, level.name) : id;
   };
 
-  // Determine recommended next level: first level whose target hasn't been beaten
-  const currentSuccessRate = monteCarloResult?.success_rate;
+  const targetPct = (rate: number) => (rate <= 1 ? rate * 100 : rate);
+
+  const currentSuccessRate = monteCarloResult
+    ? successRatePct(monteCarloResult.success_rate)
+    : null;
   const nextUnbeatenIdx = levels.findIndex((l) => {
     if (currentSuccessRate == null) return true;
-    return currentSuccessRate < l.target_success_rate * 100;
+    return currentSuccessRate < targetPct(l.target_success_rate);
   });
-  const recommendedLevelId = nextUnbeatenIdx >= 0 ? levels[nextUnbeatenIdx].id : (levels[levels.length - 1]?.id || '');
-  const hasBeatenCurrent = selectedLevel && currentSuccessRate != null && currentSuccessRate >= selectedLevel.target_success_rate * 100;
-  const nextLevel = selectedLevel && nextUnbeatenIdx > levels.findIndex((l) => l.id === selectedLevel.id)
-    ? levels[levels.findIndex((l) => l.id === selectedLevel.id) + 1]
-    : null;
+  const recommendedLevelId =
+    nextUnbeatenIdx >= 0
+      ? levels[nextUnbeatenIdx].id
+      : levels[levels.length - 1]?.id || '';
+  const hasBeatenCurrent =
+    selectedLevel &&
+    currentSuccessRate != null &&
+    currentSuccessRate >= targetPct(selectedLevel.target_success_rate);
+  const nextLevel =
+    selectedLevel &&
+    nextUnbeatenIdx > levels.findIndex((l) => l.id === selectedLevel.id)
+      ? levels[levels.findIndex((l) => l.id === selectedLevel.id) + 1]
+      : null;
 
   return (
     <div className="space-y-3">
@@ -63,7 +76,9 @@ export default function LevelSelector() {
       )}
 
       {!levelsLoading && !levelsError && levels.length === 0 && (
-        <p className="text-gray-400 dark:text-gray-500 text-sm">{t('levelSelector.noLevels')}</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm">
+          {t('levelSelector.noLevels')}
+        </p>
       )}
 
       {!levelsLoading && !levelsError && levels.length > 0 && (
@@ -75,13 +90,16 @@ export default function LevelSelector() {
           >
             {levels.map((l) => {
               const isRecommended = l.id === recommendedLevelId;
-              const isCleared = currentSuccessRate != null && currentSuccessRate >= l.target_success_rate * 100;
+              const isCleared =
+                currentSuccessRate != null &&
+                currentSuccessRate >= targetPct(l.target_success_rate);
               let suffix = '';
               if (isCleared) suffix = ` ${t('levelSelector.cleared')}`;
               else if (isRecommended) suffix = ` ${t('levelSelector.recommended')}`;
               return (
                 <option key={l.id} value={l.id}>
-                  {getLevelName(l.id)}{suffix}
+                  {getLevelName(l.id)}
+                  {suffix}
                 </option>
               );
             })}
@@ -90,14 +108,20 @@ export default function LevelSelector() {
           {selectedLevel && (
             <div className="bg-gray-100/50 dark:bg-gray-800/50 rounded-lg p-4 space-y-2 border border-gray-200/50 dark:border-gray-700/50">
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                {t(`levels.${selectedLevel.id}.description`, selectedLevel.description)}
+                {t(
+                  `levels.${selectedLevel.id}.description`,
+                  selectedLevel.description,
+                )}
               </p>
               <div className="flex flex-wrap gap-2 pt-1">
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-green-400/10 text-green-600 dark:text-green-400 border border-green-400/20">
-                  {t('levelSelector.target')}: {selectedLevel.target_success_rate}%
+                  {t('levelSelector.target')}:{' '}
+                  {Math.round(targetPct(selectedLevel.target_success_rate))}%
                 </span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-blue-400/10 text-blue-600 dark:text-blue-400 border border-blue-400/20">
-                  {t('levelSelector.budget')}: {selectedLevel.token_budget.toLocaleString()} {t('levelSelector.tokens')}
+                  {t('levelSelector.budget')}:{' '}
+                  {selectedLevel.token_budget.toLocaleString()}{' '}
+                  {t('levelSelector.tokens')}
                 </span>
               </div>
               <div className="pt-1">
@@ -126,14 +150,21 @@ export default function LevelSelector() {
                 </div>
               </div>
 
-              {/* Tutorial lesson for this level */}
               <div className="pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
                 <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed">
                   {t(`levels.${selectedLevel.id}.tutorial`, '')}
                 </p>
               </div>
 
-              {/* Next-level prompt after beating target */}
+              {dismissedIntros.includes(selectedLevelId) && (
+                <button
+                  onClick={() => reopenIntro(selectedLevelId)}
+                  className="text-xs font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {t('intro.reopen')}
+                </button>
+              )}
+
               {hasBeatenCurrent && nextLevel && (
                 <div className="pt-2">
                   <button

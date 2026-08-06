@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, Brain } from 'lucide-react';
 import type { TraceStep } from '../types';
 
 interface TimelineProps {
@@ -104,6 +104,14 @@ export default function Timeline({
                     </span>
                   </div>
                 )}
+                {step.reflection && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Brain size={10} className="text-purple-500 dark:text-purple-400 shrink-0" />
+                    <span className="text-[10px] text-purple-500 dark:text-purple-400 truncate max-w-[140px]">
+                      {t(`reflections.${step.reflection}`, step.reflection)}
+                    </span>
+                  </div>
+                )}
               </button>
 
               {/* Arrow connector */}
@@ -159,6 +167,14 @@ export default function Timeline({
             <div className="mt-2 flex items-start gap-1.5 text-xs text-yellow-600 dark:text-yellow-400">
               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
               <span>{selectedStep.warning}</span>
+            </div>
+          )}
+          {selectedStep.reflection && (
+            <div className="mt-2 flex items-start gap-1.5 text-xs text-purple-600 dark:text-purple-400 bg-purple-400/5 border border-purple-400/15 rounded px-2 py-1.5">
+              <Brain size={12} className="shrink-0 mt-0.5" />
+              <span className="italic">
+                {t(`reflections.${selectedStep.reflection}`, selectedStep.reflection)}
+              </span>
             </div>
           )}
         </div>

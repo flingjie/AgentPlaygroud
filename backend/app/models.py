@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from enum import Enum
 from typing import Literal
 
@@ -20,7 +19,7 @@ class HarnessConfig(BaseModel):
 
 
 class LoopStrategy(BaseModel):
-    type: Literal["none", "react_reflexion"] = "none"
+    type: Literal["none", "retry_blind", "react_reflexion"] = "none"
     max_retries: int = Field(default=1, ge=1)
     stop_condition: Literal["none", "test_pass"] = "none"
 
@@ -68,6 +67,19 @@ class TraceStep(BaseModel):
     status: StepStatus
     memory_used: int
     warning: str | None = None
+    reflection: str | None = None  # i18n key, e.g. "reflect_test_fail"
+
+
+class FailureEvent(BaseModel):
+    reason: FailureReason
+    step: int
+
+
+class TopologyInfo(BaseModel):
+    kind: Literal["single", "chain", "parallel", "feedback"]
+    has_feedback: bool = False
+    parallel_coders: int = 0
+    isolated_nodes: list[str] = []
 
 
 class RunTrace(BaseModel):
@@ -76,6 +88,8 @@ class RunTrace(BaseModel):
     failure_reason: FailureReason = FailureReason.NONE
     cost_tokens: int = 0
     steps: list[TraceStep] = []
+    failure_events: list[FailureEvent] = []
+    topology: TopologyInfo | None = None
 
 
 # ---------------------------------------------------------------------------

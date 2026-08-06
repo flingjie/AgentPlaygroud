@@ -73,10 +73,12 @@ const MOCK_TRACE_SUCCESS: RunTrace = {
     { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
     { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2 },
     { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 3 },
-    { step: 4, node: 'node_1', action: 'RETRY', status: 'SUCCESS', memory_used: 3 },
+    { step: 4, node: 'node_1', action: 'RETRY', status: 'SUCCESS', memory_used: 3, reflection: 'reflect_test_fail' },
     { step: 5, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 4 },
     { step: 6, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 4 },
   ],
+  failure_events: [],
+  topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
 const MOCK_TRACE_INFINITE_LOOP: RunTrace = {
@@ -88,11 +90,13 @@ const MOCK_TRACE_INFINITE_LOOP: RunTrace = {
     { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
     { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2 },
     { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 4, warning: 'Test failed: 2 assertions failed' },
-    { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 5, warning: 'Same edit applied, test still failing' },
-    { step: 5, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 6, warning: 'Retry #2: no progress detected' },
-    { step: 6, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 7, warning: 'Retry #3: same fix applied again' },
+    { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 5, warning: 'Same edit applied, test still failing', reflection: 'reflect_test_fail' },
+    { step: 5, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 6, warning: 'Retry #2: no progress detected', reflection: 'reflect_wrong_file' },
+    { step: 6, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 7, warning: 'Retry #3: same fix applied again', reflection: 'reflect_off_by_one' },
     { step: 7, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 8, warning: 'Agent stuck in infinite retry loop — retries exhausted without success. Add a stop_condition (test_pass) or increase max_retries.' },
   ],
+  failure_events: [{ reason: 'INFINITE_LOOP_TRAP', step: 7 }],
+  topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
 const MOCK_TRACE_CONTEXT_FULL: RunTrace = {
@@ -106,6 +110,8 @@ const MOCK_TRACE_CONTEXT_FULL: RunTrace = {
     { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 7, warning: 'Test failed — retrying' },
     { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 10, warning: 'Context window full — memory capacity exhausted during retry loop. Increase memory capacity or use sub-agents to isolate context.' },
   ],
+  failure_events: [{ reason: 'CONTEXT_FULL', step: 4 }],
+  topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
 function buildMockMonteCarlo(): MonteCarloResult {
@@ -174,13 +180,14 @@ export async function simulate(blueprint: AgentBlueprint): Promise<RunTrace> {
         { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
         { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'FAIL', memory_used: 2, warning: 'Agent attempted to use a tool that does not exist — no sandbox or workspace available. Add Sandbox or Git Workspace.' },
       ],
+      failure_events: [{ reason: 'HALLUCINATED_TOOL', step: 2 }],
     };
     return hallucinatedTrace;
   }
   const res = await fetch(`${BASE}/api/simulate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ blueprint }),
+    body: JSON.stringify(blueprint),
   });
   if (!res.ok) throw new ApiError('Simulation failed', res.status);
   return res.json();
@@ -200,7 +207,15 @@ export async function monteCarlo(
     body: JSON.stringify({ blueprint, num_runs: numRuns }),
   });
   if (!res.ok) throw new ApiError('Monte Carlo simulation failed', res.status);
-  return res.json();
+  const data = await res.json();
+  // Backend returns 0–1; UI expects 0–100
+  return {
+    ...data,
+    success_rate:
+      data.success_rate <= 1
+        ? Math.round(data.success_rate * 10000) / 100
+        : data.success_rate,
+  };
 }
 
 export function connectSimulationWebSocket(

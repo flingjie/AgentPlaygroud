@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Brain } from 'lucide-react';
 import type { TraceStep } from '../types';
 
 interface EventBusProps {
@@ -118,6 +118,12 @@ export default function EventBus({
               {step.warning && (
                 <span className="text-yellow-600 dark:text-yellow-400 truncate ml-1 text-[10px]">
                   ({step.warning})
+                </span>
+              )}
+              {step.reflection && (
+                <span className="flex items-center gap-1 text-purple-500 dark:text-purple-400 truncate ml-1 text-[10px]">
+                  <Brain size={10} className="shrink-0" />
+                  {t(`reflections.${step.reflection}`, step.reflection)}
                 </span>
               )}
             </button>

@@ -9,6 +9,11 @@ const STRATEGIES: { value: LoopStrategy['type']; labelKey: string; descKey: stri
     descKey: 'loop.noneDesc',
   },
   {
+    value: 'retry_blind',
+    labelKey: 'loop.retryBlind',
+    descKey: 'loop.retryBlindDesc',
+  },
+  {
     value: 'react_reflexion',
     labelKey: 'loop.reactReflexion',
     descKey: 'loop.reactReflexionDesc',
@@ -27,8 +32,7 @@ export default function LoopConfigPanel() {
         {t('loop.title')}
       </h3>
 
-      {/* Strategy selector */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {STRATEGIES.map(({ value, labelKey, descKey }) => {
           const selected = loop.type === value;
           const disabled = value !== 'none' && !unlocked;
@@ -66,7 +70,6 @@ export default function LoopConfigPanel() {
         })}
       </div>
 
-      {/* Max retries slider (only when loop is enabled) */}
       {loop.type !== 'none' && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -92,7 +95,6 @@ export default function LoopConfigPanel() {
             <span>10</span>
           </div>
 
-          {/* Stop condition */}
           <div className="flex items-center gap-2 pt-1">
             <input
               type="checkbox"

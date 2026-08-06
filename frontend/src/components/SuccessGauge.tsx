@@ -1,11 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { useGame } from '../context/GameContext';
+import { useGame, successRatePct } from '../context/GameContext';
 
 export default function SuccessGauge() {
   const { t } = useTranslation();
   const { selectedLevel, monteCarloResult } = useGame();
-  const target = selectedLevel?.target_success_rate ?? 70;
-  const current = monteCarloResult?.success_rate ?? 0;
+  const rawTarget = selectedLevel?.target_success_rate ?? 0.7;
+  const target = rawTarget <= 1 ? rawTarget * 100 : rawTarget;
+  const current = monteCarloResult
+    ? successRatePct(monteCarloResult.success_rate)
+    : 0;
   const hasResult = monteCarloResult !== null;
 
   const radius = 54;
@@ -22,7 +25,6 @@ export default function SuccessGauge() {
       <div className="flex items-center justify-center">
         <div className="relative w-36 h-36">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 128 128">
-            {/* Background circle */}
             <circle
               cx={64}
               cy={64}
@@ -32,7 +34,6 @@ export default function SuccessGauge() {
               className="dark:stroke-[#1e293b]"
               strokeWidth={10}
             />
-            {/* Target marker */}
             <circle
               cx={64}
               cy={64}
@@ -45,16 +46,13 @@ export default function SuccessGauge() {
               strokeDashoffset={targetOffset}
               strokeLinecap="round"
             />
-            {/* Current value (only when we have a result) */}
             {hasResult && (
               <circle
                 cx={64}
                 cy={64}
                 r={radius}
                 fill="none"
-                stroke={
-                  current >= target ? '#4ade80' : '#f87171'
-                }
+                stroke={current >= target ? '#4ade80' : '#f87171'}
                 strokeWidth={10}
                 strokeDasharray={circumference}
                 strokeDashoffset={currentOffset}
@@ -68,13 +66,15 @@ export default function SuccessGauge() {
               <>
                 <span
                   className={`text-2xl font-bold font-mono ${
-                    current >= target ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
+                    current >= target
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-500 dark:text-red-400'
                   }`}
                 >
-                  {current}%
+                  {Math.round(current)}%
                 </span>
                 <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                  {t('successGauge.target', { value: target })}
+                  {t('successGauge.target', { value: Math.round(target) })}
                 </span>
               </>
             ) : (

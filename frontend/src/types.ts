@@ -6,7 +6,7 @@ export interface HarnessConfig {
 }
 
 export interface LoopStrategy {
-  type: 'none' | 'react_reflexion';
+  type: 'none' | 'retry_blind' | 'react_reflexion';
   max_retries: number;
   stop_condition: 'none' | 'test_pass';
 }
@@ -32,6 +32,7 @@ export interface TraceStep {
   status: 'SUCCESS' | 'FAIL';
   memory_used: number;
   warning?: string;
+  reflection?: string;
 }
 
 export type FailureReason =
@@ -43,12 +44,26 @@ export type FailureReason =
   | 'INFINITE_LOOP_TRAP'
   | 'TASK_ABANDONED';
 
+export interface FailureEvent {
+  reason: FailureReason;
+  step: number;
+}
+
+export interface TopologyInfo {
+  kind: 'single' | 'chain' | 'parallel' | 'feedback';
+  has_feedback: boolean;
+  parallel_coders: number;
+  isolated_nodes: string[];
+}
+
 export interface RunTrace {
   run_id: string;
   status: 'SUCCESS' | 'FAILED';
   failure_reason: FailureReason;
   cost_tokens: number;
   steps: TraceStep[];
+  failure_events?: FailureEvent[];
+  topology?: TopologyInfo | null;
 }
 
 export interface MonteCarloResult {
@@ -77,3 +92,12 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
+
+export const ALL_FAILURE_REASONS: FailureReason[] = [
+  'HALLUCINATED_TOOL',
+  'FILE_CORROSION',
+  'MEMORY_STACK_OVERFLOW',
+  'CONTEXT_FULL',
+  'INFINITE_LOOP_TRAP',
+  'TASK_ABANDONED',
+];

@@ -1,8 +1,9 @@
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
+import { useGame, successRatePct } from '../context/GameContext';
 import type { MonteCarloResult, RunTrace, FailureReason } from '../types';
-import { CheckCircle2, TrendingUp, Zap } from 'lucide-react';
+import { CheckCircle2, TrendingUp, Zap, Target } from 'lucide-react';
 
 interface MonteCarloSummaryProps {
   result: MonteCarloResult;
@@ -40,11 +41,16 @@ export default function MonteCarloSummary({
 }: MonteCarloSummaryProps) {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const { prediction } = useGame();
   const isDark = theme === 'dark';
 
-  const { success_rate, avg_tokens, failure_distribution } = result;
+  const success_rate = successRatePct(result.success_rate);
+  const { avg_tokens, failure_distribution } = result;
 
-  // Pie data: success vs failure
+  const error =
+    prediction != null ? Math.round(success_rate - prediction) : null;
+  const bigMiss = error != null && Math.abs(error) > 20;
+
   const failTotal = Object.values(failure_distribution).reduce((a, b) => a + b, 0);
   const total = success_rate * (success_rate + failTotal) / 100 + failTotal;
   const actualSuccess = Math.round(success_rate / 100 * total);
@@ -54,7 +60,6 @@ export default function MonteCarloSummary({
   ];
   const PIE_COLORS = ['#4ade80', '#ef4444'];
 
-  // Failure distribution bar data
   const barData = Object.entries(failure_distribution)
     .filter(([, count]) => count > 0)
     .map(([reason, count]) => ({
@@ -73,6 +78,45 @@ export default function MonteCarloSummary({
 
   return (
     <div className="p-4 bg-gray-50/30 dark:bg-gray-900/30">
+      {prediction != null && (
+        <div
+          className={`mb-4 rounded-lg border px-4 py-3 flex items-start gap-3 ${
+            bigMiss
+              ? 'bg-amber-400/5 border-amber-400/20'
+              : 'bg-blue-400/5 border-blue-400/20'
+          }`}
+        >
+          <Target
+            size={16}
+            className={`shrink-0 mt-0.5 ${
+              bigMiss ? 'text-amber-500' : 'text-blue-500'
+            }`}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+              {t('prediction.revealTitle')}
+            </p>
+            <p className="text-sm font-mono text-gray-800 dark:text-gray-200">
+              {t('prediction.revealDetail', {
+                predicted: prediction,
+                actual: Math.round(success_rate),
+                error:
+                  error != null
+                    ? error > 0
+                      ? `+${error}`
+                      : `${error}`
+                    : '—',
+              })}
+            </p>
+            {bigMiss && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 leading-relaxed">
+                {t('prediction.bigMiss')}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 mb-4">
         <TrendingUp size={16} className="text-blue-600 dark:text-blue-400" />
         <h3 className="font-mono text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -81,7 +125,6 @@ export default function MonteCarloSummary({
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        {/* Success rate big number + pie */}
         <div className="flex flex-col items-center">
           <span
             className={`text-4xl font-bold font-mono ${
@@ -92,7 +135,7 @@ export default function MonteCarloSummary({
                   : 'text-red-500 dark:text-red-400'
             }`}
           >
-            {success_rate}%
+            {Math.round(success_rate)}%
           </span>
           <span className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-1">
             {t('monteCarlo.successRate')}
@@ -129,7 +172,6 @@ export default function MonteCarloSummary({
           </div>
         </div>
 
-        {/* Avg tokens */}
         <div className="flex flex-col items-center justify-center">
           <div className="flex items-center gap-2 mb-1">
             <Zap size={16} className="text-yellow-600 dark:text-yellow-400" />
@@ -141,7 +183,6 @@ export default function MonteCarloSummary({
             {t('monteCarlo.avgTokens')}
           </span>
 
-          {/* Failure distribution chart */}
           {barData.length > 0 && (
             <div className="w-full mt-3 h-28">
               <ResponsiveContainer width="100%" height="100%">
@@ -185,7 +226,6 @@ export default function MonteCarloSummary({
           )}
         </div>
 
-        {/* Sample traces */}
         <div className="flex flex-col">
           <span className="text-xs text-gray-400 dark:text-gray-500 font-mono mb-2">
             {t('monteCarlo.sampleTraces')}

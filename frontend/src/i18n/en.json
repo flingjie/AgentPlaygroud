@@ -33,30 +33,66 @@
     "unlocked": "Unlocked",
     "loop": "loop",
     "graph": "graph",
-    "recommended": "⭐ Recommended",
+    "recommended": "Recommended",
     "nextLevel": "Beat the target? Try the next level →",
-    "cleared": "✓ Cleared"
+    "cleared": "Cleared"
   },
   "levels": {
     "level_1_raw": {
       "name": "Level 1: The Raw Agent",
       "description": "No harness, no loop, no graph. A single coder node operating without any safety nets. Expect lots of failures — learn what breaks when an agent has zero infrastructure.",
-      "tutorial": "Lesson: Without any engineering infrastructure, a raw LLM agent is nearly useless. It hallucinates tools, corrupts its own work, and forgets context after just a few steps."
+      "tutorial": "Lesson: Without any engineering infrastructure, a raw LLM agent is nearly useless. It hallucinates tools, corrupts its own work, and forgets context after just a few steps.",
+      "intro": {
+        "analogy": "This is a 2023-era raw agent — a warrior charging into the dungeon with no armor.",
+        "watchFor": "Watch where it dies: hallucinated tool call, file corrosion, or memory overflow?"
+      },
+      "debrief": {
+        "concept": "Harness Engineering",
+        "conceptRef": "Tool grounding · Sandbox · Version control · Context window",
+        "summary": "You saw it firsthand: without workspace, sandbox, Git, and a memory buffer, an agent can barely complete any task. Infrastructure is not optional — it is the starting point."
+      }
     },
     "level_2_harness": {
       "name": "Level 2: Safety Harness",
       "description": "Unlock workspace, sandbox, Git, and memory buffer. Still no loop strategy, so a single test failure means the task is abandoned. Learn how infrastructure reduces common failure modes.",
-      "tutorial": "Lesson: Infrastructure (workspace, sandbox, git, memory) eliminates the most basic failure modes, but without a self-correction loop, the agent still gives up on the first error."
+      "tutorial": "Lesson: Infrastructure (workspace, sandbox, git, memory) eliminates the most basic failure modes, but without a self-correction loop, the agent still gives up on the first error.",
+      "intro": {
+        "analogy": "You armored the warrior — but you have not taught it to get back up after a fall.",
+        "watchFor": "Watch what happens after the first test failure — does the agent just give up?"
+      },
+      "debrief": {
+        "concept": "Harness eliminates basic failures",
+        "conceptRef": "Workspace / Sandbox / Git / Memory Buffer",
+        "summary": "With gear equipped, hallucinations and file corrosion vanish. But without a loop, one failure still means task abandoned — next level teaches the agent to climb back up."
+      }
     },
     "level_3_loop": {
       "name": "Level 3: The Loop",
       "description": "Unlock the ReAct+Reflexion loop strategy with up to 5 retries and a test_pass stop condition. The agent can now recover from failures automatically. Master the feedback loop.",
-      "tutorial": "Lesson: A retry loop dramatically improves success rates, but without memory isolation, repeated retries fill up the context window, leading to infinite loop traps and token waste."
+      "tutorial": "Lesson: A retry loop dramatically improves success rates, but without memory isolation, repeated retries fill up the context window, leading to infinite loop traps and token waste.",
+      "intro": {
+        "analogy": "Blind retry is reloading a save. Reflexion is fighting again with XP. That difference is Loop Engineering.",
+        "watchFor": "Compare Blind Retry vs ReAct+Reflexion — which one actually climbs the success curve? When does the memory waterline overflow?"
+      },
+      "debrief": {
+        "concept": "Reflexion",
+        "conceptRef": "Shinn et al. 2023 · LangGraph recursion_limit",
+        "summary": "The self-correction loop you just configured is formally called Reflexion: test fails → reflect on why → retry with the lesson. Blind retries do not decay; reflection lowers the error rate each round."
+      }
     },
     "level_4_graph": {
       "name": "Level 4: The Graph",
       "description": "Unlock the multi-agent graph: planner → coder → reviewer. Each agent has isolated memory, and the chain provides built-in review. Full harness + loop enabled. Reach near-perfect reliability.",
-      "tutorial": "Lesson: Splitting work across specialized sub-agents with isolated memory is the key to scaling agent reliability. The planner decomposes tasks, the coder implements, and the reviewer catches mistakes — each with its own context window."
+      "tutorial": "Lesson: Splitting work across specialized sub-agents with isolated memory is the key to scaling agent reliability. The planner decomposes tasks, the coder implements, and the reviewer catches mistakes — each with its own context window.",
+      "intro": {
+        "analogy": "One person doing everything vs founding a company: who you hire, what process you set, and whether each gets a private desk decides the KPI.",
+        "watchFor": "Watch how topology affects outcomes — chain, parallel, and review-feedback each trade success rate against token cost."
+      },
+      "debrief": {
+        "concept": "Graph / Multi-Agent Orchestration",
+        "conceptRef": "LangGraph StateGraph · CrewAI roles · Context isolation",
+        "summary": "Isolated-memory sub-agents stop contexts from polluting each other. Topology is not decoration — parallel spreads risk, feedback enables rework, and every structure has a calculable trade-off."
+      }
     }
   },
   "harness": {
@@ -73,10 +109,93 @@
     "title": "Loop Strategy",
     "none": "None",
     "noneDesc": "Single-pass execution — the agent stops on the first error",
+    "retryBlind": "Blind Retry",
+    "retryBlindDesc": "Reload the save: same error rate every attempt — no learning from failure",
     "reactReflexion": "ReAct + Reflexion",
-    "reactReflexionDesc": "Self-correcting loop: test → reflect → retry until success or limit",
+    "reactReflexionDesc": "Fight again with XP: test → reflect → retry, error rate decays each round",
     "maxRetries": "Max Retries",
     "stopOnTestPass": "Stop on test pass"
+  },
+  "prediction": {
+    "title": "Predict Success Rate",
+    "hint": "Guess before you run. Level target is {{target}}%. Write your hypothesis, then face the evidence.",
+    "label": "I predict success at",
+    "confirm": "Lock prediction",
+    "revise": "Revise",
+    "locked": "Locked: {{value}}%",
+    "required": "Lock a prediction before running the simulation",
+    "revealTitle": "Prediction vs Actual",
+    "revealDetail": "Predicted {{predicted}}% vs actual {{actual}}% (error {{error}})",
+    "bigMiss": "Error over 20% — which assumption was wrong? Hunt for clues in the Debugger."
+  },
+  "intro": {
+    "title": "Level Briefing",
+    "watchFor": "Watch for:",
+    "start": "Start experimenting",
+    "reopen": "Reopen briefing"
+  },
+  "debrief": {
+    "title": "Level Cleared",
+    "conceptLabel": "The concept you just learned",
+    "predictionReview": "Prediction review",
+    "predictionDetail": "Predicted {{predicted}}% · Actual {{actual}}% · Error {{error}}",
+    "continue": "Keep experimenting",
+    "nextLevel": "Next level"
+  },
+  "bestiary": {
+    "title": "Failure Bestiary",
+    "locked": "Not yet encountered",
+    "trigger": "Trigger",
+    "counter": "Counter",
+    "toastTitle": "Bestiary unlocked",
+    "HALLUCINATED_TOOL": {
+      "name": "Hallucination Beast",
+      "trigger": "Calls a non-existent tool when no sandbox/workspace is present",
+      "counter": "Enable Workspace + Sandbox",
+      "reality": "Reality: tool calls need grounding — a real FS and executable environment.",
+      "mechanism": "The agent cannot tell real APIs from invented ones without a sandbox or workspace to anchor reality."
+    },
+    "FILE_CORROSION": {
+      "name": "Corrosion Worm",
+      "trigger": "Multiple EDIT_FILE actions overwrite each other without Git",
+      "counter": "Enable Git to track changes",
+      "reality": "Reality: in-place edits without version control cannot be rolled back.",
+      "mechanism": "Without Git, each edit destroys the previous one until the file is corrupted."
+    },
+    "MEMORY_STACK_OVERFLOW": {
+      "name": "Amnesia Demon",
+      "trigger": "Too many steps with too little memory capacity",
+      "counter": "Raise memory capacity (≥5)",
+      "reality": "Reality: the context window is a finite resource.",
+      "mechanism": "Too many steps, too small a buffer — the agent forgets what it was doing."
+    },
+    "CONTEXT_FULL": {
+      "name": "The Suffocator",
+      "trigger": "Memory usage hits capacity during retries",
+      "counter": "Add memory, or isolate context per agent with a graph",
+      "reality": "Reality: long chats and retry logs fill the context window.",
+      "mechanism": "Retry history fills the context; the agent can no longer process new information."
+    },
+    "INFINITE_LOOP_TRAP": {
+      "name": "Infinite Loop Beast",
+      "trigger": "No stop condition; retries exhausted with no progress",
+      "counter": "Enable 'Stop on test pass' or raise max_retries",
+      "reality": "Reality: LangGraph recursion_limit / stop conditions.",
+      "mechanism": "Test fails → same fix → fails again. Without a stop condition, retries burn out."
+    },
+    "TASK_ABANDONED": {
+      "name": "Quitter",
+      "trigger": "No loop strategy; one test failure abandons the task",
+      "counter": "Switch to Blind Retry or ReAct+Reflexion",
+      "reality": "Reality: a single-pass agent cannot recover from errors.",
+      "mechanism": "Without a loop strategy, the first failure ends the entire task."
+    }
+  },
+  "reflections": {
+    "reflect_test_fail": "Last run failed an assertion. This time, read the full error before editing.",
+    "reflect_wrong_file": "Last run edited the wrong file. This time, follow the stack trace to the real path.",
+    "reflect_off_by_one": "Last run had an off-by-one boundary bug. This time, check loop and index bounds.",
+    "reflect_dependency": "Last run missed a dependency import. This time, confirm the module is in scope."
   },
   "tokenBudget": {
     "title": "Token Budget",
@@ -119,6 +238,13 @@
     "liveSimulationFailed": "Live simulation failed",
     "whyFailed": "Why did it fail?",
     "howToFix": "How to fix",
+    "showHint": "Need a hint?",
+    "topology": {
+      "single": "Topology: single",
+      "chain": "Topology: chain",
+      "parallel": "Topology: parallel",
+      "feedback": "Topology: feedback"
+    },
     "failureHints": {
       "HALLUCINATED_TOOL": "The agent tried to use a tool that doesn't exist — it hallucinated an API or package. This happens when there's no sandbox or workspace to ground the agent in reality.",
       "FILE_CORROSION": "The agent overwrote its own work. Without Git to track changes, each edit destroyed the previous one, corrupting the final output.",
@@ -133,7 +259,7 @@
       "MEMORY_STACK_OVERFLOW": "Increase Memory Capacity to at least 5.",
       "CONTEXT_FULL": "Increase Memory Capacity or use a multi-agent Graph to isolate context per agent.",
       "INFINITE_LOOP_TRAP": "Enable 'Stop on test pass' in Loop Strategy, or increase Max Retries.",
-      "TASK_ABANDONED": "Switch Loop Strategy from 'None' to 'ReAct + Reflexion'."
+      "TASK_ABANDONED": "Switch Loop Strategy from 'None' to 'Blind Retry' or 'ReAct + Reflexion'."
     }
   },
   "timeline": {

@@ -7,7 +7,7 @@ import Timeline from './Timeline';
 import MemoryMonitor from './MemoryMonitor';
 import EventBus from './EventBus';
 import MonteCarloSummary from './MonteCarloSummary';
-import { Play, Wifi, WifiOff, Loader2, Lightbulb, Wrench } from 'lucide-react';
+import { Play, Wifi, WifiOff, Loader2, Lightbulb, Wrench, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Debugger() {
   const { t } = useTranslation();
@@ -25,6 +25,7 @@ export default function Debugger() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wsRef, setWsRef] = useState<WebSocket | null>(null);
+  const [showHint, setShowHint] = useState(false);
 
   const hasData = latestTrace !== null || liveSteps.length > 0;
   const trace = latestTrace;
@@ -35,6 +36,7 @@ export default function Debugger() {
     setRunning(true);
     setError(null);
     setSelectedStep(null);
+    setShowHint(false);
     try {
       const result = await simulate(blueprint);
       setLatestTrace(result);
@@ -84,6 +86,7 @@ export default function Debugger() {
   const handleViewSampleTrace = (trace: RunTrace) => {
     setLatestTrace(trace);
     setSelectedStep(null);
+    setShowHint(false);
   };
 
   if (!hasData) {
@@ -156,6 +159,11 @@ export default function Debugger() {
               {trace.cost_tokens.toLocaleString()} {t('debugger.tokens')}
             </span>
           )}
+          {trace?.topology && (
+            <span className="text-xs font-mono px-2 py-0.5 rounded bg-orange-400/10 text-orange-600 dark:text-orange-400 border border-orange-400/20">
+              {t(`debugger.topology.${trace.topology.kind}`, trace.topology.kind)}
+            </span>
+          )}
           {isLive && (
             <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 font-mono">
               <span className="w-2 h-2 rounded-full bg-green-600 dark:bg-green-400 animate-live-dot" />
@@ -187,13 +195,11 @@ export default function Debugger() {
         </div>
       </div>
 
-      {/* Failure diagnosis (tutorial hint) */}
+      {/* Failure diagnosis (tutorial hint) — HOW is folded by default */}
       {trace && trace.status === 'FAILED' && trace.failure_reason !== 'NONE' && (
         <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-3">
           <div className="flex items-start gap-3">
-            <div className="flex gap-2 shrink-0 mt-0.5">
-              <Lightbulb size={16} className="text-amber-500" />
-            </div>
+            <Lightbulb size={16} className="text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">
                 {t('debugger.whyFailed')}
@@ -202,17 +208,21 @@ export default function Debugger() {
                 {t(`debugger.failureHints.${trace.failure_reason}`, '')}
               </p>
             </div>
-            <div className="flex gap-2 shrink-0 mt-0.5">
-              <Wrench size={16} className="text-amber-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">
-                {t('debugger.howToFix')}
-              </p>
-              <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+          </div>
+          <div className="mt-2 ml-7">
+            <button
+              onClick={() => setShowHint(!showHint)}
+              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors"
+            >
+              <Wrench size={12} />
+              {t('debugger.showHint')}
+              {showHint ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+            {showHint && (
+              <p className="mt-1.5 text-sm text-green-600 dark:text-green-400 font-medium">
                 {t(`debugger.failureFixes.${trace.failure_reason}`, '')}
               </p>
-            </div>
+            )}
           </div>
         </div>
       )}

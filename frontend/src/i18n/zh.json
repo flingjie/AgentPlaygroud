@@ -33,30 +33,66 @@
     "unlocked": "已解锁",
     "loop": "循环",
     "graph": "图",
-    "recommended": "⭐ 推荐",
+    "recommended": "推荐",
     "nextLevel": "达成目标？尝试下一关 →",
-    "cleared": "✓ 已通关"
+    "cleared": "已通关"
   },
   "levels": {
     "level_1_raw": {
       "name": "第一关：裸奔时代",
       "description": "没有运行环境、没有循环策略、没有图结构。只有一个裸 coder 节点，没有任何安全网。准备好面对大量失败——看看没有工程基础设施的 agent 会崩成什么样。",
-      "tutorial": "教训：没有任何工程基础设施时，裸 LLM agent 几乎毫无用处。它会幻觉出不存在的工具、覆盖自己的代码、几步之后就忘记上下文。"
+      "tutorial": "教训：没有任何工程基础设施时，裸 LLM agent 几乎毫无用处。它会幻觉出不存在的工具、覆盖自己的代码、几步之后就忘记上下文。",
+      "intro": {
+        "analogy": "这是 2023 年的裸 agent——一个没有盔甲的战士冲进副本。",
+        "watchFor": "注意它死在哪一步：幻觉调用、文件损坏，还是记忆溢出？"
+      },
+      "debrief": {
+        "concept": "Harness Engineering",
+        "conceptRef": "工具接地 · 沙箱 · 版本控制 · 上下文窗口",
+        "summary": "你亲眼看到了：没有工作区、沙箱、Git 和记忆缓冲，agent 几乎无法完成任何任务。基础设施不是可选项，而是起点。"
+      }
     },
     "level_2_harness": {
       "name": "第二关：安全 harness",
       "description": "解锁工作区、沙箱、Git 和记忆缓存。还没有循环策略，所以一次测试失败就会导致任务放弃。学习基础设施如何消除最常见的失败模式。",
-      "tutorial": "教训：基础设施（工作区、沙箱、Git、记忆）消除了最基本的失败模式，但没有自我纠错循环时，agent 遇到第一个错误就会放弃。"
+      "tutorial": "教训：基础设施（工作区、沙箱、Git、记忆）消除了最基本的失败模式，但没有自我纠错循环时，agent 遇到第一个错误就会放弃。",
+      "intro": {
+        "analogy": "你给了战士盔甲，但还没教会他从跌倒中站起来。",
+        "watchFor": "注意第一次测试失败后发生了什么——agent 会不会直接放弃？"
+      },
+      "debrief": {
+        "concept": "Harness 消除基础失败",
+        "conceptRef": "Workspace / Sandbox / Git / Memory Buffer",
+        "summary": "装备齐了，幻觉和文件腐蚀消失了。但没有循环策略，一次失败就等于任务中止——下一关教你如何让 agent 自己爬起来。"
+      }
     },
     "level_3_loop": {
       "name": "第三关：循环策略",
       "description": "解锁 ReAct+Reflexion 循环策略，最多 5 次重试，测试通过即停止。agent 现在可以自动从失败中恢复。掌握反馈循环的力量。",
-      "tutorial": "教训：重试循环显著提升了成功率，但没有记忆隔离时，反复重试会填满上下文窗口，导致死循环陷阱和 token 浪费。"
+      "tutorial": "教训：重试循环显著提升了成功率，但没有记忆隔离时，反复重试会填满上下文窗口，导致死循环陷阱和 token 浪费。",
+      "intro": {
+        "analogy": "盲目重试是原地读档；反思循环是带着经验值再战。两者的差别，就是 Loop Engineering。",
+        "watchFor": "对比「盲目重试」与「ReAct+反思」——哪一种让成功率真正爬升？记忆水位线何时爆满？"
+      },
+      "debrief": {
+        "concept": "Reflexion",
+        "conceptRef": "Shinn et al. 2023 · LangGraph recursion_limit",
+        "summary": "你刚配置的自我纠错循环，正式名字叫 Reflexion：测试失败 → 反思原因 → 带着教训重试。盲目重试没有衰减；反思让错误率逐轮下降。"
+      }
     },
     "level_4_graph": {
       "name": "第四关：多智能体图",
       "description": "解锁多智能体图结构：规划器 → 编码器 → 审查器。每个 agent 拥有独立记忆空间，链路自带审查机制。全 harness + 全 loop 已启用。冲击近乎完美的可靠性。",
-      "tutorial": "教训：将任务拆分给拥有独立记忆的专用 sub-agent，是提升 agent 可靠性的关键。规划器分解任务，编码器实现，审查器发现问题——各自使用独立的上下文窗口。"
+      "tutorial": "教训：将任务拆分给拥有独立记忆的专用 sub-agent，是提升 agent 可靠性的关键。规划器分解任务，编码器实现，审查器发现问题——各自使用独立的上下文窗口。",
+      "intro": {
+        "analogy": "一个人干到死 vs 开一家公司：招什么人、定什么流程、给不给独立工位，决定了 KPI。",
+        "watchFor": "观察拓扑如何影响结果——链式、并行、审查回边各自的成功率与 token 代价。"
+      },
+      "debrief": {
+        "concept": "Graph / Multi-Agent Orchestration",
+        "conceptRef": "LangGraph StateGraph · CrewAI roles · 上下文隔离",
+        "summary": "独立记忆的 sub-agent 让上下文不再互相污染。拓扑不是装饰——并行分摊风险、回边提供返工兜底，每一种结构都有可计算的权衡。"
+      }
     }
   },
   "harness": {
@@ -73,10 +109,93 @@
     "title": "循环策略",
     "none": "无",
     "noneDesc": "单次执行——遇到第一个错误就停止",
+    "retryBlind": "盲目重试",
+    "retryBlindDesc": "原地读档：同样的错误率反复重试，不会从失败中学习",
     "reactReflexion": "ReAct + 反思",
-    "reactReflexionDesc": "自我纠错循环：测试 → 反思 → 重试，直到成功或达到上限",
+    "reactReflexionDesc": "带经验再战：测试 → 反思 → 重试，错误率逐轮下降",
     "maxRetries": "最大重试次数",
     "stopOnTestPass": "测试通过时停止"
+  },
+  "prediction": {
+    "title": "预测成功率",
+    "hint": "先猜再跑。本关目标 {{target}}%。写下你的假设，再看证据。",
+    "label": "我预测成功率",
+    "confirm": "锁定预测",
+    "revise": "修改预测",
+    "locked": "已锁定：{{value}}%",
+    "required": "请先锁定预测，再运行模拟",
+    "revealTitle": "预测 vs 实际",
+    "revealDetail": "预测 {{predicted}}% vs 实际 {{actual}}%（误差 {{error}}）",
+    "bigMiss": "误差超过 20%——哪个假设错了？去调试器找线索。"
+  },
+  "intro": {
+    "title": "关卡开场",
+    "watchFor": "观察任务：",
+    "start": "开始实验",
+    "reopen": "重新查看开场提示"
+  },
+  "debrief": {
+    "title": "通关结算",
+    "conceptLabel": "你刚学会的概念",
+    "predictionReview": "预测回顾",
+    "predictionDetail": "预测 {{predicted}}% · 实际 {{actual}}% · 误差 {{error}}",
+    "continue": "继续实验",
+    "nextLevel": "进入下一关"
+  },
+  "bestiary": {
+    "title": "失败图鉴",
+    "locked": "尚未遭遇",
+    "trigger": "触发",
+    "counter": "克制",
+    "toastTitle": "图鉴解锁",
+    "HALLUCINATED_TOOL": {
+      "name": "幻觉兽",
+      "trigger": "无沙箱/工作区时调用不存在的工具",
+      "counter": "启用工作区 + 沙箱",
+      "reality": "现实：工具调用需 grounding——真实文件系统与可执行环境。",
+      "mechanism": "agent 分不清真实与虚构的 API——没有沙箱或工作区来锚定现实。"
+    },
+    "FILE_CORROSION": {
+      "name": "腐蚀虫",
+      "trigger": "无 Git 时多次 EDIT_FILE 互相覆盖",
+      "counter": "启用 Git 追踪变更",
+      "reality": "现实：无版本控制的原地修改不可回滚。",
+      "mechanism": "没有 Git，每次修改都破坏上一次结果，文件最终损坏。"
+    },
+    "MEMORY_STACK_OVERFLOW": {
+      "name": "失忆魔",
+      "trigger": "步数过多且记忆容量过小",
+      "counter": "提高记忆容量（≥5）",
+      "reality": "现实：context window 是有限资源。",
+      "mechanism": "步骤太多、缓冲太小——agent 忘记自己在做什么。"
+    },
+    "CONTEXT_FULL": {
+      "name": "窒息者",
+      "trigger": "重试中记忆占用达到容量上限",
+      "counter": "加记忆，或用图隔离每个 agent 的上下文",
+      "reality": "现实：长对话与重试日志会填满上下文窗口。",
+      "mechanism": "重试历史堆满上下文，agent 无法再处理新信息。"
+    },
+    "INFINITE_LOOP_TRAP": {
+      "name": "死循环兽",
+      "trigger": "无停止条件，重试耗尽仍无进展",
+      "counter": "启用「测试通过时停止」或提高 max_retries",
+      "reality": "现实：LangGraph recursion_limit / 停止条件。",
+      "mechanism": "测试失败 → 同样修复 → 再次失败。没有停止条件就烧光重试。"
+    },
+    "TASK_ABANDONED": {
+      "name": "摆烂怪",
+      "trigger": "无循环策略，一次测试失败即放弃",
+      "counter": "切换到盲目重试或 ReAct+反思",
+      "reality": "现实：单次 pass agent 无法从错误中恢复。",
+      "mechanism": "没有循环策略，第一次失败就直接终止任务。"
+    }
+  },
+  "reflections": {
+    "reflect_test_fail": "上次因测试断言失败。这次先读完整报错，再改相关代码。",
+    "reflect_wrong_file": "上次改错了文件。这次先定位失败堆栈指向的真实路径。",
+    "reflect_off_by_one": "上次有 off-by-one 边界错误。这次检查循环与索引边界。",
+    "reflect_dependency": "上次漏了依赖导入。这次确认模块在作用域内可用。"
   },
   "tokenBudget": {
     "title": "Token 预算",
@@ -119,6 +238,13 @@
     "liveSimulationFailed": "实时模拟失败",
     "whyFailed": "为什么会失败？",
     "howToFix": "如何修复",
+    "showHint": "需要提示？",
+    "topology": {
+      "single": "拓扑：单节点",
+      "chain": "拓扑：链式",
+      "parallel": "拓扑：并行",
+      "feedback": "拓扑：回边"
+    },
     "failureHints": {
       "HALLUCINATED_TOOL": "agent 尝试调用一个不存在的工具——它幻觉出了一个 API 或包。没有沙箱或工作区时，agent 无法区分真实和虚构。",
       "FILE_CORROSION": "agent 覆盖了自己的代码。没有 Git 追踪变更，每次修改都破坏了前一次的结果，最终文件损坏。",
@@ -133,7 +259,7 @@
       "MEMORY_STACK_OVERFLOW": "将记忆容量提高到至少 5。",
       "CONTEXT_FULL": "提高记忆容量，或使用多智能体图来隔离每个 agent 的上下文。",
       "INFINITE_LOOP_TRAP": "在循环策略中启用「测试通过时停止」，或增加最大重试次数。",
-      "TASK_ABANDONED": "将循环策略从「无」切换到「ReAct + 反思」。"
+      "TASK_ABANDONED": "将循环策略从「无」切换到「盲目重试」或「ReAct + 反思」。"
     }
   },
   "timeline": {
