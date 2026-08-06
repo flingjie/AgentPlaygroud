@@ -1361,6 +1361,45 @@ def test_dual_loop_stack_success_high_with_evidence():
     assert ok > 0.6
 
 
+def test_dual_loop_stack_wiring_guard_costs_more_than_single_loop():
+    """Direct wiring guard for the loop-stack branch in _run_simulation_iter.
+
+    Two blueprints identical in every way except loop_stack.enabled must
+    diverge in cost. The stack branch replaces the single loop with nested
+    inner+outer retry loops, adding RETRY*inner_used + RETRY*outer_used +
+    CHECK_EVIDENCE + STOP overhead that the single-loop path never incurs.
+    If the branch were deleted, loop_stack.enabled would be silently ignored,
+    the two blueprints would produce identical traces, and this assertion
+    would fail.
+
+    The shared loop uses trigger="on_test_fail" (max_iterations=1) so the
+    single-loop path is genuinely cheaper: it emits only RUN_TEST +
+    CHECK_EVIDENCE + STOP, whereas the default on_task_start trigger adds a
+    second CHECK_EVIDENCE that would make the single loop cost MORE than the
+    dual stack and flip the strict inequality.
+    """
+    from app.models import AgentBlueprint, HarnessConfig, LoopConfig, LoopStackConfig
+
+    def run(stack_enabled):
+        bp = AgentBlueprint(
+            level_id="level_4_loop_stack", run_seed=11,
+            harness=HarnessConfig(memory_capacity=9, has_retry_policy=True,
+                                  has_tool_registry=True, has_sandbox_isolation=True,
+                                  has_context_manager=True, has_state_persistence=True,
+                                  has_permission_layer=True),
+            loop=LoopConfig(enabled=True, evidence="test_runner",
+                            feedback="reflexion", stop_on="evidence_pass",
+                            trigger="on_test_fail", max_iterations=1),
+            loop_stack=LoopStackConfig(enabled=stack_enabled, template="dual"),
+        )
+        return sum(SimulationEngine().simulate(bp, seed=2000 + i).cost_tokens
+                   for i in range(200))
+
+    dual_cost = run(True)
+    single_cost = run(False)
+    assert dual_cost > single_cost
+
+
 def test_factory_template_costs_more_than_dual():
     """The factory pipeline (4 stages, each running a full test) must be the most
     expensive template: its stage costs dominate the dual template's two retry
