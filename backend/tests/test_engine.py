@@ -4,7 +4,12 @@ import random
 
 import pytest
 
-from app.engine import SimulationEngine, WARNING_NO_RETRY_MECHANISM, WARNING_STALE_CONTEXT
+from app.engine import (
+    SimulationEngine,
+    WARNING_DEADLOCK,
+    WARNING_NO_RETRY_MECHANISM,
+    WARNING_STALE_CONTEXT,
+)
 from app.models import (
     AgentBlueprint,
     FailureReason,
@@ -1270,3 +1275,60 @@ def test_level_5_blueprint_has_high_success_rate(level_5_blueprint):
     result = engine.monte_carlo(level_5_blueprint, num_runs=100)
     # Level 5 target is 90%, allow down to 60% due to randomness
     assert result["success_rate"] >= 0.60
+
+
+# ---------------------------------------------------------------------------
+# Structural deadlock detection + live state_schema (Task A5)
+# ---------------------------------------------------------------------------
+
+
+class TestDeadlockDetection:
+    def test_deadlock_when_failure_edge_has_no_recovery_path(self):
+        """A failure-condition edge whose target has no outgoing edges is a
+        structural deadlock: a rejection can never recover."""
+        bp = AgentBlueprint(
+            level_id="level_5_graph", run_seed=7,
+            harness=HarnessConfig(memory_capacity=9),
+            loop=LoopConfig(enabled=True, evidence="test_runner",
+                            feedback="reflexion", stop_on="evidence_pass"),
+            graph=GraphSpec(
+                nodes=[GraphNode(id="a", role="coder"), GraphNode(id="r", role="reviewer")],
+                edges=[GraphEdge(source="a", target="r", condition="on_review_reject")],
+                entry="a",
+            ),
+        )
+        trace = SimulationEngine().simulate(bp)
+        assert trace.failure_reason == FailureReason.DEADLOCK
+        assert any(s.warning == WARNING_DEADLOCK for s in trace.steps)
+
+    def test_no_deadlock_when_failure_edge_reaches_recovery_node(self):
+        """The same graph with an on_fail recovery edge reaching a coder is
+        NOT a deadlock — the failure path has an escape."""
+        bp = AgentBlueprint(
+            level_id="level_5_graph", run_seed=7,
+            harness=HarnessConfig(memory_capacity=9),
+            loop=LoopConfig(enabled=True, evidence="test_runner",
+                            feedback="reflexion", stop_on="evidence_pass"),
+            graph=GraphSpec(
+                nodes=[GraphNode(id="a", role="coder"), GraphNode(id="r", role="reviewer")],
+                edges=[
+                    GraphEdge(source="a", target="r", condition="on_review_reject"),
+                    GraphEdge(source="r", target="a", condition="on_fail"),
+                ],
+                entry="a",
+            ),
+        )
+        trace = SimulationEngine().simulate(bp)
+        assert trace.failure_reason != FailureReason.DEADLOCK
+        assert not any(s.warning == WARNING_DEADLOCK for s in trace.steps)
+
+
+def test_state_schema_increases_memory_usage(level_5_blueprint):
+    """A populated state_schema adds a memory surcharge visible in the trace."""
+    plain = level_5_blueprint.model_copy(deep=True)
+    plain.graph.state_schema = []
+    schemad = level_5_blueprint.model_copy(deep=True)
+    schemad.graph.state_schema = ["code", "tests", "meta"]
+    t_plain = SimulationEngine().simulate(plain, seed=5)
+    t_schemad = SimulationEngine().simulate(schemad, seed=5)
+    assert t_schemad.steps[0].memory_used > t_plain.steps[0].memory_used

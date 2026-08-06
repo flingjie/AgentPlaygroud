@@ -267,6 +267,27 @@ class SimulationEngine:
         graph_has_reviewer = any(n.role == "reviewer" for n in node_order)
         parallel_coder_ids = self._parallel_coder_ids(nodes, edges, topology)
 
+        # Structural deadlock: a failure state with no reachable recovery path
+        # can never succeed, so short-circuit before simulating any node.
+        if failure_reason == FailureReason.NONE and self._detect_deadlock(graph):
+            failure_reason = FailureReason.DEADLOCK
+            s = TraceStep(
+                step=1,
+                node=graph.entry or "node_1",
+                action="STOP",
+                status=StepStatus.FAIL,
+                memory_used=memory_used,
+                warning=WARNING_DEADLOCK,
+            )
+            steps.append(s)
+            yield s
+            cost_tokens += ACTION_TOKEN_COST["STOP"]
+            return {
+                "cost_tokens": cost_tokens,
+                "failure_reason": failure_reason,
+                "topology": topology,
+            }
+
         # --- Simulate each node in order ---
         for node in node_order:
             node_steps, node_memory, node_tokens, node_failure = self._simulate_node(
@@ -645,7 +666,11 @@ class SimulationEngine:
 
                         if rescued:
                             failure_reason = FailureReason.NONE
-                        elif graph.checkpointing and self.rng.random() < 0.45:
+                        elif (
+                            graph.checkpointing
+                            and self.rng.random()
+                            < min(0.9, 0.45 + 0.05 * len(graph.state_schema))
+                        ):
                             failure_reason = FailureReason.NONE
                             s3 = TraceStep(
                                 step=len(steps) + 1,
@@ -699,6 +724,45 @@ class SimulationEngine:
                 outgoing[e.source].append(e.target)
                 incoming[e.target].append(e.source)
         return outgoing, incoming
+
+    @staticmethod
+    def _detect_deadlock(graph: GraphSpec) -> bool:
+        """Structural deadlock: failure states must have a reachable recovery path.
+
+        Returns True when:
+        (a) any node is unreachable from the entry point, or
+        (b) a node reachable only through failure edges (on_fail / on_review_reject)
+            has no outgoing edges — a failure that dead-ends with no recovery.
+        """
+        if not graph.nodes:
+            return False
+        node_map = {n.id: n for n in graph.nodes}
+        outgoing, incoming = SimulationEngine._adjacency(graph.nodes, graph.edges)
+        entry = graph.entry if graph.entry in node_map else next(
+            (n.id for n in graph.nodes if n.id not in incoming), graph.nodes[0].id
+        )
+
+        # (a) reachability from entry
+        reachable: set[str] = set()
+        stack = [entry]
+        while stack:
+            cur = stack.pop()
+            if cur in reachable:
+                continue
+            reachable.add(cur)
+            for nxt in outgoing[cur]:
+                if nxt in node_map:
+                    stack.append(nxt)
+        if any(n.id not in reachable for n in graph.nodes):
+            return True
+
+        # (b) failure-condition edges must not dead-end
+        failure_conditions = {"on_fail", "on_review_reject"}
+        for e in graph.edges:
+            if e.condition in failure_conditions and e.target in node_map:
+                if not outgoing[e.target]:
+                    return True
+        return False
 
     @staticmethod
     def _analyze_topology(
@@ -907,7 +971,12 @@ class SimulationEngine:
         harness = blueprint.harness
 
         node_memory_cap = harness.memory_capacity
-        local_memory = 0
+        # A populated state_schema loads more state into memory: the node
+        # starts with the schema payload and each action carries a surcharge.
+        schema_surcharge = (
+            0 if not blueprint.graph.state_schema else len(blueprint.graph.state_schema)
+        )
+        local_memory = schema_surcharge
 
         if node.role == "planner":
             plan_count = 2 if graph_bonus else 1
@@ -915,7 +984,7 @@ class SimulationEngine:
                 s = self._make_step(node.id, "THINK", local_memory)
                 steps.append(s)
                 cost = self._memory_cost("THINK", node_memory_cap, local_memory)
-                local_memory += cost
+                local_memory += cost + schema_surcharge
                 memory_delta = local_memory
                 tokens += ACTION_TOKEN_COST["THINK"]
 
@@ -923,7 +992,7 @@ class SimulationEngine:
             s = self._make_step(node.id, "THINK", local_memory)
             steps.append(s)
             cost = self._memory_cost("THINK", node_memory_cap, local_memory)
-            local_memory += cost
+            local_memory += cost + schema_surcharge
             memory_delta = local_memory
             tokens += ACTION_TOKEN_COST["THINK"]
 
@@ -945,7 +1014,7 @@ class SimulationEngine:
             )
             steps.append(s)
             cost = self._memory_cost("EDIT_FILE", node_memory_cap, local_memory)
-            local_memory += cost
+            local_memory += cost + schema_surcharge
             memory_delta = local_memory
             tokens += ACTION_TOKEN_COST["EDIT_FILE"]
 
@@ -972,7 +1041,7 @@ class SimulationEngine:
                 )
                 steps.append(s)
                 cost = self._memory_cost("EDIT_FILE", node_memory_cap, local_memory)
-                local_memory += cost
+                local_memory += cost + schema_surcharge
                 memory_delta = local_memory
                 tokens += ACTION_TOKEN_COST["EDIT_FILE"]
 
@@ -980,7 +1049,7 @@ class SimulationEngine:
             s = self._make_step(node.id, "THINK", local_memory)
             steps.append(s)
             cost = self._memory_cost("THINK", node_memory_cap, local_memory)
-            local_memory += cost
+            local_memory += cost + schema_surcharge
             memory_delta = local_memory
             tokens += ACTION_TOKEN_COST["THINK"]
 
@@ -989,7 +1058,7 @@ class SimulationEngine:
                 s = self._make_step(node.id, "EDIT_FILE", local_memory)
                 steps.append(s)
                 cost = self._memory_cost("EDIT_FILE", node_memory_cap, local_memory)
-                local_memory += cost
+                local_memory += cost + schema_surcharge
                 memory_delta = local_memory
                 tokens += ACTION_TOKEN_COST["EDIT_FILE"]
 
@@ -997,7 +1066,7 @@ class SimulationEngine:
             s = self._make_step(node.id, "RUN_TEST", local_memory)
             steps.append(s)
             cost = self._memory_cost("RUN_TEST", node_memory_cap, local_memory)
-            local_memory += cost
+            local_memory += cost + schema_surcharge
             memory_delta = local_memory
             tokens += ACTION_TOKEN_COST["RUN_TEST"]
 
