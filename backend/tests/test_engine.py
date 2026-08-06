@@ -550,7 +550,7 @@ class TestGraphBonus:
 
     def test_graph_level_simulation(self):
         bp = make_blueprint(
-            level_id="level_4_graph",
+            level_id="level_5_graph",
             run_seed=42,
             has_context_manager=True,
             has_tool_registry=True,
@@ -719,7 +719,7 @@ class TestTopologyAnalysis:
 class TestMemoryIsolation:
     def test_multi_agent_full_capacity_per_node(self):
         bp = make_blueprint(
-            level_id="level_4_graph",
+            level_id="level_5_graph",
             run_seed=42,
             has_context_manager=True,
             has_tool_registry=True,

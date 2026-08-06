@@ -95,7 +95,7 @@ class TestAgentBlueprint:
 
     def test_full_blueprint_roundtrip(self):
         bp = AgentBlueprint(
-            level_id="level_4_graph",
+            level_id="level_5_graph",
             run_seed=42,
             harness=HarnessConfig(
                 has_tool_registry=True,
