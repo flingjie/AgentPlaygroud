@@ -14,17 +14,13 @@ export default function LevelSelector() {
   } = useGame();
 
   const harnessLabels: Record<string, string> = {
-    context_injection: t('harness.contextInjection'),
-    tool_surface: t('harness.toolSurface'),
-    persistence: t('harness.persistence'),
-    budget_guard: t('harness.budgetGuard'),
-    sandbox_isolation: t('harness.sandboxIsolation'),
-    tracing: t('harness.tracing'),
-  };
-
-  const getLevelName = (id: string) => {
-    const level = levels.find((l) => l.id === id);
-    return level ? t(`levels.${id}.name`, level.name) : id;
+    tool_registry: 'Tool Registry',
+    retry_policy: 'Retry Policy',
+    timeout_guard: 'Timeout Guard',
+    sandbox_isolation: 'Sandbox Isolation',
+    context_manager: 'Context Manager',
+    state_persistence: 'State Persistence',
+    permission_layer: 'Permission Layer',
   };
 
   const targetPct = (rate: number) => (rate <= 1 ? rate * 100 : rate);
@@ -32,23 +28,6 @@ export default function LevelSelector() {
   const currentSuccessRate = monteCarloResult
     ? successRatePct(monteCarloResult.success_rate)
     : null;
-  const nextUnbeatenIdx = levels.findIndex((l) => {
-    if (currentSuccessRate == null) return true;
-    return currentSuccessRate < targetPct(l.target_success_rate);
-  });
-  const recommendedLevelId =
-    nextUnbeatenIdx >= 0
-      ? levels[nextUnbeatenIdx].id
-      : levels[levels.length - 1]?.id || '';
-  const hasBeatenCurrent =
-    selectedLevel &&
-    currentSuccessRate != null &&
-    currentSuccessRate >= targetPct(selectedLevel.target_success_rate);
-  const nextLevel =
-    selectedLevel &&
-    nextUnbeatenIdx > levels.findIndex((l) => l.id === selectedLevel.id)
-      ? levels[levels.findIndex((l) => l.id === selectedLevel.id) + 1]
-      : null;
 
   return (
     <div className="space-y-3">
@@ -88,21 +67,11 @@ export default function LevelSelector() {
             onChange={(e) => setSelectedLevelId(e.target.value)}
             className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-200 font-mono focus:outline-none focus:border-green-500 transition-colors"
           >
-            {levels.map((l) => {
-              const isRecommended = l.id === recommendedLevelId;
-              const isCleared =
-                currentSuccessRate != null &&
-                currentSuccessRate >= targetPct(l.target_success_rate);
-              let suffix = '';
-              if (isCleared) suffix = ` ${t('levelSelector.cleared')}`;
-              else if (isRecommended) suffix = ` ${t('levelSelector.recommended')}`;
-              return (
-                <option key={l.id} value={l.id}>
-                  {getLevelName(l.id)}
-                  {suffix}
-                </option>
-              );
-            })}
+            {levels.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name} — {l.learning_label}
+              </option>
+            ))}
           </select>
 
           {selectedLevel && (
@@ -123,6 +92,11 @@ export default function LevelSelector() {
                   {selectedLevel.token_budget.toLocaleString()}{' '}
                   {t('levelSelector.tokens')}
                 </span>
+                {currentSuccessRate != null && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono bg-yellow-400/10 text-yellow-600 dark:text-yellow-400 border border-yellow-400/20">
+                    {t('levelSelector.current')}: {Math.round(currentSuccessRate)}%
+                  </span>
+                )}
               </div>
               <div className="pt-1">
                 <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
@@ -155,17 +129,6 @@ export default function LevelSelector() {
                   {t(`levels.${selectedLevel.id}.tutorial`, '')}
                 </p>
               </div>
-
-              {hasBeatenCurrent && nextLevel && (
-                <div className="pt-2">
-                  <button
-                    onClick={() => setSelectedLevelId(nextLevel.id)}
-                    className="w-full text-xs font-medium text-green-600 dark:text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg px-3 py-2 hover:bg-green-400/20 transition-colors text-left"
-                  >
-                    {t('levelSelector.nextLevel')}: {getLevelName(nextLevel.id)}
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </>
