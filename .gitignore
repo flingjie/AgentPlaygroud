@@ -32,3 +32,7 @@ frontend/dist/
 *.swo
 *~
 .DS_Store
+
+# Superpowers working artifacts (SDD scratch, executed plans)
+.superpowers/
+docs/superpowers/
