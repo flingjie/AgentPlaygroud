@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useGame, successRatePct } from '../context/GameContext';
+import StaticFlowDiagram from './StaticFlowDiagram';
 
 export default function LevelSelector() {
   const { t } = useTranslation();
@@ -129,6 +130,8 @@ export default function LevelSelector() {
                   {t(`levels.${selectedLevel.id}.tutorial`, '')}
                 </p>
               </div>
+
+              <StaticFlowDiagram />
             </div>
           )}
         </>
