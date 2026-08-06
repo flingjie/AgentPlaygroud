@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -14,6 +15,8 @@ from app.models import (
     MonteCarloResponse,
     RunTrace,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -60,7 +63,16 @@ async def simulate(blueprint: AgentBlueprint):
 
 @router.post("/api/monte-carlo", response_model=MonteCarloResponse)
 async def monte_carlo(req: MonteCarloRequest):
-    """Run N simulations and return aggregate statistics."""
+    """Run N simulations and return aggregate statistics.
+
+    The number of runs is capped at 100; requests above that threshold are
+    clamped and a warning is logged.
+    """
+    if req.num_runs > 100:
+        logger.warning(
+            "Monte Carlo num_runs capped from %d to 100", req.num_runs,
+        )
+        req.num_runs = 100
     result = engine.monte_carlo(req.blueprint, req.num_runs)
     return MonteCarloResponse(**result)
 
@@ -81,8 +93,11 @@ async def ws_simulate(websocket: WebSocket, run_id: str):
     await websocket.accept()
 
     try:
-        # Wait for the blueprint from the client
-        raw = await websocket.receive_text()
+        # Wait for the blueprint from the client (30 s timeout, 1 MB max)
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+        if len(raw.encode("utf-8")) > 1_048_576:
+            await websocket.send_json({"type": "error", "message": "Message too large (max 1MB)"})
+            return
         blueprint = AgentBlueprint.model_validate_json(raw)
 
         gen = engine.simulate_stream(blueprint)
@@ -109,5 +124,5 @@ async def ws_simulate(websocket: WebSocket, run_id: str):
 
     except WebSocketDisconnect:
         pass
-    except Exception as exc:
-        await websocket.send_json({"type": "error", "message": str(exc)})
+    except Exception:
+        await websocket.send_json({"type": "error", "message": "Internal server error"})

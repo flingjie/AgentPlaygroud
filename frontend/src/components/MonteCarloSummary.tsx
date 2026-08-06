@@ -47,25 +47,42 @@ export default function MonteCarloSummary({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const success_rate = successRatePct(result.success_rate);
+  const success_rate = Number.isFinite(result.success_rate)
+    ? successRatePct(result.success_rate)
+    : 0;
   const { avg_tokens, failure_distribution } = result;
 
-  const failTotal = Object.values(failure_distribution).reduce((a, b) => a + b, 0);
-  const total = success_rate * (success_rate + failTotal) / 100 + failTotal;
-  const actualSuccess = Math.round(success_rate / 100 * total);
-  const pieData = [
-    { name: t('monteCarlo.success'), value: actualSuccess },
-    { name: t('monteCarlo.failed'), value: failTotal },
-  ];
+  // Guard against malformed or empty failure_distribution
+  const failureDistValid =
+    failure_distribution != null &&
+    typeof failure_distribution === 'object';
+
+  const failTotal = failureDistValid
+    ? Object.values(failure_distribution).reduce((a, b) => a + b, 0)
+    : 0;
+  const total = failTotal > 0
+    ? (success_rate >= 100 ? failTotal : failTotal + Math.round(failTotal * success_rate / (100 - success_rate)))
+    : 100;
+  const actualSuccess = total - failTotal;
+  const pieDataValid =
+    Number.isFinite(actualSuccess) && Number.isFinite(failTotal) && (actualSuccess > 0 || failTotal > 0);
+  const pieData = pieDataValid
+    ? [
+        { name: t('monteCarlo.success'), value: actualSuccess },
+        { name: t('monteCarlo.failed'), value: failTotal },
+      ]
+    : [];
   const PIE_COLORS = ['#4ade80', '#ef4444'];
 
-  const barData = Object.entries(failure_distribution)
-    .filter(([, count]) => count > 0)
-    .map(([reason, count]) => ({
-      reason: getFailureLabel(reason, t),
-      count,
-      color: FAILURE_COLORS[reason] ?? '#6b7280',
-    }));
+  const barData = failureDistValid
+    ? Object.entries(failure_distribution)
+        .filter(([, count]) => count > 0)
+        .map(([reason, count]) => ({
+          reason: getFailureLabel(reason, t),
+          count,
+          color: FAILURE_COLORS[reason] ?? '#6b7280',
+        }))
+    : [];
 
   const tooltipBg = isDark ? '#1e293b' : '#ffffff';
   const tooltipBorder = isDark ? '#334155' : '#e2e8f0';
@@ -101,34 +118,40 @@ export default function MonteCarloSummary({
             {t('monteCarlo.successRate')}
           </span>
           <div className="w-28 h-28 mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={24}
-                  outerRadius={40}
-                  dataKey="value"
-                  strokeWidth={2}
-                  stroke={pieStroke}
-                >
-                  {pieData.map((_, idx) => (
-                    <Cell key={idx} fill={PIE_COLORS[idx]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: tooltipBg,
-                    border: `1px solid ${tooltipBorder}`,
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontFamily: 'JetBrains Mono',
-                    color: tooltipText,
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={24}
+                    outerRadius={40}
+                    dataKey="value"
+                    strokeWidth={2}
+                    stroke={pieStroke}
+                  >
+                    {pieData.map((_, idx) => (
+                      <Cell key={idx} fill={PIE_COLORS[idx]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: tooltipBg,
+                      border: `1px solid ${tooltipBorder}`,
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontFamily: 'JetBrains Mono',
+                      color: tooltipText,
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-600 font-mono">
+                {t('monteCarlo.noData')}
+              </div>
+            )}
           </div>
         </div>
 

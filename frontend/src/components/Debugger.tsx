@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGame } from '../context/GameContext';
 import { simulate, connectSimulationWebSocket } from '../api';
@@ -24,8 +24,14 @@ export default function Debugger() {
   const [liveSteps, setLiveSteps] = useState<TraceStep[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [wsRef, setWsRef] = useState<WebSocket | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const [showHint, setShowHint] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      wsRef.current?.close();
+    };
+  }, []);
 
   const hasData = latestTrace !== null || liveSteps.length > 0;
   const trace = latestTrace;
@@ -60,7 +66,7 @@ export default function Debugger() {
       const runId = result.run_id;
 
       // Clean up existing WS
-      if (wsRef) wsRef.close();
+      if (wsRef.current) wsRef.current.close();
 
       const ws = connectSimulationWebSocket(
         runId,
@@ -74,7 +80,7 @@ export default function Debugger() {
           setRunning(false);
         },
       );
-      setWsRef(ws);
+      wsRef.current = ws;
     } catch (err) {
       setError(err instanceof Error ? err.message : t('debugger.liveSimulationFailed'));
       setIsLive(false);
@@ -106,7 +112,7 @@ export default function Debugger() {
             <button
               onClick={handleSimulate}
               disabled={running}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 text-sm font-medium transition-colors border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200"
             >
               {running ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -118,7 +124,7 @@ export default function Debugger() {
             <button
               onClick={handleLiveSimulate}
               disabled={running}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 text-sm font-medium transition-colors border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200"
             >
               {running && isLive ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -175,7 +181,7 @@ export default function Debugger() {
           <button
             onClick={handleSimulate}
             disabled={running}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200"
           >
             {running && !isLive ? (
               <Loader2 size={12} className="animate-spin" />
@@ -187,7 +193,7 @@ export default function Debugger() {
           <button
             onClick={handleLiveSimulate}
             disabled={running}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200"
           >
             {isLive ? <Wifi size={12} className="text-green-600 dark:text-green-400" /> : <WifiOff size={12} />}
             {t('debugger.live')}

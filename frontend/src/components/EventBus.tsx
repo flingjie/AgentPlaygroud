@@ -17,10 +17,14 @@ export default function EventBus({
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new events arrive
+  // Auto-scroll to bottom when new events arrive, only if user is already near the bottom
   useEffect(() => {
     if (listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
+      const el = listRef.current;
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+      if (isNearBottom) {
+        el.scrollTop = el.scrollHeight;
+      }
     }
   }, [steps.length]);
 

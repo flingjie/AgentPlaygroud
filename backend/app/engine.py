@@ -1027,25 +1027,17 @@ class SimulationEngine:
         harness = blueprint.harness
         loop = blueprint.loop
 
-        if node.role == "coder" and not harness.has_tool_surface:
+        if self._check_hallucinated_tool_condition(harness, node.role):
             rate = 0.65 if not harness.has_sandbox_isolation else 0.5
             if self.rng.random() < rate:
                 return WARNING_HALLUCINATED_TOOL
 
-        if (
-            node.role == "coder"
-            and not harness.has_persistence
-            and coder_edit_count >= 2
-        ):
+        if self._check_file_corrosion_condition(harness, coder_edit_count, node.role):
             if self.rng.random() < 0.6:
                 return WARNING_FILE_CORROSION
 
         total_steps = len(steps_so_far) + 1
-        if (
-            total_steps >= 3
-            and harness.memory_capacity <= 3
-            and memory_used >= harness.memory_capacity
-        ):
+        if self._check_memory_overflow_condition(harness, memory_used, total_steps):
             if self.rng.random() < 0.5:
                 return WARNING_MEMORY_OVERFLOW
 
@@ -1074,19 +1066,15 @@ class SimulationEngine:
         """Check failures that can only be detected after all nodes have run."""
         harness = blueprint.harness
 
-        if (
-            len(steps) >= 3
-            and harness.memory_capacity <= 3
-            and memory_used >= harness.memory_capacity
-        ):
+        if self._check_memory_overflow_condition(harness, memory_used, len(steps)):
             if self.rng.random() < 0.3:
                 return FailureReason.MEMORY_STACK_OVERFLOW
 
-        if not harness.has_persistence and coder_edit_count >= 2:
+        if self._check_file_corrosion_condition(harness, coder_edit_count):
             if self.rng.random() < 0.4:
                 return FailureReason.FILE_CORROSION
 
-        if not harness.has_tool_surface:
+        if self._check_hallucinated_tool_condition(harness):
             if self.rng.random() < 0.3:
                 return FailureReason.HALLUCINATED_TOOL
 
@@ -1106,6 +1094,35 @@ class SimulationEngine:
         if loop.state_policy == "keep_last_error":
             return 0.55
         return 0.75  # keep_run_summary
+
+    @staticmethod
+    def _check_hallucinated_tool_condition(
+        harness: HarnessConfig, role: str | None = None
+    ) -> bool:
+        """Return True if hallucinated-tool failure is possible given the state."""
+        if role is not None and role != "coder":
+            return False
+        return not harness.has_tool_surface
+
+    @staticmethod
+    def _check_file_corrosion_condition(
+        harness: HarnessConfig, coder_edit_count: int, role: str | None = None
+    ) -> bool:
+        """Return True if file-corrosion failure is possible given the state."""
+        if role is not None and role != "coder":
+            return False
+        return not harness.has_persistence and coder_edit_count >= 2
+
+    @staticmethod
+    def _check_memory_overflow_condition(
+        harness: HarnessConfig, memory_used: int, step_count: int
+    ) -> bool:
+        """Return True if memory-overflow failure is possible given the state."""
+        return (
+            step_count >= 3
+            and harness.memory_capacity <= 3
+            and memory_used >= harness.memory_capacity
+        )
 
     @staticmethod
     def _check_budget(harness: HarnessConfig, cost_tokens: int) -> FailureReason:
@@ -1177,7 +1194,11 @@ class SimulationEngine:
         return False, max_retries, "INFINITE_LOOP_TRAP"
 
     @staticmethod
-    def _memory_cost(action: str, capacity: int, current: int) -> int:
+    def _memory_cost(
+        action: Literal["THINK", "EDIT_FILE", "RUN_TEST", "RETRY", "CHECK_EVIDENCE", "STOP"],
+        capacity: int,
+        current: int,
+    ) -> int:
         """How many memory units a given action consumes."""
         base = {
             "THINK": 1,
@@ -1188,12 +1209,15 @@ class SimulationEngine:
             "STOP": 0,
         }
         cost = base.get(action, 1)
-        return min(cost, capacity - current) if current < capacity else 0
+        if current < capacity:
+            return min(cost, capacity - current)
+        # When at or over capacity, return the base cost to allow overflow tracking
+        return cost
 
     @staticmethod
     def _make_step(
         node_id: str,
-        action: str,
+        action: Literal["THINK", "EDIT_FILE", "RUN_TEST", "RETRY", "CHECK_EVIDENCE", "STOP"],
         memory_used: int,
         warning: str | None = None,
         status: StepStatus = StepStatus.SUCCESS,
@@ -1209,22 +1233,17 @@ class SimulationEngine:
             reflection=reflection,
         )
 
-    @staticmethod
-    def _warning_to_failure(warning: str) -> FailureReason:
-        if "HALLUCINATED_TOOL" in warning or "tool that does not exist" in warning:
-            return FailureReason.HALLUCINATED_TOOL
-        if "FILE_CORROSION" in warning or "file corruption" in warning:
-            return FailureReason.FILE_CORROSION
-        if "MEMORY_STACK_OVERFLOW" in warning or "stack overflow" in warning:
-            return FailureReason.MEMORY_STACK_OVERFLOW
-        if "CONTEXT_FULL" in warning or "Context window full" in warning:
-            return FailureReason.CONTEXT_FULL
-        if "INFINITE_LOOP" in warning or "max_iterations" in warning:
-            return FailureReason.INFINITE_LOOP_TRAP
-        if "TASK_ABANDONED" in warning or "no loop enabled" in warning:
-            return FailureReason.TASK_ABANDONED
-        if "budget" in warning.lower():
-            return FailureReason.BUDGET_EXHAUSTED
-        if "UNGROUNDED" in warning or "agent_says_done" in warning:
-            return FailureReason.UNGROUNDED_STOP
-        return FailureReason.NONE
+    _WARNING_TO_FAILURE: dict[str, FailureReason] = {
+        WARNING_HALLUCINATED_TOOL: FailureReason.HALLUCINATED_TOOL,
+        WARNING_FILE_CORROSION: FailureReason.FILE_CORROSION,
+        WARNING_MEMORY_OVERFLOW: FailureReason.MEMORY_STACK_OVERFLOW,
+        WARNING_CONTEXT_FULL: FailureReason.CONTEXT_FULL,
+        WARNING_INFINITE_LOOP: FailureReason.INFINITE_LOOP_TRAP,
+        WARNING_TASK_ABANDONED: FailureReason.TASK_ABANDONED,
+        WARNING_BUDGET_EXHAUSTED: FailureReason.BUDGET_EXHAUSTED,
+        WARNING_UNGROUNDED_STOP: FailureReason.UNGROUNDED_STOP,
+    }
+
+    @classmethod
+    def _warning_to_failure(cls, warning: str) -> FailureReason:
+        return cls._WARNING_TO_FAILURE.get(warning, FailureReason.NONE)

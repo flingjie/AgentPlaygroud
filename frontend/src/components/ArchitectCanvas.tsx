@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -6,11 +6,13 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   addEdge,
   type Node,
   type Edge,
   type Connection,
   type NodeTypes,
+  type OnSelectionChangeParams,
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -33,7 +35,13 @@ const ROLE_COLORS: Record<GraphNode['role'], string> = {
   tester: '#f97316',
 };
 
-let nodeIdCounter = 0;
+const EDGE_CONDITIONS: GraphEdgeCondition[] = [
+  'always',
+  'on_pass',
+  'on_fail',
+  'on_review_reject',
+  'on_human_approve',
+];
 
 function createFlowNode(gn: GraphNode, x: number, y: number): Node {
   return {
@@ -68,12 +76,40 @@ function buildGraphSpec(
   return { nodes, edges };
 }
 
+function displayConditionLabel(
+  condition: GraphEdgeCondition,
+  labelFn: (key: string) => string,
+): string | undefined {
+  if (condition === 'always') return undefined;
+  return labelFn(`architect.conditions.${condition}`);
+}
+
 export default function ArchitectCanvas() {
   const { t } = useTranslation();
   const { blueprint, updateGraph } = useGame();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const edgeColor = isDark ? '#94a3b8' : '#475569';
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const { screenToFlowPosition } = useReactFlow();
+
+  const edgeLabelStyle = useMemo(
+    () => ({
+      fill: edgeColor,
+      fontSize: 11,
+      fontFamily: 'ui-monospace, monospace',
+      fontWeight: 600,
+    }),
+    [edgeColor],
+  );
+
+  const edgeLabelBgStyle = useMemo(
+    () => ({
+      fill: isDark ? '#0f172a' : '#ffffff',
+      fillOpacity: 0.9,
+    }),
+    [isDark],
+  );
 
   const initialNodes: Node[] = useMemo(() => {
     const existing = blueprint.graph.nodes;
@@ -81,8 +117,7 @@ export default function ArchitectCanvas() {
     return existing.map((gn, i) =>
       createFlowNode(gn, 100 + (i % 3) * 280, 80 + Math.floor(i / 3) * 200),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [blueprint.graph.nodes]);
 
   const initialEdges: Edge[] = useMemo(() => {
     const existing = blueprint.graph.edges;
@@ -92,12 +127,13 @@ export default function ArchitectCanvas() {
       source: ge.source,
       target: ge.target,
       data: { condition: ge.condition },
-      label: ge.condition !== 'always' ? ge.condition : undefined,
+      label: displayConditionLabel(ge.condition, t),
+      labelStyle: edgeLabelStyle,
+      labelBgStyle: edgeLabelBgStyle,
       markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
       style: { stroke: edgeColor, strokeWidth: 2 },
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [blueprint.graph.nodes, blueprint.graph.edges, t, edgeLabelStyle, edgeLabelBgStyle, edgeColor]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -106,6 +142,34 @@ export default function ArchitectCanvas() {
     updateGraph(buildGraphSpec(nodes, edges));
   }, [nodes, edges, updateGraph]);
 
+  const selectedEdge = useMemo(
+    () => edges.find((e) => e.id === selectedEdgeId) ?? null,
+    [edges, selectedEdgeId],
+  );
+
+  const onSelectionChange = useCallback(({ edges: selEdges }: OnSelectionChangeParams) => {
+    setSelectedEdgeId(selEdges[0]?.id ?? null);
+  }, []);
+
+  const setEdgeCondition = useCallback(
+    (edgeId: string, condition: GraphEdgeCondition) => {
+      setEdges((eds) =>
+        eds.map((e) =>
+          e.id === edgeId
+            ? {
+                ...e,
+                data: { ...(e.data as object), condition },
+                label: displayConditionLabel(condition, t),
+                labelStyle: edgeLabelStyle,
+                labelBgStyle: edgeLabelBgStyle,
+              }
+            : e,
+        ),
+      );
+    },
+    [setEdges, t, edgeLabelStyle, edgeLabelBgStyle],
+  );
+
   const onConnect = useCallback(
     (connection: Connection) => {
       setEdges((eds) =>
@@ -113,6 +177,9 @@ export default function ArchitectCanvas() {
           {
             ...connection,
             data: { condition: 'always' as GraphEdgeCondition },
+            label: undefined,
+            labelStyle: edgeLabelStyle,
+            labelBgStyle: edgeLabelBgStyle,
             markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
             style: { stroke: edgeColor, strokeWidth: 2 },
           },
@@ -120,7 +187,7 @@ export default function ArchitectCanvas() {
         ),
       );
     },
-    [setEdges, edgeColor],
+    [setEdges, edgeColor, edgeLabelStyle, edgeLabelBgStyle],
   );
 
   const onDrop = useCallback(
@@ -129,11 +196,11 @@ export default function ArchitectCanvas() {
       const raw = event.dataTransfer.getData('application/reactflow');
       if (!raw) return;
       const role = JSON.parse(raw).role as GraphNode['role'];
-      const id = `${role}-${++nodeIdCounter}`;
-      const position = {
-        x: event.clientX - 300,
-        y: event.clientY - 200,
-      };
+      const id = `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
 
       const newNode: Node = {
         id,
@@ -144,7 +211,7 @@ export default function ArchitectCanvas() {
 
       setNodes((nds) => [...nds, newNode]);
     },
-    [setNodes],
+    [setNodes, screenToFlowPosition],
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -208,6 +275,7 @@ export default function ArchitectCanvas() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onSelectionChange={onSelectionChange}
           onDrop={onDrop}
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
@@ -229,6 +297,72 @@ export default function ArchitectCanvas() {
             className="!bg-gray-100 dark:!bg-gray-900 !border-gray-300 dark:!border-gray-700"
           />
         </ReactFlow>
+
+        {/* Graph options: entry + checkpointing */}
+        <div className="absolute top-4 right-4 w-56 rounded-lg border border-gray-300 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 shadow-sm p-3 space-y-2.5">
+          <div className="text-xs font-mono uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            {t('architect.graphOptions')}
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+              {t('architect.entryNode')}
+            </label>
+            <select
+              value={blueprint.graph.entry ?? ''}
+              onChange={(e) => {
+                if (e.target.value === '') {
+                  const targets = new Set(edges.map((ed) => ed.target));
+                  const sources = nodes.filter((n) => !targets.has(n.id));
+                  updateGraph({ entry: sources[0]?.id ?? nodes[0]?.id ?? null });
+                } else {
+                  updateGraph({ entry: e.target.value });
+                }
+              }}
+              className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1.5 text-xs text-gray-900 dark:text-gray-200 font-mono focus:outline-none focus:border-blue-500"
+            >
+              <option value="">{t('architect.entryAuto')}</option>
+              {nodes.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.id}
+                </option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 font-mono cursor-pointer">
+            <input
+              type="checkbox"
+              checked={blueprint.graph.checkpointing}
+              onChange={(e) => updateGraph({ checkpointing: e.target.checked })}
+              className="rounded border-gray-400 dark:border-gray-600"
+            />
+            {t('architect.checkpointing')}
+          </label>
+        </div>
+
+        {/* Edge condition editor */}
+        {selectedEdge && (
+          <div className="absolute top-4 left-4 w-56 rounded-lg border border-blue-400/40 bg-white/95 dark:bg-gray-900/95 shadow-sm p-3 space-y-2">
+            <div className="text-xs font-mono uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              {t('architect.edgeCondition')}
+            </div>
+            <div className="text-[11px] font-mono text-gray-500 dark:text-gray-400 truncate">
+              {selectedEdge.source} → {selectedEdge.target}
+            </div>
+            <select
+              value={edgeCondition(selectedEdge)}
+              onChange={(e) =>
+                setEdgeCondition(selectedEdge.id, e.target.value as GraphEdgeCondition)
+              }
+              className="w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md px-2 py-1.5 text-xs text-gray-900 dark:text-gray-200 font-mono focus:outline-none focus:border-blue-500"
+            >
+              {EDGE_CONDITIONS.map((c) => (
+                <option key={c} value={c}>
+                  {t(`architect.conditions.${c}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <GraphValidator issues={validation} />
       </div>

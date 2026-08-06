@@ -100,9 +100,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [levels, setLevels] = useState<LevelInfo[]>([]);
   const [levelsLoading, setLevelsLoading] = useState(true);
   const [levelsError, setLevelsError] = useState<string | null>(null);
-  const [selectedLevelId, setSelectedLevelId] = useState('tutorial');
+  const [selectedLevelId, setSelectedLevelId] = useState('level_1_raw');
   const [blueprint, setBlueprint] = useState<AgentBlueprint>(
-    defaultBlueprint('tutorial'),
+    defaultBlueprint('level_1_raw'),
   );
   const [latestTrace, setLatestTrace] = useState<RunTrace | null>(null);
   const [monteCarloResult, setMonteCarloResult] =

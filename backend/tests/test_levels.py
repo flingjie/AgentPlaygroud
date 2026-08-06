@@ -77,3 +77,75 @@ class TestLevels:
         """LevelInfo models should validate without error."""
         for lvl in ALL_LEVELS:
             _ = lvl.id, lvl.name, lvl.target_success_rate, lvl.token_budget
+
+
+# ---------------------------------------------------------------------------
+# Level + simulation engine integration
+# ---------------------------------------------------------------------------
+
+
+def test_level_1_raw_has_low_success_rate():
+    """Level 1 with no harness should produce low success rate."""
+    from app.engine import SimulationEngine
+
+    engine = SimulationEngine(seed=42)
+    from app.models import AgentBlueprint
+
+    blueprint = AgentBlueprint(
+        level_id="level_1_raw",
+        harness={},
+        loop={},
+        graph={"nodes": [], "edges": []},
+    )
+    result = engine.monte_carlo(blueprint, num_runs=100)
+    # Level 1 target is 8%, allow up to 25% due to randomness
+    assert result["success_rate"] <= 0.25
+
+
+def test_level_4_with_full_config_has_high_success():
+    """Level 4 with full harness+loop+graph should achieve high success rate."""
+    from app.engine import SimulationEngine
+
+    engine = SimulationEngine(seed=42)
+    from app.models import (
+        AgentBlueprint,
+        GraphEdge,
+        GraphNode,
+        GraphSpec,
+        HarnessConfig,
+        LoopConfig,
+    )
+
+    blueprint = AgentBlueprint(
+        level_id="level_4_graph",
+        harness=HarnessConfig(
+            has_context_injection=True,
+            has_tool_surface=True,
+            has_persistence=True,
+            has_budget_guard=True,
+            token_budget_cap=50000,
+            has_sandbox_isolation=True,
+            memory_capacity=8,
+        ),
+        loop=LoopConfig(
+            enabled=True,
+            evidence="test_runner",
+            feedback="reflexion",
+            max_iterations=5,
+            stop_on="evidence_pass",
+        ),
+        graph=GraphSpec(
+            nodes=[
+                GraphNode(id="p1", role="planner"),
+                GraphNode(id="c1", role="coder"),
+                GraphNode(id="r1", role="reviewer"),
+            ],
+            edges=[
+                GraphEdge(source="p1", target="c1"),
+                GraphEdge(source="c1", target="r1"),
+            ],
+        ),
+    )
+    result = engine.monte_carlo(blueprint, num_runs=100)
+    # Level 4 target is 90%, allow down to 60% due to randomness
+    assert result["success_rate"] >= 0.60

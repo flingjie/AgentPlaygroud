@@ -16,7 +16,7 @@ class HarnessConfig(BaseModel):
     has_tool_surface: bool = False
     has_persistence: bool = False
     has_budget_guard: bool = False
-    token_budget_cap: int | None = None
+    token_budget_cap: int | None = Field(default=None, gt=0)
     has_sandbox_isolation: bool = False
     has_tracing: bool = False
     memory_capacity: int = Field(default=3, ge=1, le=10)
@@ -43,7 +43,7 @@ class GraphEdge(BaseModel):
 
 
 class GraphNode(BaseModel):
-    id: str
+    id: str = Field(min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
     role: Literal["planner", "coder", "reviewer", "tester"]
     state_writes: list[str] = []
 
@@ -89,7 +89,7 @@ class FailureReason(str, Enum):
 class TraceStep(BaseModel):
     step: int
     node: str
-    action: str  # THINK, EDIT_FILE, RUN_TEST, RETRY, CHECK_EVIDENCE, STOP
+    action: Literal["THINK", "EDIT_FILE", "RUN_TEST", "RETRY", "CHECK_EVIDENCE", "STOP"]
     status: StepStatus
     memory_used: int
     warning: str | None = None

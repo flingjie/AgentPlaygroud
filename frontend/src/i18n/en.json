@@ -4,7 +4,7 @@
     "loading": "Loading...",
     "locked": "locked",
     "switchToEnglish": "Switch to English",
-    "switchToChinese": "切换到中文",
+    "switchToChinese": "Switch to Chinese",
     "switchToLight": "Switch to light mode",
     "switchToDark": "Switch to dark mode"
   },
@@ -39,46 +39,90 @@
   },
   "levels": {
     "level_1_raw": {
-      "name": "Level 1: The Raw Agent",
-      "description": "No harness, no loop, no graph. A single coder node operating without any safety nets. Expect lots of failures — learn what breaks when an agent has zero infrastructure.",
-      "tutorial": "Lesson: Without any engineering infrastructure, a raw LLM agent is nearly useless. It hallucinates tools, corrupts its own work, and forgets context after just a few steps."
+      "name": "Level 1: The Raw Model",
+      "description": "Agent = Model + Harness. With no harness, the runner cannot reliably terminate on real conditions — expect hallucinated tools, corrosion, and abandoned tasks.",
+      "tutorial": "Proposition: Agent = Model + Harness. A model alone is not an agent — without harness infrastructure it cannot ground tools, persist work, or stop on real evidence."
     },
     "level_2_harness": {
-      "name": "Level 2: Safety Harness",
-      "description": "Unlock workspace, sandbox, Git, and memory buffer. Still no loop strategy, so a single test failure means the task is abandoned. Learn how infrastructure reduces common failure modes.",
-      "tutorial": "Lesson: Infrastructure (workspace, sandbox, git, memory) eliminates the most basic failure modes, but without a self-correction loop, the agent still gives up on the first error."
+      "name": "Level 2: Harness Engineering",
+      "description": "Same model, different harness — results diverge sharply. Unlock all six harness dimensions. Still no loop, so a single failed test abandons the task.",
+      "tutorial": "Proposition: Same model, different harness → huge difference. Context injection, tool surface, persistence, budget guard, sandbox, and tracing change outcomes far more than swapping the model."
     },
     "level_3_loop": {
-      "name": "Level 3: The Loop",
-      "description": "Unlock the ReAct+Reflexion loop strategy with up to 5 retries and a test_pass stop condition. The agent can now recover from failures automatically. Master the feedback loop.",
-      "tutorial": "Lesson: A retry loop dramatically improves success rates, but without memory isolation, repeated retries fill up the context window, leading to infinite loop traps and token waste."
+      "name": "Level 3: Loop Engineering",
+      "description": "Loop on evidence, not confidence. Configure trigger, goal, state/action policy, evidence, feedback, and stop rules. Loop engineering ≠ prompt engineering.",
+      "tutorial": "Proposition: Evidence, not confidence. Loop ≠ prompt engineering — stop on real checks (tests, schema, review), not \"agent says done.\""
     },
     "level_4_graph": {
-      "name": "Level 4: The Graph",
-      "description": "Unlock the multi-agent graph: planner → coder → reviewer. Each agent has isolated memory, and the chain provides built-in review. Full harness + loop enabled. Reach near-perfect reliability.",
-      "tutorial": "Lesson: Splitting work across specialized sub-agents with isolated memory is the key to scaling agent reliability. The planner decomposes tasks, the coder implements, and the reviewer catches mistakes — each with its own context window."
+      "name": "Level 4: Graph Engineering",
+      "description": "The graph decides who runs next — not what the agent does. Use conditional edges, state schema, and checkpointing. Simple single-agent tasks need no graph.",
+      "tutorial": "Proposition: Graph = who runs next — not a knowledge graph. Conditional edges route control flow. A simple single-agent task often needs no graph at all."
     }
   },
   "harness": {
     "title": "Harness Configuration",
-    "workspace": "Workspace",
-    "workspaceDesc": "Prevents hallucinated tool calls by giving the agent a real file system",
-    "sandbox": "Sandbox",
-    "sandboxDesc": "Secure execution environment — run code safely without breaking things",
-    "git": "Git",
-    "gitDesc": "Tracks every change so the agent can roll back corrupted files",
+    "contextInjection": "Context Injection",
+    "contextInjectionDesc": "Ground the model with retrieved files, specs, and prior run state",
+    "toolSurface": "Tool Surface",
+    "toolSurfaceDesc": "Expose a real, typed tool API so the model cannot invent tools",
+    "persistence": "Persistence",
+    "persistenceDesc": "Commit workspace changes so edits do not overwrite each other",
+    "budgetGuard": "Budget Guard",
+    "budgetGuardDesc": "Cap spend and stop the run before tokens explode",
+    "sandboxIsolation": "Sandbox Isolation",
+    "sandboxIsolationDesc": "Execute code in an isolated environment that cannot corrupt the host",
+    "tracing": "Tracing",
+    "tracingDesc": "Record every step so failures are diagnosable, not mysterious",
+    "tokenBudgetCap": "Token Budget Cap",
+    "tokenBudgetCapPlaceholder": "e.g. 20000",
     "memoryCapacity": "Memory Capacity"
   },
   "loop": {
-    "title": "Loop Strategy",
-    "none": "None",
-    "noneDesc": "Single-pass execution — the agent stops on the first error",
-    "retryBlind": "Blind Retry",
-    "retryBlindDesc": "Reload the save: same error rate every attempt — no learning from failure",
-    "reactReflexion": "ReAct + Reflexion",
-    "reactReflexionDesc": "Fight again with XP: test → reflect → retry, error rate decays each round",
-    "maxRetries": "Max Retries",
-    "stopOnTestPass": "Stop on test pass"
+    "title": "Loop Anatomy",
+    "enabled": "Enable Loop",
+    "enabledDesc": "Allow the agent to iterate until evidence or budget says stop",
+    "evidence": "Evidence",
+    "feedback": "Feedback",
+    "stopOn": "Stop On",
+    "maxIterations": "Max Iterations",
+    "trigger": "Trigger",
+    "goal": "Goal",
+    "statePolicy": "State Policy",
+    "actionPolicy": "Action Policy",
+    "evidenceOptions": {
+      "none": "None",
+      "test_runner": "Test runner",
+      "schema_check": "Schema check",
+      "reviewer_signoff": "Reviewer sign-off"
+    },
+    "feedbackOptions": {
+      "none": "None",
+      "compact_error": "Compact error",
+      "reflexion": "Reflexion"
+    },
+    "stopOnOptions": {
+      "agent_says_done": "Agent says done",
+      "evidence_pass": "Evidence pass",
+      "budget_or_max": "Budget or max iterations"
+    },
+    "triggerOptions": {
+      "on_task_start": "On task start",
+      "on_test_fail": "On test fail"
+    },
+    "goalOptions": {
+      "tests_green": "Tests green",
+      "schema_valid": "Schema valid"
+    },
+    "statePolicyOptions": {
+      "stateless": "Stateless",
+      "keep_last_error": "Keep last error",
+      "keep_run_summary": "Keep run summary"
+    },
+    "actionPolicyOptions": {
+      "retry_same": "Retry same",
+      "edit_then_retest": "Edit then retest",
+      "escalate_review": "Escalate to review"
+    }
   },
   "reflections": {
     "reflect_test_fail": "Last run failed an assertion. This time, read the full error before editing.",
@@ -135,20 +179,24 @@
       "feedback": "Topology: feedback"
     },
     "failureHints": {
-      "HALLUCINATED_TOOL": "The agent tried to use a tool that doesn't exist — it hallucinated an API or package. This happens when there's no sandbox or workspace to ground the agent in reality.",
-      "FILE_CORROSION": "The agent overwrote its own work. Without Git to track changes, each edit destroyed the previous one, corrupting the final output.",
-      "MEMORY_STACK_OVERFLOW": "The agent ran out of memory. After too many steps without enough buffer space, it forgot what it was doing and reset.",
-      "CONTEXT_FULL": "The context window is completely full. During retries, the agent accumulated too much history and can no longer process new information.",
-      "INFINITE_LOOP_TRAP": "The agent is stuck in a loop: test fails → same fix → test fails again. Without a proper stop condition, it burned through all retries making no progress.",
-      "TASK_ABANDONED": "The agent gave up after the first failure. Without a loop strategy to retry, a single test failure ended the entire task."
+      "HALLUCINATED_TOOL": "The agent called a tool that does not exist. Without a real tool surface (and usually sandbox isolation), the model invents APIs.",
+      "FILE_CORROSION": "The agent overwrote its own work. Without persistence, each edit destroyed the previous one.",
+      "MEMORY_STACK_OVERFLOW": "The agent ran out of memory buffer. Too many steps without enough capacity and it forgot the task.",
+      "CONTEXT_FULL": "The context window filled during retries. History accumulated until the agent could no longer process new information.",
+      "INFINITE_LOOP_TRAP": "The agent looped without progress: fail → same action → fail. Stop rules or iteration caps were missing or too weak.",
+      "TASK_ABANDONED": "The agent quit after the first failure. With no loop enabled, a single test fail ended the run.",
+      "BUDGET_EXHAUSTED": "The run hit the token budget cap. Budget guard stopped the agent before it could finish.",
+      "UNGROUNDED_STOP": "The agent stopped because it \"said done\" — not because evidence passed. Ungrounded stop conditions lie."
     },
     "failureFixes": {
-      "HALLUCINATED_TOOL": "Enable Sandbox and Workspace in the Harness config.",
-      "FILE_CORROSION": "Enable Git in the Harness config to track file changes.",
-      "MEMORY_STACK_OVERFLOW": "Increase Memory Capacity to at least 5.",
-      "CONTEXT_FULL": "Increase Memory Capacity or use a multi-agent Graph to isolate context per agent.",
-      "INFINITE_LOOP_TRAP": "Enable 'Stop on test pass' in Loop Strategy, or increase Max Retries.",
-      "TASK_ABANDONED": "Switch Loop Strategy from 'None' to 'Blind Retry' or 'ReAct + Reflexion'."
+      "HALLUCINATED_TOOL": "Enable Tool Surface and Sandbox Isolation in Harness.",
+      "FILE_CORROSION": "Enable Persistence in Harness so edits are versioned.",
+      "MEMORY_STACK_OVERFLOW": "Raise Memory Capacity, or add Context Injection / Tracing to manage state.",
+      "CONTEXT_FULL": "Raise Memory Capacity, tighten state_policy, or split work with a Graph.",
+      "INFINITE_LOOP_TRAP": "Set stop_on to evidence_pass (or budget_or_max) and raise max_iterations if needed.",
+      "TASK_ABANDONED": "Enable the Loop and set evidence + stop_on so the agent can recover.",
+      "BUDGET_EXHAUSTED": "Raise token_budget_cap, or reduce max_iterations / tighten the loop.",
+      "UNGROUNDED_STOP": "Change stop_on from agent_says_done to evidence_pass, and set evidence to a real check."
     }
   },
   "timeline": {
@@ -188,9 +236,23 @@
     "memoryStackOverflow": "Memory Stack Overflow",
     "contextFull": "Context Full",
     "infiniteLoopTrap": "Infinite Loop Trap",
-    "taskAbandoned": "Task Abandoned"
+    "taskAbandoned": "Task Abandoned",
+    "budgetExhausted": "Budget Exhausted",
+    "ungroundedStop": "Ungrounded Stop"
   },
   "architect": {
-    "dropHint": "Drop nodes here"
+    "dropHint": "Drop nodes here",
+    "edgeCondition": "Edge condition",
+    "graphOptions": "Graph options",
+    "entryNode": "Entry node",
+    "entryAuto": "Auto (inferred)",
+    "checkpointing": "Checkpointing",
+    "conditions": {
+      "always": "always",
+      "on_pass": "on_pass",
+      "on_fail": "on_fail",
+      "on_review_reject": "on_review_reject",
+      "on_human_approve": "on_human_approve"
+    }
   }
 }
