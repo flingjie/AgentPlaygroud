@@ -765,20 +765,61 @@ class TestEvidenceFeedback:
         assert reflex_ok - blind_ok > total * 0.1
 
     def test_one_retry_equal(self):
+        """With a single attempt, feedback mode alone doesn't change the
+        outcome: only the retry *slope* differs, so attempt 0 is identical.
+        The reflexion case uses goal=schema_valid (no alignment bonus with
+        test_runner evidence) so the first-attempt error matches blind."""
         engine = SimulationEngine()
         total = 200
         blind_ok = 0
         reflex_ok = 0
+        blind_loop = LoopConfig(
+            enabled=True, evidence="none", feedback="none",
+            max_iterations=1, stop_on="evidence_pass",
+        )
+        reflex_loop = LoopConfig(
+            enabled=True, evidence="test_runner", feedback="reflexion",
+            goal="schema_valid", max_iterations=1, stop_on="evidence_pass",
+        )
         for i in range(total):
             engine.rng = random.Random(30000 + i)
-            ok_b, _, _ = engine._simulate_loop(1, 0.3, "blind")
+            ok_b, _, _ = engine._simulate_loop(blind_loop, 0.3)
             engine.rng = random.Random(30000 + i)
-            ok_r, _, _ = engine._simulate_loop(1, 0.3, "reflexion")
+            ok_r, _, _ = engine._simulate_loop(reflex_loop, 0.3)
             if ok_b:
                 blind_ok += 1
             if ok_r:
                 reflex_ok += 1
         assert blind_ok == reflex_ok
+
+
+def test_action_policy_edit_then_retest_beats_retry_same(level_5_blueprint):
+    from app.models import LoopConfig
+    base = level_5_blueprint.model_copy(deep=True)
+    # Weaken the harness: with the full level-5 harness (hq=1.05) the loop
+    # error is clamped to its 0.1 floor for every attempt, so every action
+    # policy succeeds ~100% and nothing discriminates. max_iterations=1 keeps
+    # the single-attempt error above the floor where the action bonus bites.
+    base.harness = HarnessConfig(
+        has_tool_registry=True,
+        has_retry_policy=True,
+        has_sandbox_isolation=True,
+        has_state_persistence=True,
+        memory_capacity=5,
+    )
+    base.loop = LoopConfig(enabled=True, evidence="test_runner",
+                           feedback="reflexion", stop_on="evidence_pass",
+                           max_iterations=1, action_policy="retry_same")
+    retry_same_rate = sum(
+        1 for _ in range(200)
+        if SimulationEngine().simulate(base, seed=1000 + _).status == "SUCCESS"
+    ) / 200
+    base.loop.action_policy = "edit_then_retest"
+    edit_rate = sum(
+        1 for _ in range(200)
+        if SimulationEngine().simulate(base, seed=1000 + _).status == "SUCCESS"
+    ) / 200
+    assert edit_rate > retry_same_rate
 
 
 # ---------------------------------------------------------------------------

@@ -264,6 +264,7 @@ class SimulationEngine:
         coder_edit_count = 0
         has_loop = loop.enabled
         has_tester = any(n.role == "tester" for n in node_order)
+        graph_has_reviewer = any(n.role == "reviewer" for n in node_order)
         parallel_coder_ids = self._parallel_coder_ids(nodes, edges, topology)
 
         # --- Simulate each node in order ---
@@ -444,7 +445,12 @@ class SimulationEngine:
 
                 else:
                     # evidence_pass or budget_or_max
-                    loop_ok, retries_used, _ = self._simulate_loop(loop, hq)
+                    loop_ok, retries_used, _ = self._simulate_loop(
+                        loop, hq, graph_has_reviewer=graph_has_reviewer,
+                    )
+                    if loop.action_policy == "edit_then_retest":
+                        # each retry now includes a real edit
+                        cost_tokens += ACTION_TOKEN_COST["EDIT_FILE"] * retries_used
 
                     ctx_risk = self._context_full_risk(loop, harness, memory_used)
                     if ctx_risk > 0 and self.rng.random() < ctx_risk:
@@ -546,6 +552,10 @@ class SimulationEngine:
                             )
                             steps.append(s)
                             yield s
+                            cost_tokens += ACTION_TOKEN_COST["CHECK_EVIDENCE"]
+
+                        if loop.trigger == "on_task_start":
+                            # loop verifies from the start: extra CHECK_EVIDENCE overhead
                             cost_tokens += ACTION_TOKEN_COST["CHECK_EVIDENCE"]
 
                         s = TraceStep(
@@ -1221,56 +1231,58 @@ class SimulationEngine:
         loop: LoopConfig | int,
         harness_quality: float = 0.0,
         feedback_mode: str | None = None,
+        graph_has_reviewer: bool = False,
     ) -> tuple[bool, int, str | None]:
         """Simulate a retry loop. Returns (success, retries_used, failure_reason).
 
-        Accepts either a LoopConfig or (max_retries, harness_quality, feedback_mode)
-        for test convenience: ``_simulate_loop(max_retries, hq, mode)``.
+        Supports the legacy int call style for test convenience.
         """
         if isinstance(loop, int):
-            # Legacy/test call style: _simulate_loop(max_retries, hq, mode)
             max_retries = loop
             mode = feedback_mode or "reflexion"
             if mode in ("none", "blind", "retry_blind"):
-                cfg = LoopConfig(
-                    enabled=True,
-                    evidence="none",
-                    feedback="none",
-                    max_iterations=max_retries,
-                    stop_on="evidence_pass",
-                )
+                loop = LoopConfig(enabled=True, evidence="none", feedback="none",
+                                  max_iterations=max_retries, stop_on="evidence_pass")
             elif mode == "compact_error":
-                cfg = LoopConfig(
-                    enabled=True,
-                    evidence="test_runner",
-                    feedback="compact_error",
-                    max_iterations=max_retries,
-                    stop_on="evidence_pass",
-                )
+                loop = LoopConfig(enabled=True, evidence="test_runner",
+                                  feedback="compact_error", max_iterations=max_retries,
+                                  stop_on="evidence_pass")
             else:
-                cfg = LoopConfig(
-                    enabled=True,
-                    evidence="test_runner",
-                    feedback="reflexion",
-                    max_iterations=max_retries,
-                    stop_on="evidence_pass",
-                )
-            loop = cfg
+                loop = LoopConfig(enabled=True, evidence="test_runner",
+                                  feedback="reflexion", max_iterations=max_retries,
+                                  stop_on="evidence_pass")
 
         max_retries = loop.max_iterations
         has_evidence = loop.evidence != "none"
         use_reflexion = has_evidence and loop.feedback == "reflexion"
         use_compact = has_evidence and loop.feedback == "compact_error"
 
+        # --- goal/evidence alignment bonus ---
+        goal_bonus = 0.0
+        if loop.goal == "tests_green" and loop.evidence == "test_runner":
+            goal_bonus = 0.05
+        elif loop.goal == "schema_valid" and loop.evidence == "schema_check":
+            goal_bonus = 0.05
+
+        # --- action_policy: what a retry actually does ---
+        if loop.action_policy == "edit_then_retest":
+            action_bonus = 0.10
+        elif loop.action_policy == "escalate_review":
+            if not graph_has_reviewer:
+                return False, max_retries, "INFINITE_LOOP_TRAP"
+            action_bonus = 0.05  # reviewer absorbs iterations
+        else:
+            action_bonus = 0.0
+
         for attempt in range(max_retries):
             if not has_evidence:
                 error_rate = max(0.1, 0.8 - harness_quality)
             elif use_reflexion:
-                error_rate = max(0.1, 0.8 - (attempt * 0.25) - harness_quality)
+                error_rate = max(0.1, 0.8 - (attempt * 0.25) - harness_quality - goal_bonus - action_bonus)
             elif use_compact:
-                error_rate = max(0.1, 0.8 - (attempt * 0.12) - harness_quality)
+                error_rate = max(0.1, 0.8 - (attempt * 0.12) - harness_quality - goal_bonus - action_bonus)
             else:
-                error_rate = max(0.1, 0.8 - (attempt * 0.05) - harness_quality)
+                error_rate = max(0.1, 0.8 - (attempt * 0.05) - harness_quality - goal_bonus - action_bonus)
             if self.rng.random() > error_rate:
                 return True, attempt + 1, None
         return False, max_retries, "INFINITE_LOOP_TRAP"
