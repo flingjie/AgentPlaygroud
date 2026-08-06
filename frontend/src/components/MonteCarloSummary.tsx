@@ -1,5 +1,6 @@
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useTheme } from '../context/ThemeContext';
 import { successRatePct } from '../context/GameContext';
 import type { MonteCarloResult, RunTrace, FailureReason } from '../types';
@@ -11,31 +12,41 @@ interface MonteCarloSummaryProps {
 }
 
 const FAILURE_COLORS: Record<string, string> = {
-  HALLUCINATED_TOOL: '#f97316',
+  HALLUCINATION: '#f97316',
+  TOOL_FAILURE: '#f43f5e',
   FILE_CORROSION: '#ef4444',
   MEMORY_STACK_OVERFLOW: '#a855f7',
-  CONTEXT_FULL: '#facc15',
+  CONTEXT_OVERFLOW: '#facc15',
+  STALE_CONTEXT: '#14b8a6',
+  FALSE_COMPLETION: '#84cc16',
+  PERMISSION_ERROR: '#f59e0b',
+  DEADLOCK: '#3b82f6',
   INFINITE_LOOP_TRAP: '#ec4899',
-  TASK_ABANDONED: '#6b7280',
   BUDGET_EXHAUSTED: '#0ea5e9',
-  UNGROUNDED_STOP: '#84cc16',
+  TASK_ABANDONED: '#6b7280',
+  UNSAFE_EXECUTION: '#dc2626',
 };
 
 const FAILURE_I18N_KEYS: Record<FailureReason, string> = {
   NONE: 'NONE',
-  HALLUCINATED_TOOL: 'monteCarlo.hallucinatedTool',
+  HALLUCINATION: 'monteCarlo.hallucination',
+  TOOL_FAILURE: 'monteCarlo.toolFailure',
   FILE_CORROSION: 'monteCarlo.fileCorrosion',
   MEMORY_STACK_OVERFLOW: 'monteCarlo.memoryStackOverflow',
-  CONTEXT_FULL: 'monteCarlo.contextFull',
+  CONTEXT_OVERFLOW: 'monteCarlo.contextOverflow',
+  STALE_CONTEXT: 'monteCarlo.staleContext',
+  FALSE_COMPLETION: 'monteCarlo.falseCompletion',
+  PERMISSION_ERROR: 'monteCarlo.permissionError',
+  DEADLOCK: 'monteCarlo.deadlock',
   INFINITE_LOOP_TRAP: 'monteCarlo.infiniteLoopTrap',
   TASK_ABANDONED: 'monteCarlo.taskAbandoned',
   BUDGET_EXHAUSTED: 'monteCarlo.budgetExhausted',
-  UNGROUNDED_STOP: 'monteCarlo.ungroundedStop',
+  UNSAFE_EXECUTION: 'monteCarlo.unsafeExecution',
 };
 
-function getFailureLabel(reason: string, t: (key: string) => string): string {
+function getFailureLabel(reason: string, t: TFunction): string {
   const key = FAILURE_I18N_KEYS[reason as FailureReason];
-  if (key && key !== 'NONE') return t(key);
+  if (key && key !== 'NONE') return t(key, reason);
   return reason;
 }
 

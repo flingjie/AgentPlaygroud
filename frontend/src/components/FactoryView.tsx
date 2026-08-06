@@ -6,6 +6,7 @@ import { monteCarlo } from '../api';
 import LevelSelector from './LevelSelector';
 import HarnessConfigPanel from './HarnessConfig';
 import LoopConfigPanel from './LoopConfig';
+import LoopStackConfigPanel from './LoopStackConfig';
 import TokenBudget from './TokenBudget';
 import SuccessGauge from './SuccessGauge';
 
@@ -41,6 +42,7 @@ export default function FactoryView() {
         <div className="lg:col-span-1 space-y-6">
           <HarnessConfigPanel />
           <LoopConfigPanel />
+          <LoopStackConfigPanel />
 
           {error && (
             <div className="bg-red-400/10 border border-red-400/20 rounded-lg p-3 text-sm text-red-600 dark:text-red-400">
