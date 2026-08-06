@@ -12,12 +12,71 @@ from app.models import (
     HarnessConfig,
     LevelInfo,
     LoopConfig,
+    LoopStackConfig,
     MonteCarloRequest,
     MonteCarloResponse,
     RunTrace,
     StepStatus,
     TraceStep,
 )
+
+
+# ---------------------------------------------------------------------------
+# Task A1 — new 7-dim harness, loop stack, 13 failure reasons, level schema
+# ---------------------------------------------------------------------------
+
+
+def test_harness_config_seven_dimensions():
+    h = HarnessConfig(
+        has_tool_registry=True,
+        has_retry_policy=True,
+        has_timeout_guard=True,
+        run_boundary_cap=5000,
+        has_sandbox_isolation=True,
+        has_context_manager=True,
+        has_state_persistence=True,
+        has_permission_layer=True,
+        memory_capacity=7,
+    )
+    assert h.has_tool_registry and h.has_permission_layer
+    assert h.run_boundary_cap == 5000
+    # old keys are gone
+    assert not hasattr(h, "has_tool_surface")
+    assert not hasattr(h, "has_tracing")
+
+
+def test_failure_reason_has_thirteen_members():
+    values = {r.value for r in FailureReason}
+    assert values == {
+        "NONE", "HALLUCINATION", "TOOL_FAILURE", "FILE_CORROSION",
+        "MEMORY_STACK_OVERFLOW", "CONTEXT_OVERFLOW", "STALE_CONTEXT",
+        "FALSE_COMPLETION", "PERMISSION_ERROR", "DEADLOCK",
+        "INFINITE_LOOP_TRAP", "BUDGET_EXHAUSTED", "TASK_ABANDONED",
+        "UNSAFE_EXECUTION",
+    }
+
+
+def test_blueprint_has_loop_stack_default():
+    b = AgentBlueprint(level_id="level_3_loop")
+    assert b.loop_stack.template == "none"
+    assert b.loop_stack.enabled is False
+
+
+def test_level_info_has_learning_label():
+    lvl = LevelInfo(
+        id="level_2_harness",
+        name="Agent + Harness",
+        description="d",
+        learning_label="Tool Agent",
+        unlocked_harness=["tool_registry"],
+        unlocked_loop=False,
+        unlocked_loop_stack=False,
+        unlocked_loop_templates=[],
+        unlocked_graph=False,
+        target_success_rate=0.4,
+        token_budget=20000,
+    )
+    assert lvl.learning_label == "Tool Agent"
 
 
 # ---------------------------------------------------------------------------
@@ -39,12 +98,14 @@ class TestAgentBlueprint:
             level_id="level_4_graph",
             run_seed=42,
             harness=HarnessConfig(
-                has_context_injection=True,
-                has_tool_surface=True,
-                has_persistence=True,
-                has_budget_guard=True,
+                has_tool_registry=True,
+                has_retry_policy=True,
+                has_timeout_guard=True,
+                run_boundary_cap=5000,
                 has_sandbox_isolation=True,
-                has_tracing=True,
+                has_context_manager=True,
+                has_state_persistence=True,
+                has_permission_layer=True,
                 memory_capacity=9,
             ),
             loop=LoopConfig(
@@ -54,6 +115,7 @@ class TestAgentBlueprint:
                 stop_on="evidence_pass",
                 max_iterations=5,
             ),
+            loop_stack=LoopStackConfig(enabled=True, template="dual"),
             graph=GraphSpec(
                 nodes=[
                     GraphNode(id="n1", role="planner", state_writes=["plan"]),
@@ -93,8 +155,8 @@ class TestAgentBlueprint:
             LoopConfig(max_iterations=11)
 
     def test_new_failure_reasons(self):
-        assert FailureReason.BUDGET_EXHAUSTED.value == "BUDGET_EXHAUSTED"
-        assert FailureReason.UNGROUNDED_STOP.value == "UNGROUNDED_STOP"
+        assert FailureReason.HALLUCINATION.value == "HALLUCINATION"
+        assert FailureReason.UNSAFE_EXECUTION.value == "UNSAFE_EXECUTION"
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +177,7 @@ class TestRunTrace:
         trace = RunTrace(
             run_id="run-001",
             status="FAILED",
-            failure_reason=FailureReason.HALLUCINATED_TOOL,
+            failure_reason=FailureReason.HALLUCINATION,
             cost_tokens=12500,
             steps=[
                 TraceStep(
@@ -153,7 +215,7 @@ class TestRunTrace:
         js = trace.model_dump_json()
         restored = RunTrace.model_validate_json(js)
         assert restored == trace
-        assert restored.failure_reason == FailureReason.HALLUCINATED_TOOL
+        assert restored.failure_reason == FailureReason.HALLUCINATION
         assert len(restored.steps) == 4
 
 
@@ -168,14 +230,17 @@ class TestLevelInfo:
             id="test_level",
             name="Test Level",
             description="A test",
-            unlocked_harness=["tool_surface"],
+            learning_label="Tool Agent",
+            unlocked_harness=["tool_registry"],
             unlocked_loop=False,
+            unlocked_loop_stack=False,
+            unlocked_loop_templates=[],
             unlocked_graph=False,
             target_success_rate=0.5,
             token_budget=10000,
         )
         assert level.id == "test_level"
-        assert level.unlocked_harness == ["tool_surface"]
+        assert level.unlocked_harness == ["tool_registry"]
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +257,7 @@ class TestMonteCarlo:
         resp = MonteCarloResponse(
             success_rate=0.85,
             avg_tokens=14200.0,
-            failure_distribution={"HALLUCINATED_TOOL": 10, "NONE": 0},
+            failure_distribution={"HALLUCINATION": 10, "NONE": 0},
             sample_traces=[],
         )
         assert resp.success_rate == 0.85

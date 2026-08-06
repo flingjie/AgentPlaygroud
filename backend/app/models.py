@@ -12,13 +12,24 @@ from pydantic import BaseModel, Field
 
 
 class HarnessConfig(BaseModel):
-    has_context_injection: bool = False
-    has_tool_surface: bool = False
-    has_persistence: bool = False
-    has_budget_guard: bool = False
-    token_budget_cap: int | None = Field(default=None, gt=0)
+    """Seven first-principles harness dimensions + memory/token params."""
+
+    # 1. Tool Registry — tool discovery / typed action surface
+    has_tool_registry: bool = False
+    # 2. Retry Policy — structured retry scaffolding; a loop needs this to retry
+    has_retry_policy: bool = False
+    # 3. Timeout Guard — unified run boundary (tokens or iterations)
+    has_timeout_guard: bool = False
+    run_boundary_cap: int | None = Field(default=None, gt=0)
+    # 4. Sandbox Isolation — execution isolation
     has_sandbox_isolation: bool = False
-    has_tracing: bool = False
+    # 5. Context Manager — context injection / grounding
+    has_context_manager: bool = False
+    # 6. State Persistence — workspace versioning
+    has_state_persistence: bool = False
+    # 7. Permission Layer — allowlist; capability != permission
+    has_permission_layer: bool = False
+    # Sibling params
     memory_capacity: int = Field(default=3, ge=1, le=10)
 
 
@@ -32,6 +43,12 @@ class LoopConfig(BaseModel):
     feedback: Literal["none", "compact_error", "reflexion"] = "none"
     stop_on: Literal["agent_says_done", "evidence_pass", "budget_or_max"] = "agent_says_done"
     max_iterations: int = Field(default=1, ge=1, le=10)
+
+
+class LoopStackConfig(BaseModel):
+    """Preset multi-loop templates (read-only internals)."""
+    enabled: bool = False
+    template: Literal["none", "single", "dual", "factory"] = "none"
 
 
 class GraphEdge(BaseModel):
@@ -61,6 +78,7 @@ class AgentBlueprint(BaseModel):
     run_seed: int | None = None  # None → random; int → deterministic replay
     harness: HarnessConfig = Field(default_factory=HarnessConfig)
     loop: LoopConfig = Field(default_factory=LoopConfig)
+    loop_stack: LoopStackConfig = Field(default_factory=LoopStackConfig)
     graph: GraphSpec = Field(default_factory=GraphSpec)
 
 
@@ -76,14 +94,19 @@ class StepStatus(str, Enum):
 
 class FailureReason(str, Enum):
     NONE = "NONE"
-    HALLUCINATED_TOOL = "HALLUCINATED_TOOL"
+    HALLUCINATION = "HALLUCINATION"
+    TOOL_FAILURE = "TOOL_FAILURE"
     FILE_CORROSION = "FILE_CORROSION"
     MEMORY_STACK_OVERFLOW = "MEMORY_STACK_OVERFLOW"
-    CONTEXT_FULL = "CONTEXT_FULL"
+    CONTEXT_OVERFLOW = "CONTEXT_OVERFLOW"
+    STALE_CONTEXT = "STALE_CONTEXT"
+    FALSE_COMPLETION = "FALSE_COMPLETION"
+    PERMISSION_ERROR = "PERMISSION_ERROR"
+    DEADLOCK = "DEADLOCK"
     INFINITE_LOOP_TRAP = "INFINITE_LOOP_TRAP"
-    TASK_ABANDONED = "TASK_ABANDONED"
     BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
-    UNGROUNDED_STOP = "UNGROUNDED_STOP"
+    TASK_ABANDONED = "TASK_ABANDONED"
+    UNSAFE_EXECUTION = "UNSAFE_EXECUTION"
 
 
 class TraceStep(BaseModel):
@@ -121,8 +144,11 @@ class LevelInfo(BaseModel):
     id: str
     name: str
     description: str
-    unlocked_harness: list[str]  # six dim keys, e.g. context_injection, tool_surface, …
+    learning_label: str
+    unlocked_harness: list[str]
     unlocked_loop: bool
+    unlocked_loop_stack: bool
+    unlocked_loop_templates: list[str] = []  # "single" | "dual" | "factory"
     unlocked_graph: bool
     target_success_rate: float
     token_budget: int
