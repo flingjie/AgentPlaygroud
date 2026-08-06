@@ -7,6 +7,7 @@ import Timeline from './Timeline';
 import MemoryMonitor from './MemoryMonitor';
 import EventBus from './EventBus';
 import MonteCarloSummary from './MonteCarloSummary';
+import RuntimeGraph from './RuntimeGraph';
 import { Play, Wifi, WifiOff, Loader2, Lightbulb, Wrench, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Debugger() {
@@ -232,6 +233,11 @@ export default function Debugger() {
           </div>
         </div>
       )}
+
+      {/* Runtime position strip — live "you are here" on the control flow */}
+      <div className="shrink-0 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+        <RuntimeGraph />
+      </div>
 
       {/* Main debugger content */}
       <div className="flex-1 overflow-hidden flex flex-col">
