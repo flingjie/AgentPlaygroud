@@ -17,6 +17,18 @@
     "graphLocked": "Graph editing is locked for this level.",
     "graphLockedHint": "Select a higher level to unlock the Architect."
   },
+  "sidebar": {
+    "experiments": "Experiments"
+  },
+  "tabs": {
+    "runtime": "Runtime",
+    "context": "Context",
+    "reality": "Reality",
+    "architecture": "Architecture"
+  },
+  "shell": {
+    "run": "Run"
+  },
   "factory": {
     "runSimulation": "Run Simulation (100 runs)",
     "runningMonteCarlo": "Running Monte Carlo...",

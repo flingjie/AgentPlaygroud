@@ -1,10 +1,5 @@
-import { GameProvider } from './context/GameContext';
-import Layout from './components/Layout';
+import ExperimentShell from './components/ExperimentShell';
 
 export default function App() {
-  return (
-    <GameProvider>
-      <Layout />
-    </GameProvider>
-  );
+  return <ExperimentShell />;
 }
