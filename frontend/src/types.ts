@@ -1,39 +1,101 @@
+export type FailureReason =
+  | 'HALLUCINATION' | 'TOOL_FAILURE' | 'FILE_CORROSION'
+  | 'MEMORY_STACK_OVERFLOW' | 'CONTEXT_OVERFLOW' | 'STALE_CONTEXT'
+  | 'FALSE_COMPLETION' | 'PERMISSION_ERROR' | 'DEADLOCK'
+  | 'INFINITE_LOOP_TRAP' | 'BUDGET_EXHAUSTED' | 'TASK_ABANDONED'
+  | 'UNSAFE_EXECUTION';
+
+export type ReliabilityLayerId =
+  | 'model' | 'tool' | 'workspace' | 'memory'
+  | 'observation' | 'loop_discipline' | 'execution';
+
+export type TraceAction = 'THINK' | 'EDIT_FILE' | 'RUN_TEST'
+  | 'RETRY' | 'CHECK_EVIDENCE' | 'STOP';
+
+export interface ReliabilityLayer {
+  id: ReliabilityLayerId;
+  question: string;
+  order: number;
+}
+
+export interface HarnessDim {
+  id: string;
+  category: ReliabilityLayerId;
+  nameKey: string;
+  descKey: string;
+  effect: {
+    successRate: number;
+    tokenCost: number;
+    prevents: FailureReason[];
+  };
+  requires?: string[];
+}
+
 export interface HarnessConfig {
-  has_tool_registry: boolean;
-  has_retry_policy: boolean;
-  has_timeout_guard: boolean;
-  run_boundary_cap: number | null;
-  has_sandbox_isolation: boolean;
-  has_context_manager: boolean;
-  has_state_persistence: boolean;
-  has_permission_layer: boolean;
-  memory_capacity: number; // 1-10
+  [dimId: string]: boolean | number;
+  memory_capacity: number;
+  run_boundary_cap: number;
 }
-
-export type LoopStackTemplate = 'none' | 'single' | 'dual' | 'factory';
-export interface LoopStackConfig {
-  enabled: boolean;
-  template: LoopStackTemplate;
-}
-
-export type LoopTrigger = 'on_task_start' | 'on_test_fail';
-export type LoopGoal = 'tests_green' | 'schema_valid';
-export type LoopStatePolicy = 'stateless' | 'keep_last_error' | 'keep_run_summary';
-export type LoopActionPolicy = 'retry_same' | 'edit_then_retest' | 'escalate_review';
-export type LoopEvidence = 'none' | 'test_runner' | 'schema_check' | 'reviewer_signoff';
-export type LoopFeedback = 'none' | 'compact_error' | 'reflexion';
-export type LoopStopOn = 'agent_says_done' | 'evidence_pass' | 'budget_or_max';
 
 export interface LoopConfig {
   enabled: boolean;
-  trigger: LoopTrigger;
-  goal: LoopGoal;
-  state_policy: LoopStatePolicy;
-  action_policy: LoopActionPolicy;
-  evidence: LoopEvidence;
-  feedback: LoopFeedback;
-  stop_on: LoopStopOn;
-  max_iterations: number; // 1-10
+  trigger: 'on_task_start' | 'on_test_fail';
+  goal: 'tests_green' | 'schema_valid';
+  state_policy: 'stateless' | 'keep_last_error' | 'keep_run_summary';
+  action_policy: 'retry_same' | 'edit_then_retest' | 'escalate_review';
+  evidence: 'none' | 'test_runner' | 'schema_check' | 'reviewer_signoff';
+  feedback: 'none' | 'compact_error' | 'reflexion';
+  stop_on: 'agent_says_done' | 'evidence_pass' | 'budget_or_max';
+  max_iterations: number;
+}
+
+export interface Scenario {
+  id: string;
+  name: string;
+  failureRates: Partial<Record<FailureReason, number>>;
+  costMultipliers: Partial<Record<TraceAction, number>>;
+  inPlayFailures: FailureReason[];
+  maxSteps: number;
+}
+
+export interface ExperimentSpec {
+  id: string;
+  title: string;
+  scenario: Scenario;
+  hiddenFailure: FailureReason;
+  availableHarness: string[];
+  loop: LoopConfig;
+  evaluator: { targetSuccessRate: number; tokenBudget: number };
+  baseline: { successRate: number; tokenCost: number; failureDistribution: Partial<Record<FailureReason, number>> };
+}
+
+export interface TraceStep {
+  step: number;
+  action: TraceAction;
+  status: 'SUCCESS' | 'FAIL';
+  memoryUsed: number;
+  node?: string;
+  reflection?: string;
+  warning?: string;
+  costTokens: number;
+}
+
+export interface RunTrace {
+  runId: string;
+  seed: number;
+  status: 'SUCCESS' | 'FAILED';
+  failureReason: FailureReason | 'NONE';
+  costTokens: number;
+  topology: { kind: 'single' | 'chain' | 'parallel' | 'feedback'; hasFeedback: boolean; parallelCoders: number; isolatedNodes: string[] };
+  steps: TraceStep[];
+}
+
+export interface MonteCarloResult {
+  successRate: number;
+  avgTokens: number;
+  failureDistribution: Record<FailureReason, number>;
+  sampleTraces: RunTrace[];
+  runs: number;
 }
 
 export type GraphEdgeCondition =
@@ -61,78 +123,6 @@ export interface GraphSpec {
   edges: GraphEdge[];
   entry: string | null;
   checkpointing: boolean;
-}
-
-export interface AgentBlueprint {
-  level_id: string;
-  run_seed?: number;
-  harness: HarnessConfig;
-  loop: LoopConfig;
-  loop_stack: LoopStackConfig;
-  graph: GraphSpec;
-}
-
-export interface TraceStep {
-  step: number;
-  node: string;
-  action: string;
-  status: 'SUCCESS' | 'FAIL';
-  memory_used: number;
-  warning?: string;
-  reflection?: string;
-}
-
-export type FailureReason =
-  | 'NONE'
-  | 'HALLUCINATION'
-  | 'TOOL_FAILURE'
-  | 'FILE_CORROSION'
-  | 'MEMORY_STACK_OVERFLOW'
-  | 'CONTEXT_OVERFLOW'
-  | 'STALE_CONTEXT'
-  | 'FALSE_COMPLETION'
-  | 'PERMISSION_ERROR'
-  | 'DEADLOCK'
-  | 'INFINITE_LOOP_TRAP'
-  | 'BUDGET_EXHAUSTED'
-  | 'TASK_ABANDONED'
-  | 'UNSAFE_EXECUTION';
-
-export interface TopologyInfo {
-  kind: 'single' | 'chain' | 'parallel' | 'feedback';
-  has_feedback: boolean;
-  parallel_coders: number;
-  isolated_nodes: string[];
-}
-
-export interface RunTrace {
-  run_id: string;
-  status: 'SUCCESS' | 'FAILED';
-  failure_reason: FailureReason;
-  cost_tokens: number;
-  steps: TraceStep[];
-  topology?: TopologyInfo | null;
-}
-
-export interface MonteCarloResult {
-  success_rate: number;
-  avg_tokens: number;
-  failure_distribution: Record<FailureReason, number>;
-  sample_traces: RunTrace[];
-}
-
-export interface LevelInfo {
-  id: string;
-  name: string;
-  description: string;
-  learning_label: string;
-  unlocked_harness: string[];
-  unlocked_loop: boolean;
-  unlocked_loop_stack: boolean;
-  unlocked_loop_templates: string[];
-  unlocked_graph: boolean;
-  target_success_rate: number;
-  token_budget: number;
 }
 
 export class ApiError extends Error {
