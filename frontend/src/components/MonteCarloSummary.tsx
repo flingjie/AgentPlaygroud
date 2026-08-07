@@ -27,7 +27,7 @@ const FAILURE_COLORS: Record<string, string> = {
   UNSAFE_EXECUTION: '#dc2626',
 };
 
-const FAILURE_I18N_KEYS: Record<FailureReason, string> = {
+const FAILURE_I18N_KEYS: Record<FailureReason | 'NONE', string> = {
   NONE: 'NONE',
   HALLUCINATION: 'monteCarlo.hallucination',
   TOOL_FAILURE: 'monteCarlo.toolFailure',

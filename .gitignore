@@ -36,3 +36,4 @@ frontend/dist/
 # Superpowers working artifacts (SDD scratch, executed plans)
 .superpowers/
 docs/superpowers/
+.claude/

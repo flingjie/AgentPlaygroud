@@ -11,7 +11,7 @@ export default function RuntimeGraph({ steps }: { steps: TraceStep[] }) {
     return last.node;
   }, [steps]);
 
-  const nodes: { id: string }[] = useMemo(() => {
+  const nodes: { id: string | undefined }[] = useMemo(() => {
     const ids = Array.from(new Set(steps.map((s) => s.node)));
     return ids.map((id) => ({ id }));
   }, [steps]);

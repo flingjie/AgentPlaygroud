@@ -4,7 +4,6 @@ import type {
   MonteCarloResult,
   RunTrace,
   TraceStep,
-  FailureReason,
 } from './types';
 import { ApiError } from './types';
 
@@ -116,53 +115,56 @@ const MOCK_LEVELS: LevelInfo[] = [
 
 const MOCK_TRACE_SUCCESS: RunTrace = {
   run_id: 'run-abc-001',
+  seed: 1,
   status: 'SUCCESS',
   failure_reason: 'NONE',
   cost_tokens: 1247,
   steps: [
-    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
-    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2 },
-    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 3 },
-    { step: 4, node: 'node_1', action: 'RETRY', status: 'SUCCESS', memory_used: 3, reflection: 'reflect_test_fail' },
-    { step: 5, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 4 },
-    { step: 6, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 4 },
+    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1, cost_tokens: 1000 },
+    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2, cost_tokens: 2500 },
+    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 3, cost_tokens: 1500 },
+    { step: 4, node: 'node_1', action: 'RETRY', status: 'SUCCESS', memory_used: 3, reflection: 'reflect_test_fail', cost_tokens: 800 },
+    { step: 5, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 4, cost_tokens: 2500 },
+    { step: 6, node: 'node_1', action: 'RUN_TEST', status: 'SUCCESS', memory_used: 4, cost_tokens: 1500 },
   ],
   topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
 const MOCK_TRACE_INFINITE_LOOP: RunTrace = {
   run_id: 'run-def-002',
+  seed: 2,
   status: 'FAILED',
   failure_reason: 'INFINITE_LOOP_TRAP',
   cost_tokens: 3200,
   steps: [
-    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
-    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2 },
-    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 4, warning: 'Test failed: 2 assertions failed' },
-    { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 5, warning: 'Same edit applied, test still failing', reflection: 'reflect_test_fail' },
-    { step: 5, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 6, warning: 'Retry #2: no progress detected', reflection: 'reflect_wrong_file' },
-    { step: 6, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 7, warning: 'Retry #3: same fix applied again', reflection: 'reflect_off_by_one' },
-    { step: 7, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 8, warning: 'Agent stuck in infinite retry loop — iterations exhausted. Set stop_on to evidence_pass or raise max_iterations.' },
+    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1, cost_tokens: 1000 },
+    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2, cost_tokens: 2500 },
+    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 4, warning: 'Test failed: 2 assertions failed', cost_tokens: 1500 },
+    { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 5, warning: 'Same edit applied, test still failing', reflection: 'reflect_test_fail', cost_tokens: 800 },
+    { step: 5, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 6, warning: 'Retry #2: no progress detected', reflection: 'reflect_wrong_file', cost_tokens: 800 },
+    { step: 6, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 7, warning: 'Retry #3: same fix applied again', reflection: 'reflect_off_by_one', cost_tokens: 800 },
+    { step: 7, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 8, warning: 'Agent stuck in infinite retry loop — iterations exhausted. Set stop_on to evidence_pass or raise max_iterations.', cost_tokens: 800 },
   ],
   topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
 const MOCK_TRACE_CONTEXT_OVERFLOW: RunTrace = {
   run_id: 'run-ghi-003',
+  seed: 3,
   status: 'FAILED',
   failure_reason: 'CONTEXT_OVERFLOW',
   cost_tokens: 4500,
   steps: [
-    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 2 },
-    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 5 },
-    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 7, warning: 'Test failed — retrying' },
-    { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 10, warning: 'Context window full — memory capacity exhausted during retry loop. Increase memory capacity or use sub-agents to isolate context.' },
+    { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 2, cost_tokens: 1000 },
+    { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 5, cost_tokens: 2500 },
+    { step: 3, node: 'node_1', action: 'RUN_TEST', status: 'FAIL', memory_used: 7, warning: 'Test failed — retrying', cost_tokens: 1500 },
+    { step: 4, node: 'node_1', action: 'RETRY', status: 'FAIL', memory_used: 10, warning: 'Context window full — memory capacity exhausted during retry loop. Increase memory capacity or use sub-agents to isolate context.', cost_tokens: 800 },
   ],
   topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
 };
 
 function buildMockMonteCarlo(): MonteCarloResult {
-  const dist: Record<FailureReason, number> = {
+  const dist: Record<string, number> = {
     NONE: 0,
     HALLUCINATION: 2,
     TOOL_FAILURE: 1,
@@ -187,6 +189,7 @@ function buildMockMonteCarlo(): MonteCarloResult {
     avg_tokens: 2150,
     failure_distribution: dist,
     sample_traces: [MOCK_TRACE_SUCCESS, MOCK_TRACE_INFINITE_LOOP, MOCK_TRACE_CONTEXT_OVERFLOW],
+    runs: total,
   };
 }
 
@@ -223,13 +226,15 @@ export async function simulate(blueprint: AgentBlueprint): Promise<RunTrace> {
     // No harness, no loop, no graph — raw model
     const hallucinatedTrace: RunTrace = {
       run_id: `run-${Date.now()}`,
+      seed: 0,
       status: 'FAILED',
       failure_reason: 'HALLUCINATION',
       cost_tokens: 800,
       steps: [
-        { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1 },
-        { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'FAIL', memory_used: 2, warning: 'Agent attempted to use a tool that does not exist — no tool registry or sandbox available. Enable tool_registry or sandbox_isolation.' },
+        { step: 1, node: 'node_1', action: 'THINK', status: 'SUCCESS', memory_used: 1, cost_tokens: 1000 },
+        { step: 2, node: 'node_1', action: 'EDIT_FILE', status: 'FAIL', memory_used: 2, warning: 'Agent attempted to use a tool that does not exist — no tool registry or sandbox available. Enable tool_registry or sandbox_isolation.', cost_tokens: 2500 },
       ],
+      topology: { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] },
     };
     return hallucinatedTrace;
   }

@@ -596,16 +596,16 @@ describe('checkCrossCutFailure cross-cut failures', () => {
 describe('staleLag', () => {
   it('computes lag correctly with no edits', () => {
     const steps: TraceStep[] = [
-      { step: 1, action: 'THINK', status: 'SUCCESS', memoryUsed: 1, costTokens: 1000 },
+      { step: 1, action: 'THINK', status: 'SUCCESS', memory_used: 1, cost_tokens: 1000 },
     ];
     expect(staleLag(steps)).toBe(0);
   });
 
   it('computes lag when edits have occurred', () => {
     const steps: TraceStep[] = [
-      { step: 1, action: 'THINK', status: 'SUCCESS', memoryUsed: 1, costTokens: 1000 },
-      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 2, costTokens: 2500 },
-      { step: 3, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 3, costTokens: 2500 },
+      { step: 1, action: 'THINK', status: 'SUCCESS', memory_used: 1, cost_tokens: 1000 },
+      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2, cost_tokens: 2500 },
+      { step: 3, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 3, cost_tokens: 2500 },
     ];
     // state_version = 2 (2 edits), observed_version = 0 (THINK before any edits)
     // lag = 2 + 0 - 0 = 2
@@ -614,8 +614,8 @@ describe('staleLag', () => {
 
   it('computes lag correctly with inFlightEdits', () => {
     const steps: TraceStep[] = [
-      { step: 1, action: 'THINK', status: 'SUCCESS', memoryUsed: 1, costTokens: 1000 },
-      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 2, costTokens: 2500 },
+      { step: 1, action: 'THINK', status: 'SUCCESS', memory_used: 1, cost_tokens: 1000 },
+      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2, cost_tokens: 2500 },
     ];
     // state_version = 1, observed_version = 0 (THINK before any edits)
     // lag = 1 + 1 - 0 = 2
@@ -624,9 +624,9 @@ describe('staleLag', () => {
 
   it('computes stale lag >= 2', () => {
     const steps: TraceStep[] = [
-      { step: 1, action: 'THINK', status: 'SUCCESS', memoryUsed: 1, costTokens: 1000 },
-      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 2, costTokens: 2500 },
-      { step: 3, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 3, costTokens: 2500 },
+      { step: 1, action: 'THINK', status: 'SUCCESS', memory_used: 1, cost_tokens: 1000 },
+      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2, cost_tokens: 2500 },
+      { step: 3, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 3, cost_tokens: 2500 },
     ];
     // state_version = 2, observed_version = 0, inFlight = 1
     // lag = 2 + 1 - 0 = 3
@@ -635,10 +635,10 @@ describe('staleLag', () => {
 
   it('resets observed_version on CHECK_EVIDENCE', () => {
     const steps: TraceStep[] = [
-      { step: 1, action: 'THINK', status: 'SUCCESS', memoryUsed: 1, costTokens: 1000 },
-      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 2, costTokens: 2500 },
-      { step: 3, action: 'CHECK_EVIDENCE', status: 'SUCCESS', memoryUsed: 1, costTokens: 500 },
-      { step: 4, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 2, costTokens: 2500 },
+      { step: 1, action: 'THINK', status: 'SUCCESS', memory_used: 1, cost_tokens: 1000 },
+      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2, cost_tokens: 2500 },
+      { step: 3, action: 'CHECK_EVIDENCE', status: 'SUCCESS', memory_used: 1, cost_tokens: 500 },
+      { step: 4, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2, cost_tokens: 2500 },
     ];
     // state_version = 2 (2 edits), observed_version = 1 (CAPTURED at CHECK_EVIDENCE)
     // lag = 2 + 0 - 1 = 1
@@ -647,8 +647,8 @@ describe('staleLag', () => {
 
   it('returns correct lag when no THINK or CHECK_EVIDENCE steps', () => {
     const steps: TraceStep[] = [
-      { step: 1, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 2, costTokens: 2500 },
-      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memoryUsed: 3, costTokens: 2500 },
+      { step: 1, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 2, cost_tokens: 2500 },
+      { step: 2, action: 'EDIT_FILE', status: 'SUCCESS', memory_used: 3, cost_tokens: 2500 },
     ];
     // state_version = 2, observed_version = 0 (no observer), lag = 2 + 0 - 0 = 2
     expect(staleLag(steps)).toBe(2);

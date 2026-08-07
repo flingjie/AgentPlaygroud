@@ -37,17 +37,17 @@ describe('simulateMonteCarlo', () => {
     expect(a).toEqual(b);
   });
 
-  it('successRate is in [0, 1]', () => {
+  it('success_rate is in [0, 1]', () => {
     const result = simulateMonteCarlo(makeConfig(), 1, 30);
-    expect(result.successRate).toBeGreaterThanOrEqual(0);
-    expect(result.successRate).toBeLessThanOrEqual(1);
+    expect(result.success_rate).toBeGreaterThanOrEqual(0);
+    expect(result.success_rate).toBeLessThanOrEqual(1);
   });
 
-  it('failureDistribution sums to the number of FAILED runs', () => {
+  it('failure_distribution sums to the number of FAILED runs', () => {
     const runs = 40;
     const result = simulateMonteCarlo(makeConfig(), 7, runs);
-    const failed = runs - Math.round(result.successRate * runs);
-    const distSum = Object.values(result.failureDistribution).reduce((a, b) => a + b, 0);
+    const failed = runs - Math.round(result.success_rate * runs);
+    const distSum = Object.values(result.failure_distribution).reduce((a, b) => a + b, 0);
     expect(distSum).toBe(failed);
   });
 
@@ -58,6 +58,6 @@ describe('simulateMonteCarlo', () => {
 
   it('samples at most 3 traces', () => {
     const result = simulateMonteCarlo(makeConfig(), 9, 100);
-    expect(result.sampleTraces.length).toBeLessThanOrEqual(3);
+    expect(result.sample_traces.length).toBeLessThanOrEqual(3);
   });
 });

@@ -32,9 +32,15 @@ export interface HarnessDim {
 }
 
 export interface HarnessConfig {
-  [dimId: string]: boolean | number;
+  has_tool_registry: boolean;
+  has_retry_policy: boolean;
+  has_timeout_guard: boolean;
+  run_boundary_cap: number | null;
+  has_sandbox_isolation: boolean;
+  has_context_manager: boolean;
+  has_state_persistence: boolean;
+  has_permission_layer: boolean;
   memory_capacity: number;
-  run_boundary_cap: number;
 }
 
 export interface LoopConfig {
@@ -69,33 +75,31 @@ export interface ExperimentSpec {
   baseline: { successRate: number; tokenCost: number; failureDistribution: Partial<Record<FailureReason, number>> };
 }
 
-export interface TraceStep {
-  step: number;
-  action: TraceAction;
-  status: 'SUCCESS' | 'FAIL';
-  memoryUsed: number;
-  node?: string;
-  reflection?: string;
-  warning?: string;
-  costTokens: number;
+// ── Loop sub-types (extracted from LoopConfig for component usage) ──────────
+
+export type LoopTrigger = LoopConfig['trigger'];
+export type LoopGoal = LoopConfig['goal'];
+export type LoopStatePolicy = LoopConfig['state_policy'];
+export type LoopActionPolicy = LoopConfig['action_policy'];
+export type LoopEvidence = LoopConfig['evidence'];
+export type LoopFeedback = LoopConfig['feedback'];
+export type LoopStopOn = LoopConfig['stop_on'];
+
+// ── Loop stack ──────────────────────────────────────────────────────────────
+
+export interface LoopStackConfig {
+  enabled: boolean;
+  template: 'none' | 'single' | 'dual' | 'factory';
 }
 
-export interface RunTrace {
-  runId: string;
-  seed: number;
-  status: 'SUCCESS' | 'FAILED';
-  failureReason: FailureReason | 'NONE';
-  costTokens: number;
-  topology: { kind: 'single' | 'chain' | 'parallel' | 'feedback'; hasFeedback: boolean; parallelCoders: number; isolatedNodes: string[] };
-  steps: TraceStep[];
-}
+export type LoopStackTemplate = LoopStackConfig['template'];
 
-export interface MonteCarloResult {
-  successRate: number;
-  avgTokens: number;
-  failureDistribution: Record<FailureReason, number>;
-  sampleTraces: RunTrace[];
-  runs: number;
+// ── Graph ───────────────────────────────────────────────────────────────────
+
+export interface GraphNode {
+  id: string;
+  role: 'planner' | 'coder' | 'reviewer' | 'tester';
+  state_writes: string[];
 }
 
 export type GraphEdgeCondition =
@@ -111,12 +115,6 @@ export interface GraphEdge {
   condition: GraphEdgeCondition;
 }
 
-export interface GraphNode {
-  id: string;
-  role: 'planner' | 'coder' | 'reviewer' | 'tester';
-  state_writes: string[];
-}
-
 export interface GraphSpec {
   state_schema: string[];
   nodes: GraphNode[];
@@ -125,14 +123,71 @@ export interface GraphSpec {
   checkpointing: boolean;
 }
 
-export interface LoopStackConfig {
-  enabled: boolean;
-  template: 'none' | 'single' | 'dual' | 'factory';
+// ── Agent blueprint (the canonical player design) ───────────────────────────
+
+export interface AgentBlueprint {
+  level_id: string;
+  harness: HarnessConfig;
+  loop: LoopConfig;
+  loop_stack: LoopStackConfig;
+  graph: GraphSpec;
+  run_seed?: number;
 }
 
-/**
- * Config for a single run simulation.
- */
+// ── Level definition (from backend /api/levels) ─────────────────────────────
+
+export interface LevelInfo {
+  id: string;
+  name: string;
+  description: string;
+  learning_label: string;
+  unlocked_harness: string[];
+  unlocked_loop: boolean;
+  unlocked_loop_stack: boolean;
+  unlocked_loop_templates: string[];
+  unlocked_graph: boolean;
+  target_success_rate: number;
+  token_budget: number;
+}
+
+// ── Simulation results ──────────────────────────────────────────────────────
+
+export interface TraceStep {
+  step: number;
+  node?: string;
+  action: TraceAction;
+  status: 'SUCCESS' | 'FAIL';
+  memory_used: number;
+  cost_tokens: number;
+  reflection?: string;
+  warning?: string;
+}
+
+export interface RunTrace {
+  run_id: string;
+  seed: number;
+  status: 'SUCCESS' | 'FAILED';
+  failure_reason: FailureReason | 'NONE';
+  cost_tokens: number;
+  topology: {
+    kind: 'single' | 'chain' | 'parallel' | 'feedback';
+    has_feedback: boolean;
+    parallel_coders: number;
+    isolated_nodes: string[];
+  };
+  steps: TraceStep[];
+}
+
+export interface MonteCarloResult {
+  success_rate: number;
+  avg_tokens: number;
+  failure_distribution: Partial<Record<FailureReason, number>> & Record<string, number>;
+  sample_traces: RunTrace[];
+  runs: number;
+}
+
+// ── Legacy (kept for backward compat) ───────────────────────────────────────
+
 export interface SimConfig {
   harness: HarnessConfig;
   loop: LoopConfig;

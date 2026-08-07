@@ -28,9 +28,9 @@ import { SeededRng } from './rng';
  */
 export interface TopologyInfo {
   kind: 'single' | 'chain' | 'parallel' | 'feedback';
-  hasFeedback: boolean;
-  parallelCoders: number;
-  isolatedNodes: string[];
+  has_feedback: boolean;
+  parallel_coders: number;
+  isolated_nodes: string[];
 }
 
 // ==================== Reflection Keys ====================
@@ -104,10 +104,10 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
       node: nodeId,
       action,
       status,
-      memoryUsed,
+      memory_used: memoryUsed,
       warning,
       reflection,
-      costTokens: ACTION_COST[action],
+      cost_tokens: ACTION_COST[action],
     };
     steps.push(step);
     return ACTION_COST[action];
@@ -119,11 +119,11 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
     const entryNode = nodeOrder[0].id;
     costTokens += addStep(entryNode, 'STOP', globalMemory, 'FAIL', 'deadlock');
     return {
-      runId,
+      run_id: runId,
       seed,
       status: 'FAILED',
-      failureReason,
-      costTokens,
+      failure_reason: failureReason,
+      cost_tokens: costTokens,
       topology,
       steps,
     };
@@ -302,7 +302,7 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
         costTokens += addStep(testNodeId, 'RETRY', globalMemory, 'FAIL', 'context_overflow');
       } else if (!loopOk) {
         // Loop exhausted
-        if (topology.hasFeedback) {
+        if (topology.has_feedback) {
           // Try feedback rework
           const { rescued, reworkSteps } = feedbackRework(
             nodeOrder,
@@ -316,7 +316,7 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
             rng
           );
           for (const rs of reworkSteps) {
-            costTokens += addStep(rs.node as string, rs.action, rs.memoryUsed, rs.status, rs.warning, rs.reflection);
+            costTokens += addStep(rs.node as string, rs.action, rs.memory_used, rs.status, rs.warning, rs.reflection);
           }
           if (rescued) {
             failureReason = 'NONE';
@@ -373,7 +373,7 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
 
       if (abandoned) {
         // Try feedback rework rescue
-        if (topology.hasFeedback) {
+        if (topology.has_feedback) {
           const { rescued, reworkSteps } = feedbackRework(
             nodeOrder,
             harness,
@@ -386,7 +386,7 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
             rng
           );
           for (const rs of reworkSteps) {
-            costTokens += addStep(rs.node as string, rs.action, rs.memoryUsed, rs.status, rs.warning, rs.reflection);
+            costTokens += addStep(rs.node as string, rs.action, rs.memory_used, rs.status, rs.warning, rs.reflection);
           }
           if (rescued) {
             failureReason = 'NONE';
@@ -415,11 +415,11 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
   }
 
   return {
-    runId,
+    run_id: runId,
     seed,
     status: failureReason === 'NONE' ? 'SUCCESS' : 'FAILED',
-    failureReason,
-    costTokens,
+    failure_reason: failureReason,
+    cost_tokens: costTokens,
     topology,
     steps,
   };
@@ -458,10 +458,10 @@ function simulateNode(
       node: node.id,
       action,
       status,
-      memoryUsed: stepMemory,
+      memory_used: stepMemory,
       warning,
       reflection,
-      costTokens: stepTokens,
+      cost_tokens: stepTokens,
     };
     steps.push(step);
     return stepTokens;
@@ -588,10 +588,10 @@ function simulateNode(
 
 function analyzeTopology(nodes: GraphNode[], edges: GraphEdge[] = []): TopologyInfo {
   if (!nodes || nodes.length === 0) {
-    return { kind: 'single', hasFeedback: false, parallelCoders: 0, isolatedNodes: [] };
+    return { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] };
   }
   if (nodes.length === 1) {
-    return { kind: 'single', hasFeedback: false, parallelCoders: 0, isolatedNodes: [] };
+    return { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] };
   }
 
   // Build adjacency lists
@@ -622,7 +622,7 @@ function analyzeTopology(nodes: GraphNode[], edges: GraphEdge[] = []): TopologyI
 
   const connectedNodes = nodes.filter(n => !isolated.includes(n.id));
   if (connectedNodes.length <= 1) {
-    return { kind: 'single', hasFeedback: false, parallelCoders: 0, isolatedNodes: [] };
+    return { kind: 'single', has_feedback: false, parallel_coders: 0, isolated_nodes: [] };
   }
 
   // Check for feedback conditions
@@ -679,9 +679,9 @@ function analyzeTopology(nodes: GraphNode[], edges: GraphEdge[] = []): TopologyI
 
   return {
     kind,
-    hasFeedback,
-    parallelCoders,
-    isolatedNodes: isolated,
+    has_feedback: hasFeedback,
+    parallel_coders: parallelCoders,
+    isolated_nodes: isolated,
   };
 }
 
@@ -788,7 +788,7 @@ function resolveNodeOrder(nodes: GraphNode[], edges: GraphEdge[] = [], entry: st
 // ==================== Parallel Coder IDs ====================
 
 function parallelCoderIds(nodes: GraphNode[], edges: GraphEdge[], topology: TopologyInfo): Set<string> {
-  if (topology.parallelCoders < 2) {
+  if (topology.parallel_coders < 2) {
     return new Set();
   }
   const coders = nodes.filter(n => n.role === 'coder');
@@ -917,9 +917,9 @@ function simulateLoopStack(
       node: testNodeId,
       action: 'RETRY',
       status: 'FAIL',
-      memoryUsed: globalMemory,
+      memory_used: globalMemory,
       warning: 'no_retry_mechanism',
-      costTokens: ACTION_COST.RETRY,
+      cost_tokens: ACTION_COST.RETRY,
     };
     loopSteps.push(s);
     loopCost += ACTION_COST.RETRY;
@@ -947,9 +947,9 @@ function simulateLoopStack(
         node: `stage_${role}`,
         action: 'RUN_TEST',
         status: failed ? 'FAIL' : 'SUCCESS',
-        memoryUsed: stageMemory,
+        memory_used: stageMemory,
         warning,
-        costTokens: ACTION_COST.RUN_TEST,
+        cost_tokens: ACTION_COST.RUN_TEST,
       };
       loopSteps.push(s);
       loopCost += ACTION_COST.RUN_TEST;
@@ -967,8 +967,8 @@ function simulateLoopStack(
       node: 'release',
       action: 'STOP',
       status: 'SUCCESS',
-      memoryUsed: stageMemory,
-      costTokens: ACTION_COST.STOP,
+      memory_used: stageMemory,
+      cost_tokens: ACTION_COST.STOP,
     });
     loopCost += ACTION_COST.STOP + ACTION_COST.CHECK_EVIDENCE;
     return { loopFailure: 'NONE', loopSteps, loopTokens: loopCost };
@@ -1007,8 +1007,8 @@ function simulateLoopStack(
       node: testNodeId,
       action: 'RETRY',
       status: 'SUCCESS',
-      memoryUsed: globalMemory,
-      costTokens: ACTION_COST.RETRY,
+      memory_used: globalMemory,
+      cost_tokens: ACTION_COST.RETRY,
     };
     loopSteps.push(s);
     loopCost += ACTION_COST.RETRY;
@@ -1019,9 +1019,9 @@ function simulateLoopStack(
       node: testNodeId,
       action: 'RETRY',
       status: 'FAIL',
-      memoryUsed: globalMemory,
+      memory_used: globalMemory,
       warning: 'infinite_loop',
-      costTokens: ACTION_COST.RETRY,
+      cost_tokens: ACTION_COST.RETRY,
     };
     loopSteps.push(s);
     loopCost += ACTION_COST.RETRY;
@@ -1036,8 +1036,8 @@ function simulateLoopStack(
       node: testNodeId,
       action: 'RETRY',
       status: 'SUCCESS',
-      memoryUsed: globalMemory,
-      costTokens: ACTION_COST.RETRY,
+      memory_used: globalMemory,
+      cost_tokens: ACTION_COST.RETRY,
     };
     loopSteps.push(s);
     loopCost += ACTION_COST.RETRY;
@@ -1048,9 +1048,9 @@ function simulateLoopStack(
       node: testNodeId,
       action: 'RETRY',
       status: 'FAIL',
-      memoryUsed: globalMemory,
+      memory_used: globalMemory,
       warning: 'infinite_loop',
-      costTokens: ACTION_COST.RETRY,
+      cost_tokens: ACTION_COST.RETRY,
     };
     loopSteps.push(s);
     loopCost += ACTION_COST.RETRY;
@@ -1062,8 +1062,8 @@ function simulateLoopStack(
     node: testNodeId,
     action: 'CHECK_EVIDENCE',
     status: 'SUCCESS',
-    memoryUsed: globalMemory,
-    costTokens: ACTION_COST.CHECK_EVIDENCE,
+    memory_used: globalMemory,
+    cost_tokens: ACTION_COST.CHECK_EVIDENCE,
   });
   loopCost += ACTION_COST.CHECK_EVIDENCE;
 
@@ -1072,8 +1072,8 @@ function simulateLoopStack(
     node: testNodeId,
     action: 'STOP',
     status: 'SUCCESS',
-    memoryUsed: globalMemory,
-    costTokens: ACTION_COST.STOP,
+    memory_used: globalMemory,
+    cost_tokens: ACTION_COST.STOP,
   });
   loopCost += ACTION_COST.STOP;
 
@@ -1108,9 +1108,9 @@ function feedbackRework(
       node: coder.id,
       action: 'EDIT_FILE',
       status: 'SUCCESS',
-      memoryUsed: globalMemory,
+      memory_used: globalMemory,
       reflection: 'reflect_test_fail',
-      costTokens: ACTION_COST.EDIT_FILE,
+      cost_tokens: ACTION_COST.EDIT_FILE,
     });
     reworkTokens += ACTION_COST.EDIT_FILE;
   }
@@ -1121,8 +1121,8 @@ function feedbackRework(
       node: reviewer.id,
       action: 'THINK',
       status: 'SUCCESS',
-      memoryUsed: globalMemory,
-      costTokens: ACTION_COST.THINK,
+      memory_used: globalMemory,
+      cost_tokens: ACTION_COST.THINK,
     });
     reworkTokens += ACTION_COST.THINK;
   }
@@ -1134,9 +1134,9 @@ function feedbackRework(
     node: testId,
     action: 'RUN_TEST',
     status: rescued ? 'SUCCESS' : 'FAIL',
-    memoryUsed: globalMemory,
+    memory_used: globalMemory,
     warning: rescued ? undefined : 'task_abandoned',
-    costTokens: ACTION_COST.RUN_TEST,
+    cost_tokens: ACTION_COST.RUN_TEST,
   });
   reworkTokens += ACTION_COST.RUN_TEST;
 

@@ -19,14 +19,14 @@ export function simulateMonteCarlo(
 
   for (let i = 0; i < n; i++) {
     const trace = simulateRun(config, deriveRunSeed(baseSeed, i));
-    tokenSum += trace.costTokens;
+    tokenSum += trace.cost_tokens;
 
     if (trace.status === 'SUCCESS') {
       successCount++;
-    } else if (trace.failureReason !== 'NONE') {
-      // SUCCESS runs carry failureReason 'NONE' which is not a FailureReason key.
-      failureDistribution[trace.failureReason] =
-        (failureDistribution[trace.failureReason] ?? 0) + 1;
+    } else if (trace.failure_reason !== 'NONE') {
+      // SUCCESS runs carry failure_reason 'NONE' which is not a FailureReason key.
+      failureDistribution[trace.failure_reason] =
+        (failureDistribution[trace.failure_reason] ?? 0) + 1;
     }
 
     if (sampleTraces.length < 3) {
@@ -35,10 +35,10 @@ export function simulateMonteCarlo(
   }
 
   return {
-    successRate: n === 0 ? 0 : successCount / n,
-    avgTokens: n === 0 ? 0 : tokenSum / n,
-    failureDistribution,
-    sampleTraces,
+    success_rate: n === 0 ? 0 : successCount / n,
+    avg_tokens: n === 0 ? 0 : tokenSum / n,
+    failure_distribution: failureDistribution,
+    sample_traces: sampleTraces,
     runs: n,
   };
 }

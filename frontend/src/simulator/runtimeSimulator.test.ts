@@ -100,7 +100,7 @@ describe('runtimeSimulator invariants', () => {
     let abandonedCount = 0;
     for (let i = 0; i < 30; i++) {
       const trace = simulateRun({ harness, loop, graph }, i);
-      if (trace.failureReason === 'TASK_ABANDONED') abandonedCount++;
+      if (trace.failure_reason === 'TASK_ABANDONED') abandonedCount++;
     }
     expect(abandonedCount).toBeGreaterThan(0);
   });
@@ -117,7 +117,7 @@ describe('(b) no tool_registry + coder can produce HALLUCINATION', () => {
     let hallucinationCount = 0;
     for (let i = 0; i < 20; i++) {
       const trace = simulateRun({ harness, loop, graph }, i);
-      if (trace.failureReason === 'HALLUCINATION') {
+      if (trace.failure_reason === 'HALLUCINATION') {
         hallucinationCount++;
       }
     }
@@ -180,7 +180,7 @@ describe('(c) same seed produces identical traces', () => {
     const trace2 = simulateRun({ harness, loop, graph }, 99999);
 
     expect(trace1).toEqual(trace2);
-    expect(trace1.runId).toBe(trace2.runId);
+    expect(trace1.run_id).toBe(trace2.run_id);
     expect(trace1.steps.length).toBe(trace2.steps.length);
   });
 });
@@ -201,7 +201,7 @@ describe('(d) timeout_guard + tiny run_boundary_cap produces BUDGET_EXHAUSTED', 
     const trace = simulateRun({ harness, loop, graph }, 42);
 
     expect(trace.status).toBe('FAILED');
-    expect(trace.failureReason).toBe('BUDGET_EXHAUSTED');
+    expect(trace.failure_reason).toBe('BUDGET_EXHAUSTED');
     const stopStep = trace.steps.find(s => s.action === 'STOP');
     expect(stopStep?.status).toBe('FAIL');
     expect(stopStep?.warning).toBe('budget_exhausted');
@@ -226,7 +226,7 @@ describe('(e) graph with unreachable node produces DEADLOCK', () => {
     const trace = simulateRun({ harness, loop, graph }, 42);
 
     expect(trace.status).toBe('FAILED');
-    expect(trace.failureReason).toBe('DEADLOCK');
+    expect(trace.failure_reason).toBe('DEADLOCK');
     expect(trace.steps.length).toBe(1);
     expect(trace.steps[0].action).toBe('STOP');
     expect(trace.steps[0].status).toBe('FAIL');
@@ -277,8 +277,8 @@ describe('additional tests', () => {
 
     const trace = simulateRun({ harness, loop, graph }, 42);
 
-    const sumOfStepCosts = trace.steps.reduce((sum, s) => sum + s.costTokens, 0);
-    expect(trace.costTokens).toBe(sumOfStepCosts);
+    const sumOfStepCosts = trace.steps.reduce((sum, s) => sum + s.cost_tokens, 0);
+    expect(trace.cost_tokens).toBe(sumOfStepCosts);
   });
 
   it('HALLUCINATION has correct warning on failed step', () => {
@@ -289,7 +289,7 @@ describe('additional tests', () => {
     // Force hallucination with controlled seed
     for (let seed = 0; seed < 100; seed++) {
       const trace = simulateRun({ harness, loop, graph }, seed);
-      if (trace.failureReason === 'HALLUCINATION') {
+      if (trace.failure_reason === 'HALLUCINATION') {
         const failStep = trace.steps.find(s => s.status === 'FAIL');
         expect(failStep).toBeDefined();
         expect(failStep?.warning).toBe('hallucination');
@@ -312,7 +312,7 @@ describe('additional tests', () => {
 
     const trace = simulateRun({ harness, loop, graph }, 42);
 
-    expect(trace.failureReason).toBe('DEADLOCK');
+    expect(trace.failure_reason).toBe('DEADLOCK');
     expect(trace.steps.length).toBe(1);
   });
 });
@@ -342,7 +342,7 @@ describe('memory conditions', () => {
     let overflowCount = 0;
     for (let i = 0; i < 30; i++) {
       const trace = simulateRun({ harness, loop, graph }, i);
-      if (trace.failureReason === 'MEMORY_STACK_OVERFLOW') {
+      if (trace.failure_reason === 'MEMORY_STACK_OVERFLOW') {
         overflowCount++;
       }
     }
@@ -370,7 +370,7 @@ describe('stale context conditions', () => {
     let staleCount = 0;
     for (let i = 0; i < 20; i++) {
       const trace = simulateRun({ harness, loop, graph }, i);
-      if (trace.failureReason === 'STALE_CONTEXT') {
+      if (trace.failure_reason === 'STALE_CONTEXT') {
         staleCount++;
       }
     }
@@ -395,7 +395,7 @@ describe('loop stack templates', () => {
     // Should either succeed or fail with INFINITE_LOOP_TRAP
     expect(['SUCCESS', 'FAILED']).toContain(trace.status);
     if (trace.status === 'FAILED') {
-      expect(trace.failureReason).toBe('INFINITE_LOOP_TRAP');
+      expect(trace.failure_reason).toBe('INFINITE_LOOP_TRAP');
     }
   });
 
@@ -431,7 +431,7 @@ describe('loop stack templates', () => {
         sawStage = true;
       }
       if (trace.status === 'FAILED') {
-        expect(['FALSE_COMPLETION', 'TASK_ABANDONED']).toContain(trace.failureReason);
+        expect(['FALSE_COMPLETION', 'TASK_ABANDONED']).toContain(trace.failure_reason);
         failedFactory++;
       }
     }
@@ -456,7 +456,7 @@ describe('budget checks', () => {
 
     const trace = simulateRun({ harness, loop, graph }, 42);
 
-    expect(trace.failureReason).toBe('BUDGET_EXHAUSTED');
+    expect(trace.failure_reason).toBe('BUDGET_EXHAUSTED');
     expect(trace.steps.some(s => s.action === 'STOP' && s.status === 'FAIL')).toBe(true);
   });
 
@@ -484,7 +484,7 @@ describe('graph topologies', () => {
     const graph = makeGraph({ nodes: [{ id: 'node_1', role: 'coder', state_writes: [] }] });
     const trace = simulateRun({ harness: makeHarness(), loop: makeLoop(), graph }, 42);
     expect(trace.topology.kind).toBe('single');
-    expect(trace.topology.hasFeedback).toBe(false);
+    expect(trace.topology.has_feedback).toBe(false);
   });
 
   it('chain topology detected', () => {
@@ -514,7 +514,7 @@ describe('graph topologies', () => {
     });
     const trace = simulateRun({ harness: makeHarness(), loop: makeLoop(), graph }, 42);
     expect(trace.topology.kind).toBe('feedback');
-    expect(trace.topology.hasFeedback).toBe(true);
+    expect(trace.topology.has_feedback).toBe(true);
   });
 
   it('parallel coders detected', () => {
@@ -535,6 +535,6 @@ describe('graph topologies', () => {
     });
     const trace = simulateRun({ harness: makeHarness(), loop: makeLoop(), graph }, 42);
     expect(trace.topology.kind).toBe('parallel');
-    expect(trace.topology.parallelCoders).toBeGreaterThanOrEqual(2);
+    expect(trace.topology.parallel_coders).toBeGreaterThanOrEqual(2);
   });
 });
