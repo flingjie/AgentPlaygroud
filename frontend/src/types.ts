@@ -125,6 +125,21 @@ export interface GraphSpec {
   checkpointing: boolean;
 }
 
+export interface LoopStackConfig {
+  enabled: boolean;
+  template: 'none' | 'single' | 'dual' | 'factory';
+}
+
+/**
+ * Config for a single run simulation.
+ */
+export interface SimConfig {
+  harness: HarnessConfig;
+  loop: LoopConfig;
+  loopStack?: LoopStackConfig;
+  graph?: GraphSpec;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
