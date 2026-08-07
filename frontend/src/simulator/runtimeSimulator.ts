@@ -295,8 +295,8 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
         costTokens += ACTION_COST.EDIT_FILE * retriesUsed;
       }
 
-      // Context overflow check
-      const ctxRisk = contextFullRisk(loop.state_policy);
+      // Context overflow check (engine.py gated on memory >= capacity)
+      const ctxRisk = contextFullRisk(loop.state_policy, globalMemory, harness.memory_capacity);
       if (ctxRisk > 0 && rng.next() < ctxRisk) {
         failureReason = 'CONTEXT_OVERFLOW';
         costTokens += addStep(testNodeId, 'RETRY', globalMemory, 'FAIL', 'context_overflow');
@@ -835,7 +835,8 @@ function hasGraphBonus(nodes: GraphNode[]): boolean {
 
 // ==================== Context Full Risk ====================
 
-function contextFullRisk(statePolicy: LoopConfig['state_policy']): number {
+function contextFullRisk(statePolicy: LoopConfig['state_policy'], memoryUsed: number, memoryCapacity: number): number {
+  if (memoryUsed < memoryCapacity) return 0;
   if (statePolicy === 'stateless') return 0.2;
   if (statePolicy === 'keep_last_error') return 0.55;
   if (statePolicy === 'keep_run_summary') return 0.75;
