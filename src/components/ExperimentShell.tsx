@@ -1,11 +1,16 @@
 import { useTranslation } from 'react-i18next';
-import { Play, BarChart3 } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Sidebar from './Sidebar';
-import DiagnosisPanel from './DiagnosisPanel';
+import ScenarioViewer from './ScenarioViewer';
+import Stage0Dashboard from './Stage0Dashboard';
 import ContextInspector from './ContextInspector';
 import AgentRuntimeTimeline from './AgentRuntimeTimeline';
 import RealityViewer from './RealityViewer';
 import { useExperimentStore } from '../stores/experimentStore';
+
+interface ExperimentShellProps {
+  onEnterFactory?: () => void;
+}
 
 const TABS = [
   { id: 'runtime' as const, labelKey: 'tabs.runtime' },
@@ -22,9 +27,12 @@ function TabPlaceholder({ name }: { name: string }) {
   );
 }
 
-export default function ExperimentShell() {
+export default function ExperimentShell({ onEnterFactory }: ExperimentShellProps) {
   const { t } = useTranslation();
-  const { activeTab, setActiveTab, activeExperimentId } = useExperimentStore();
+  const { activeTab, setActiveTab, activeExperimentId, currentTrace } =
+    useExperimentStore();
+
+  const hasExperiment = Boolean(activeExperimentId);
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
@@ -35,22 +43,18 @@ export default function ExperimentShell() {
             Agent Engineering Simulator
           </h1>
           <span className="text-[10px] font-mono text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
-            2.0
+            Lab
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        {onEnterFactory && (
           <button
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            disabled={!activeExperimentId}
+            onClick={onEnterFactory}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-medium transition-colors"
           >
-            <Play size={14} />
-            {t('shell.run')}
+            {t('shell.enterFactory')}
+            <ArrowRight size={14} />
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-            <BarChart3 size={14} />
-            Monte Carlo
-          </button>
-        </div>
+        )}
       </header>
 
       {/* ── Body ────────────────────────────────────────────────── */}
@@ -58,31 +62,42 @@ export default function ExperimentShell() {
         <Sidebar />
 
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* ── Tabs ────────────────────────────────────────────── */}
-          <nav className="h-10 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 gap-1 shrink-0">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded text-xs font-mono transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
-                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                }`}
-              >
-                {t(tab.labelKey)}
-              </button>
-            ))}
-          </nav>
+          {!hasExperiment ? (
+            /* ── No experiment selected: show dashboard ──────── */
+            <Stage0Dashboard onEnterFactory={onEnterFactory} />
+          ) : (
+            <>
+              {/* ── Tabs ────────────────────────────────────────── */}
+              <nav className="h-10 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 gap-1 shrink-0">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-3 py-1.5 rounded text-xs font-mono transition-colors ${
+                      activeTab === tab.id
+                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
+                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    {t(tab.labelKey)}
+                  </button>
+                ))}
+              </nav>
 
-          {/* ── Tab content ─────────────────────────────────────── */}
-          {activeTab === 'runtime' && <AgentRuntimeTimeline />}
-          {activeTab === 'context' && <ContextInspector />}
-          {activeTab === 'reality' && <RealityViewer />}
-          {activeTab === 'architecture' && <TabPlaceholder name="Architecture Canvas" />}
-
-          {/* ── Diagnosis Panel (when failed) ──────────────────── */}
-          <DiagnosisPanel />
+              {/* ── Tab content ─────────────────────────────────── */}
+              {activeTab === 'runtime' &&
+                (currentTrace ? (
+                  <AgentRuntimeTimeline />
+                ) : (
+                  <ScenarioViewer />
+                ))}
+              {activeTab === 'context' && <ContextInspector />}
+              {activeTab === 'reality' && <RealityViewer />}
+              {activeTab === 'architecture' && (
+                <TabPlaceholder name="Architecture Canvas" />
+              )}
+            </>
+          )}
         </main>
       </div>
     </div>

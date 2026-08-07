@@ -27,7 +27,9 @@
     "architecture": "架构"
   },
   "shell": {
-    "run": "运行"
+    "run": "运行",
+    "enterFactory": "进入 Harness 工程 →",
+    "backToLab": "← 返回实验室"
   },
   "diagnosis": {
     "002": {
@@ -42,21 +44,25 @@
     }
   },
   "exp": {
-    "001NextToken": {
+    "000NextToken": {
       "title": "下一个 Token 预测",
       "desc": "观察 LLM 逐 token 生成文本。每一步都展示每个词汇选择背后的概率分布。"
     },
-    "002KnowledgeBoundary": {
+    "001KnowledgeBoundary": {
       "title": "知识边界",
       "desc": "将模型推到训练截止日期之后，观察幻觉。没有检索能力时，模型会自信地编造似是而非的答案。"
     },
-    "003ContextDependency": {
+    "002ContextDependency": {
       "title": "上下文依赖",
       "desc": "改变输入上下文，观察输出的变化。相同的模型在不同的提示下产生不同的答案。"
     },
-    "004NonDeterminism": {
+    "003NonDeterminism": {
       "title": "非确定性",
       "desc": "使用 temperature > 0 多次运行相同的提示。每次运行采样不同的 token，产生不同的输出。"
+    },
+    "004ReasoningVsExecution": {
+      "title": "推理 ≠ 执行",
+      "desc": "模型自信地报告操作已完成——但实际上什么都没发生。模型输出只是提议，不是执行。"
     }
   },
   "concepts": {
@@ -423,6 +429,29 @@
       "on_fail": "on_fail（失败）",
       "on_review_reject": "on_review_reject（审查拒绝）",
       "on_human_approve": "on_human_approve（人工批准）"
+    }
+  },
+  "stage0": {
+    "modelLayer": "🧠 模型层",
+    "modelLayerDesc": "Stage 0 概念 — 这类失败为什么在模型层面存在：",
+    "engineeringLayer": "🔧 工程层",
+    "engineeringLayerDesc": "本次运行出了什么问题：",
+    "fixLayer": "✅ 修复",
+    "fixLayerDesc": "如何在你的架构中修复它：",
+    "modelLayerConcepts": {
+      "HALLUCINATION": "LLM 是概率模型，不是数据库。没有工具接口时，模型会发明看似合理但不存在的 API。",
+      "TOOL_FAILURE": "LLM 输出是提议，不是执行。真实工具可能返回垃圾数据——模型本身无法验证接收到的内容。",
+      "FILE_CORROSION": "LLM 没有长期状态。每次编辑都是新的生成——没有版本控制时，之前的工作会被静默覆盖。",
+      "MEMORY_STACK_OVERFLOW": "上下文窗口是有限的。每一步都在增加 token——没有记忆管理时，缓冲区溢出导致模型遗忘。",
+      "CONTEXT_OVERFLOW": "状态无限制累积。带完整历史重试会填满上下文窗口，直到无法容纳新信息。",
+      "STALE_CONTEXT": "LLM 只能看到提示中的内容。不重新读取时，观察滞后于现实——模型基于过时的快照行动。",
+      "FALSE_COMPLETION": "LLM 是下一个 token 预测器，没有真假概念。'我做完了' 只是最可能的补全，不是事实检查。",
+      "PERMISSION_ERROR": "LLM 无法区分能力和权限。模型输出它能说的内容，而不是它被允许做的内容。",
+      "DEADLOCK": "控制流是图，不是文本。LLM 本质上无法设计恢复路径——死胡同失败边会产生结构死锁。",
+      "INFINITE_LOOP_TRAP": "LLM 重复最可能的序列。没有重试机制或迭代上限时，模型会永远循环在'再试一次'上。",
+      "BUDGET_EXHAUSTED": "Token 生成没有自我限流。模型会一直生成，直到外部机制停止它。",
+      "TASK_ABANDONED": "LLM 没有持久性或自循环。一次失败就结束运行——模型不会自主决定重试。",
+      "UNSAFE_EXECUTION": "LLM 输出没有执行边界。生成的 'rm -rf /' 对模型来说只是文本——但对宿主是灾难性的。"
     }
   },
   "stack": {

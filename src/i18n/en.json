@@ -27,7 +27,9 @@
     "architecture": "Architecture"
   },
   "shell": {
-    "run": "Run"
+    "run": "Run",
+    "enterFactory": "Enter Harness Engineering",
+    "backToLab": "← Back to Lab"
   },
   "diagnosis": {
     "002": {
@@ -42,21 +44,25 @@
     }
   },
   "exp": {
-    "001NextToken": {
+    "000NextToken": {
       "title": "Next Token Prediction",
       "desc": "Watch the LLM generate text one token at a time. Each step reveals the probability distribution behind every word choice."
     },
-    "002KnowledgeBoundary": {
+    "001KnowledgeBoundary": {
       "title": "Knowledge Boundary",
       "desc": "Push the model past its training cutoff and observe hallucination. Without retrieval, the model confidently fabricates plausible answers."
     },
-    "003ContextDependency": {
+    "002ContextDependency": {
       "title": "Context Dependency",
       "desc": "Change the input context and watch the output transform. The same model produces different answers from different prompts."
     },
-    "004NonDeterminism": {
+    "003NonDeterminism": {
       "title": "Non-Determinism",
       "desc": "Run the same prompt multiple times with temperature > 0. Each run samples different tokens, producing different outputs."
+    },
+    "004ReasoningVsExecution": {
+      "title": "Reasoning ≠ Execution",
+      "desc": "The model confidently reports actions as completed — but nothing actually happened. Model output is a proposal, not execution."
     }
   },
   "concepts": {
@@ -423,6 +429,29 @@
       "on_fail": "on_fail",
       "on_review_reject": "on_review_reject",
       "on_human_approve": "on_human_approve"
+    }
+  },
+  "stage0": {
+    "modelLayer": "🧠 Model Layer",
+    "modelLayerDesc": "Stage 0 concept — why this failure class exists at the model level:",
+    "engineeringLayer": "🔧 Engineering Layer",
+    "engineeringLayerDesc": "What went wrong in this run:",
+    "fixLayer": "✅ Fix",
+    "fixLayerDesc": "How to fix it in your architecture:",
+    "modelLayerConcepts": {
+      "HALLUCINATION": "LLMs are probability models, not databases. Without a tool surface, the model invents plausible but nonexistent APIs.",
+      "TOOL_FAILURE": "LLM output is a proposal, not execution. Real tools can return garbage — the model cannot inherently validate what it receives.",
+      "FILE_CORROSION": "LLMs have no long-term state. Each edit is a new generation — without versioning, prior work is silently overwritten.",
+      "MEMORY_STACK_OVERFLOW": "Context windows are finite. Each step adds tokens; without memory management, the buffer overflows and the model forgets.",
+      "CONTEXT_OVERFLOW": "State accumulates without bounds. Retrying with full history fills the context window until no new information can enter.",
+      "STALE_CONTEXT": "LLMs see only what's in the prompt. Without re-reading, observations lag reality — the model acts on outdated snapshots.",
+      "FALSE_COMPLETION": "LLMs are next-token predictors with no concept of truth. 'I'm done' is just the most probable completion, not a fact check.",
+      "PERMISSION_ERROR": "LLMs cannot distinguish capability from permission. The model outputs what it can say, not what it's allowed to do.",
+      "DEADLOCK": "Control flow is a graph, not text. An LLM cannot inherently design recovery paths — dead-end failure edges produce structural deadlock.",
+      "INFINITE_LOOP_TRAP": "LLMs repeat the most probable sequence. Without a retry mechanism or iteration cap, the model loops on 'try again' forever.",
+      "BUDGET_EXHAUSTED": "Token generation has no self-throttle. The model keeps generating until something external stops it.",
+      "TASK_ABANDONED": "LLMs have no persistence or self-loop. A single failure ends the run — the model does not autonomously decide to retry.",
+      "UNSAFE_EXECUTION": "LLM output has no execution boundary. A generated 'rm -rf /' is just text to the model — but catastrophic to the host."
     }
   },
   "stack": {

@@ -1,20 +1,22 @@
 import type { ExperimentConfig } from '../types/experiments';
 
 // ── Stage 0: Model Engineering ──────────────────────────────────────────────
+// All experiments are demonstrations (expectedFailure: null).
+// Stage 0 observes; Stage 1-3 engineer solutions.
 
 const stage0Experiments = [
   // ==========================================================================
-  // 001 — Next Token Prediction
+  // 000 — Next Token Prediction
   // ==========================================================================
   {
-    id: '001-next-token',
+    id: '000-next-token',
     stage: 0 as const,
-    titleKey: 'exp.001NextToken.title',
-    descriptionKey: 'exp.001NextToken.desc',
+    titleKey: 'exp.000NextToken.title',
+    descriptionKey: 'exp.000NextToken.desc',
     learningConcepts: ['token-generation', 'probability-distribution'],
     runtimeTrace: {
       events: [
-        // Step 1: Build context from the input prompt
+        // === Part 1: Q&A demo — per-token generation ===
         {
           type: 'CONTEXT_BUILD',
           payload: {
@@ -25,7 +27,6 @@ const stage0Experiments = [
             tokenCount: 18,
           },
         },
-        // Step 2: Model begins generating token-by-token
         // Token 1: "The"
         {
           type: 'MODEL_CALL',
@@ -146,6 +147,58 @@ const stage0Experiments = [
             ],
           },
         },
+
+        // === Part 2: Pattern completion demo — the 首都链 ===
+        {
+          type: 'CONTEXT_BUILD',
+          payload: {
+            systemPrompt:
+              'You are completing a pattern. Continue the sequence naturally.',
+            memoryCount: 1,
+            toolCount: 0,
+            tokenCount: 42,
+          },
+        },
+        {
+          type: 'MODEL_CALL',
+          payload: {
+            prompt:
+              '北京是中国的首都，\n东京是日本的首都，\n巴黎是',
+            tokensUsed: 35,
+            modelId: 'claude-sim',
+            temperature: 0,
+            output: '法国首都',
+            confidence: 0.96,
+            sampledTokens: [
+              { token: '法国', probability: 0.96 },
+              { token: '首都', probability: 0.98 },
+            ],
+          },
+        },
+        // Analysis: comparing the two demos
+        {
+          type: 'OBSERVATION_RECEIVE',
+          payload: {
+            source: 'pattern_analysis',
+            data: {
+              demo1: {
+                type: 'Q&A',
+                prompt: 'What is the capital of France?',
+                output: 'The capital of France is Paris.',
+                mechanism: 'The model predicts tokens that statistically follow this question pattern.',
+              },
+              demo2: {
+                type: 'Pattern completion',
+                prompt: '北京→中国, 东京→日本, 巴黎→?',
+                output: '法国首都',
+                mechanism: 'The model completes the observed pattern — it is not retrieving or reasoning.',
+              },
+              finding:
+                'Both outputs come from the same mechanism: next-token prediction. In Q&A, this looks like "knowledge." In pattern completion, the probability-driven nature is exposed. The model always predicts the most likely continuation — it never "knows" or "reasons."',
+            },
+            isStale: false,
+          },
+        },
       ],
       contextTemplate: {
         systemPrompt:
@@ -170,17 +223,16 @@ const stage0Experiments = [
   },
 
   // ==========================================================================
-  // 002 — Knowledge Boundary
+  // 001 — Knowledge Boundary
   // ==========================================================================
   {
-    id: '002-knowledge-boundary',
+    id: '001-knowledge-boundary',
     stage: 0 as const,
-    titleKey: 'exp.002KnowledgeBoundary.title',
-    descriptionKey: 'exp.002KnowledgeBoundary.desc',
+    titleKey: 'exp.001KnowledgeBoundary.title',
+    descriptionKey: 'exp.001KnowledgeBoundary.desc',
     learningConcepts: ['hallucination', 'knowledge-cutoff'],
     runtimeTrace: {
       events: [
-        // Step 1: Minimal context — the model has no tools, no retrieval
         {
           type: 'CONTEXT_BUILD',
           payload: {
@@ -191,10 +243,6 @@ const stage0Experiments = [
             tokenCount: 24,
           },
         },
-        // Step 2: Model generates a confident but wrong answer
-        // Question: "Who won the 2025 Champions League final?"
-        // The model's training cutoff was April 2024, so it has no factual data.
-        // It confabulates a plausible-sounding but incorrect answer.
         {
           type: 'MODEL_CALL',
           payload: {
@@ -207,7 +255,6 @@ const stage0Experiments = [
             confidence: 0.87,
           },
         },
-        // Step 3: Observation — a fact-check lookup reveals the truth
         {
           type: 'OBSERVATION_RECEIVE',
           payload: {
@@ -227,7 +274,6 @@ const stage0Experiments = [
             isStale: false,
           },
         },
-        // Step 4: Verification — the factual accuracy check fails
         {
           type: 'VERIFY',
           payload: {
@@ -241,7 +287,6 @@ const stage0Experiments = [
             },
           },
         },
-        // Step 5: Loop stops with HALLUCINATION
         {
           type: 'LOOP_STOP',
           payload: {
@@ -270,27 +315,21 @@ const stage0Experiments = [
         toolRegistry: ['fact_check'],
       },
     },
-    expectedFailure: {
-      reason: 'HALLUCINATION',
-      rootCauseKey: 'diagnosis.002.rootCause',
-      missingCapabilityKey: 'diagnosis.002.missingCapability',
-      recommendedFixKey: 'diagnosis.002.recommendedFix',
-    },
+    expectedFailure: null,
     harnessConfig: { availableDims: [] },
   },
 
   // ==========================================================================
-  // 003 — Context Dependency
+  // 002 — Context Dependency
   // ==========================================================================
   {
-    id: '003-context-dependency',
+    id: '002-context-dependency',
     stage: 0 as const,
-    titleKey: 'exp.003ContextDependency.title',
-    descriptionKey: 'exp.003ContextDependency.desc',
+    titleKey: 'exp.002ContextDependency.title',
+    descriptionKey: 'exp.002ContextDependency.desc',
     learningConcepts: ['context-window', 'attention'],
     runtimeTrace: {
       events: [
-        // Step 1: Build context — the model is given source code and a task
         {
           type: 'CONTEXT_BUILD',
           payload: {
@@ -301,7 +340,6 @@ const stage0Experiments = [
             tokenCount: 284,
           },
         },
-        // Step 2: Model reads the context and produces an answer grounded in it
         {
           type: 'MODEL_CALL',
           payload: {
@@ -315,7 +353,6 @@ const stage0Experiments = [
             confidence: 0.78,
           },
         },
-        // Step 3: Context shift — user clarifies "discount means the reduction, not the final price"
         {
           type: 'CONTEXT_BUILD',
           payload: {
@@ -326,7 +363,6 @@ const stage0Experiments = [
             tokenCount: 412,
           },
         },
-        // Step 4: With the additional context, the model gives a different (more precise) answer
         {
           type: 'MODEL_CALL',
           payload: {
@@ -340,7 +376,6 @@ const stage0Experiments = [
             confidence: 0.95,
           },
         },
-        // Step 5: Observation — the context shift changed the output significantly
         {
           type: 'OBSERVATION_RECEIVE',
           payload: {
@@ -422,17 +457,16 @@ const stage0Experiments = [
   },
 
   // ==========================================================================
-  // 004 — Non-Determinism
+  // 003 — Non-Determinism
   // ==========================================================================
   {
-    id: '004-non-determinism',
+    id: '003-non-determinism',
     stage: 0 as const,
-    titleKey: 'exp.004NonDeterminism.title',
-    descriptionKey: 'exp.004NonDeterminism.desc',
+    titleKey: 'exp.003NonDeterminism.title',
+    descriptionKey: 'exp.003NonDeterminism.desc',
     learningConcepts: ['temperature', 'sampling', 'determinism'],
     runtimeTrace: {
       events: [
-        // Step 1: Build context — creative writing task with temperature > 0
         {
           type: 'CONTEXT_BUILD',
           payload: {
@@ -480,7 +514,7 @@ const stage0Experiments = [
             ],
           },
         },
-        // Run 2 — same temperature, different seed (42), different output
+        // Run 2 — temperature 0.8, seed 42
         {
           type: 'MODEL_CALL',
           payload: {
@@ -520,7 +554,7 @@ const stage0Experiments = [
             ],
           },
         },
-        // Run 3 — same prompt again, different seed (127), different output again
+        // Run 3 — temperature 0.8, seed 127
         {
           type: 'MODEL_CALL',
           payload: {
@@ -557,7 +591,7 @@ const stage0Experiments = [
             ],
           },
         },
-        // Observation: all 3 runs produced different outputs from the same input
+        // Analysis: all 3 runs produced different outputs
         {
           type: 'OBSERVATION_RECEIVE',
           payload: {
@@ -609,6 +643,109 @@ const stage0Experiments = [
       },
       environmentTemplate: {
         fileSystem: {},
+        testResults: [],
+        toolRegistry: [],
+      },
+    },
+    expectedFailure: null,
+    harnessConfig: { availableDims: [] },
+  },
+
+  // ==========================================================================
+  // 004 — Reasoning ≠ Execution
+  // ==========================================================================
+  {
+    id: '004-reasoning-vs-execution',
+    stage: 0 as const,
+    titleKey: 'exp.004ReasoningVsExecution.title',
+    descriptionKey: 'exp.004ReasoningVsExecution.desc',
+    learningConcepts: ['hallucination'], // the model "hallucinates" that it performed an action
+    runtimeTrace: {
+      events: [
+        // Step 1: The system claims the model has tools — but the tool registry is empty
+        {
+          type: 'CONTEXT_BUILD',
+          payload: {
+            systemPrompt:
+              'You are a system administration assistant. You have access to server management tools.',
+            memoryCount: 1,
+            toolCount: 0, // ← key: tool list is empty despite the prompt
+            tokenCount: 42,
+          },
+        },
+        // Step 2: The model generates a confident action report — but executed nothing
+        {
+          type: 'MODEL_CALL',
+          payload: {
+            prompt:
+              'Please delete log files older than 30 days in /var/log/app.',
+            tokensUsed: 168,
+            modelId: 'claude-sim',
+            temperature: 0,
+            output:
+              'Task complete. Here is what I did:\n\n1. Scanned /var/log/app directory — found 47 log files.\n2. Identified 23 files older than 30 days.\n3. Successfully deleted all 23 files.\n\nDisk space freed: 2.3 GB.',
+            confidence: 0.92,
+          },
+        },
+        // Step 3: Reality check — the filesystem is untouched
+        {
+          type: 'OBSERVATION_RECEIVE',
+          payload: {
+            source: 'reality_check',
+            data: {
+              action_claimed: 'delete files in /var/log/app',
+              actual_state: {
+                filesystem: {
+                  '/var/log/app': [
+                    'access-2026-06.log',
+                    'error-2026-06.log',
+                    'access-2026-05.log',
+                    'error-2026-05.log',
+                    'access-2026-04.log',
+                    'error-2026-04.log',
+                  ],
+                },
+                disk_usage: '2.3 GB still used',
+              },
+              finding:
+                'The model generated a detailed, confident action report describing file deletion, but no tool was invoked. The output is a simulation of action, not action itself. The model does not distinguish between describing an action and executing one.',
+            },
+            isStale: false,
+          },
+        },
+        // Step 4: Verification — action_execution check fails
+        {
+          type: 'VERIFY',
+          payload: {
+            check: 'action_execution',
+            passed: false,
+            evidence:
+              'Model output was an action proposal, not an action execution. Without a tool runtime connected, the model can only describe what it would do — it has no mechanism to actually do it.',
+          },
+        },
+      ],
+      contextTemplate: {
+        systemPrompt:
+          'You are a system administration assistant. You have access to server management tools.',
+        tokenCount: 42,
+        tokenLimit: 8000,
+        memory: [
+          {
+            role: 'user',
+            content:
+              'Please delete log files older than 30 days in /var/log/app.',
+          },
+        ],
+      },
+      environmentTemplate: {
+        fileSystem: {
+          '/var/log/app/access-2026-06.log': '<log content>',
+          '/var/log/app/error-2026-06.log': '<log content>',
+          '/var/log/app/access-2026-05.log': '<log content>',
+          '/var/log/app/error-2026-05.log': '<log content>',
+          '/var/log/app/access-2026-04.log': '<log content>',
+          '/var/log/app/error-2026-04.log': '<log content>',
+        },
         testResults: [],
         toolRegistry: [],
       },

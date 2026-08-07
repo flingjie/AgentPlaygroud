@@ -8,7 +8,7 @@ import MemoryMonitor from './MemoryMonitor';
 import EventBus from './EventBus';
 import MonteCarloSummary, { getFailureLabel } from './MonteCarloSummary';
 import RuntimeGraph from './RuntimeGraph';
-import { Play, Wifi, WifiOff, Loader2, Lightbulb, Wrench, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Wifi, WifiOff, Loader2, Lightbulb, Wrench, ChevronDown, ChevronUp, Brain } from 'lucide-react';
 
 export default function Debugger() {
   const { t } = useTranslation();
@@ -203,27 +203,43 @@ export default function Debugger() {
         </div>
       </div>
 
-      {/* Failure diagnosis (tutorial hint) — HOW is folded by default */}
+      {/* Failure diagnosis — 3-layer: Model Layer → Engineering Layer → Fix */}
       {trace && trace.status === 'FAILED' && trace.failure_reason !== 'NONE' && (
-        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-3">
+        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/5 px-4 py-3 space-y-3">
+          {/* Layer 1: 🧠 Model Layer — Stage 0 concept */}
+          <div className="flex items-start gap-3">
+            <Brain size={16} className="text-purple-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">
+                {t('stage0.modelLayer')}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                {t(`stage0.modelLayerConcepts.${trace.failure_reason}`, '')}
+              </p>
+            </div>
+          </div>
+
+          {/* Layer 2: 🔧 Engineering Layer — what failed */}
           <div className="flex items-start gap-3">
             <Lightbulb size={16} className="text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-1">
-                {t('debugger.whyFailed')}
+                {t('stage0.engineeringLayer')}
               </p>
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                 {t(`debugger.failureHints.${trace.failure_reason}`, '')}
               </p>
             </div>
           </div>
-          <div className="mt-2 ml-7">
+
+          {/* Layer 3: ✅ Fix */}
+          <div className="ml-7">
             <button
               onClick={() => setShowHint(!showHint)}
-              className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-500 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium text-green-600 dark:text-green-400 hover:text-green-500 transition-colors"
             >
               <Wrench size={12} />
-              {t('debugger.showHint')}
+              {t('stage0.fixLayer')}
               {showHint ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
             {showHint && (

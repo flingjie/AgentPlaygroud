@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  FlaskConical,
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useTheme } from '../context/ThemeContext';
@@ -23,7 +24,7 @@ const TABS: { id: Tab; i18nKey: string; icon: typeof LayoutDashboard }[] = [
   { id: 'debugger', i18nKey: 'layout.debugger', icon: Bug },
 ];
 
-export default function Layout() {
+export default function Layout({ onBackToLab }: { onBackToLab?: () => void }) {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<Tab>('factory');
@@ -86,6 +87,17 @@ export default function Layout() {
             );
           })}
         </nav>
+
+        {/* Back to Lab button */}
+        {onBackToLab && (
+          <button
+            onClick={onBackToLab}
+            className="flex items-center justify-center gap-2 h-10 border-t border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors text-xs font-medium"
+          >
+            <FlaskConical size={14} />
+            {!sidebarCollapsed && t('shell.backToLab')}
+          </button>
+        )}
 
         {/* Collapse button */}
         <button
