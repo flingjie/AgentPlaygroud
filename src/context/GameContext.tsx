@@ -21,7 +21,7 @@ import type {
 } from '../types';
 import { getLevels } from '../api';
 
-/** Normalize success_rate to 0–100 whether backend sent 0–1 or 0–100. */
+/** Normalize success_rate to 0–100 whether the simulator returned 0–1 or 0–100. */
 export function successRatePct(rate: number): number {
   return rate <= 1 ? rate * 100 : rate;
 }

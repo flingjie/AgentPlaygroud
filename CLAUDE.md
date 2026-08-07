@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
         (failures, loops, budget)
 ```
 
-**Agent Blueprint** is the canonical representation of the player's design. Simulation runs from it with near-zero cost; the exporter (`backend/app/export.py`) deserializes it into executable LangGraph code and `arlo_config.yaml`.
+**Agent Blueprint** is the canonical representation of the player's design. Simulation runs from it with near-zero cost. Export to LangGraph and arlo YAML has been removed in v2 and will be re-added in a future version.
 
 ### Why Pure Simulation
 
@@ -48,10 +48,9 @@ Conclusion: LangGraph is the **export target**, not a runtime dependency. Do not
 | Architect Canvas | React Flow (node-graph drag-and-drop) |
 | Charts / Debugger | Recharts (Monte Carlo, Success Gauge) + custom panels (Timeline, Memory, Event Bus) |
 | Static diagrams | Mermaid (per-level flow diagrams) |
-| Backend API | FastAPI (Python) + Pydantic |
-| Real-time events | WebSocket (`/ws/simulate/{run_id}`, step-by-step RunTrace streaming) |
-| Simulation Engine | Python, deterministic Monte Carlo runner with seedable RNG |
-| Export artifacts | LangGraph Python snippet, `arlo_config.yaml` |
+| Simulation Engine | TypeScript, deterministic Monte Carlo runner with seedable RNG (mulberry32) |
+| Real-time events | Client-side setTimeout streaming (step-by-step RunTrace replay in Debugger) |
+| Export artifacts | LangGraph Python snippet, `arlo_config.yaml` (static text generation) |
 
 ## Architecture Layers
 
@@ -61,35 +60,33 @@ Frontend (React)
 │                   Architecture Delta (0–100% bars + target), Success Gauge, Token Budget
 ├── Architect Canvas — drag-and-drop DAG nodes (planner/coder/reviewer/tester), edge
 │                   conditions, state_schema, checkpointing, well-formedness validation
-│                   (structural DEADLOCK detection is engine-side, in engine.py)
+│                   (structural DEADLOCK detection is engine-side, in failureEngine.ts)
 ├── Debugger — Timeline, Memory Monitor, Event Bus, Monte Carlo Summary, Runtime Graph
-│                   (active-node highlight), live WebSocket stream, failure diagnosis hints
-└── Export View — Boss level only; static LangGraph + arlo_config.yaml preview (no IDE)
-
-Backend (FastAPI / Python)
-├── levels.py — six level definitions (id, formal name, teaching label, target rate, budget)
-├── engine.py — deterministic Monte Carlo runner, failure injection, loop/loop-stack/graph simulation
-├── models.py — AgentBlueprint, HarnessConfig, LoopConfig, LoopStackConfig, GraphSpec, RunTrace
-└── export.py — AgentBlueprint → LangGraph snippet / arlo_config.yaml
+│                   (active-node highlight), live step streaming, failure diagnosis hints
+│
+│ All simulation logic lives in the TypeScript simulator modules:
+│   simulator/runtimeSimulator.ts — deterministic single-run engine
+│   simulator/monteCarlo.ts — multi-run statistical runner
+│   simulator/failureEngine.ts — 13 failure predicates, structural DEADLOCK detection
+│   simulator/rng.ts — mulberry32 seedable RNG
+│   types.ts — canonical data models (AgentBlueprint, RunTrace, etc.)
+│   api.ts — thin wrapper: simulate() → simulateRun(), monteCarlo() → simulateMonteCarlo()
 ```
 
 ### Data Flow
 
 ```
-LevelInfo (static level config, backend/app/levels.py)
+LevelInfo (static level config, hard-coded in api.ts)
        +
-AgentBlueprint (player's design, backend/app/models.py)
+AgentBlueprint (player's design, types.ts)
        │
        ▼
 Simulation Engine ──→ RunTrace (steps + status + failure_reason + cost_tokens + topology)
-       │
-       ▼
-Export Bridge ──→ LangGraph Python snippet / arlo_config.yaml
 ```
 
 ## Core Data Models
 
-All models live in `backend/app/models.py` (Pydantic) and mirror `frontend/src/types.ts`.
+All models live in `src/types.ts` (TypeScript interfaces).
 
 ### AgentBlueprint (canonical player design)
 
@@ -148,7 +145,7 @@ Sibling params: `memory_capacity` (int, 1–10, default 3) and `run_boundary_cap
 
 ### Loop — eight anatomy fields, ALL live in the engine
 
-| Field | Options | Effect in `engine.py` |
+| Field | Options | Effect in `failureEngine.ts` |
 |-------|---------|----------------------|
 | `trigger` | `on_task_start` \| `on_test_fail` | `on_task_start` adds a CHECK_EVIDENCE overhead at loop start |
 | `goal` | `tests_green` \| `schema_valid` | +0.05 success bonus when aligned with `evidence` (`tests_green`+`test_runner`, `schema_valid`+`schema_check`) |
@@ -246,27 +243,25 @@ Target success rate is an **experiment benchmark**, not a pass/fail game score. 
 | `level_5_graph` | Agent + Graph | Agent Graph | 90% | 120k | graph editor (planner/coder/reviewer/tester, conditional edges) |
 | `level_6_agent_system` | Agent System | Agent Factory | 95% | 200k | factory loop template + **Export** tab |
 
-## Educational UI (frontend/src/components)
+## Educational UI (src/components)
 
 - **LevelSelector** — free selection dropdown; shows formal name + teaching label, target rate, token budget, current measured success rate; renders the level's static flow diagram.
 - **ArchitectureDelta** — fixed 0–100% reliability bars for all six levels with a target marker (each architecture stage's theoretical reliability on a fixed 0–100% scale; nothing is locked).
 - **StaticFlowDiagram** — per-level Mermaid diagram. **Static allowlist keyed by level_id** — NEVER derive diagram source from user input, API responses, or blueprint fields (mermaid output is injected via `innerHTML`; a dynamic source would be an XSS path). `mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' })`.
 - **ArchitectCanvas** (React Flow) — drag-and-drop nodes, edge conditions, `state_schema`/`checkpointing`; available only when `level.unlocked_graph`.
-- **Debugger** — Timeline, Memory Monitor, Event Bus, Monte Carlo Summary (failure distribution + sample traces), **RuntimeGraph** (active-node highlight from the latest trace), live WebSocket stream, and failure-diagnosis hints (why it failed + how to fix).
-- **ExportView** — 4th tab, present **only on the Boss level** (`level_6_agent_system`); generates LangGraph + `arlo_config.yaml` **static preview** (copy/download, no IDE).
-- i18n: `en` / `zh` (`frontend/src/i18n/en.json`, `zh.json`), including per-failure hints.
+- **Debugger** — Timeline, Memory Monitor, Event Bus, Monte Carlo Summary (failure distribution + sample traces), **RuntimeGraph** (active-node highlight from the latest trace), live step streaming, and failure-diagnosis hints (why it failed + how to fix).
+- i18n: `en` / `zh` (`src/i18n/en.json`, `zh.json`), including per-failure hints.
 
-## API Surface (backend/app/routes.py)
+## API Surface (src/api.ts)
 
-| Endpoint | Purpose |
+All simulation runs client-side through the TypeScript simulator modules. `api.ts` is a thin wrapper:
+
+| Function | Purpose |
 |----------|---------|
-| `GET /api/levels` | all six `LevelInfo` configs |
-| `GET /api/levels/{level_id}` | single level by id (404 if unknown) |
-| `POST /api/simulate` | single deterministic run → `RunTrace` |
-| `POST /api/monte-carlo` | N runs → `{success_rate, avg_tokens, failure_distribution, sample_traces}` (capped at 100) |
-| `POST /api/export` | → `{langgraph, arlo_yaml}` (via `render_export` in `backend/app/export.py`) |
-| `WS /ws/simulate/{run_id}` | streaming RunTrace: `{type:"step", step}` … `{type:"complete", trace}` |
-| `GET /health` | liveness |
+| `getLevels()` | returns static `LevelInfo[]` array |
+| `simulate(blueprint)` | → `RunTrace` via `simulateRun()` from `simulator/runtimeSimulator.ts` |
+| `monteCarlo(blueprint, numRuns)` | → `MonteCarloResult` via `simulateMonteCarlo()` from `simulator/monteCarlo.ts` |
+| `connectSimulationWebSocket(runId, trace, onStep, onComplete)` | mock-only: replays trace steps via setTimeout for Debugger live view |
 
 ## Development Status / Roadmap
 
@@ -285,11 +280,11 @@ Target success rate is an **experiment benchmark**, not a pass/fail game score. 
 
 ## Key Design Decisions
 
-1. **AgentBlueprint is the single source of truth** — one schema drives simulation, export, and UI (`models.py` ↔ `types.ts`).
+1. **AgentBlueprint is the single source of truth** — one schema drives simulation and UI (`types.ts`).
 2. **Deterministic seeds for reproducibility** — every run is replayable from `blueprint.run_seed`; Monte Carlo uses `base_seed + i`.
 3. **Pure simulation, zero LLM cost** — 100% of experiment runs use the simulation engine.
 4. **LangGraph is an export artifact, not a runtime dependency** — do not introduce LangChain/LangGraph in the simulation code path.
-5. **Frontend-backend separation** — HTTP for config/REST, WebSocket for streaming RunTrace events.
+5. **Client-side simulation** — all runs execute in the browser via the TypeScript simulator; no server dependency.
 6. **Export as first-class feature** — the player's final Blueprint IS the product, bridging experiment → production tooling.
 7. **Failure injection is pedagogical, not random** — each level guarantees specific failure modes so the player always learns the intended lesson.
 8. **No game-ification** — no 通关/推荐/升级/locking; all six levels are freely selectable and success rate is measured, not scored.

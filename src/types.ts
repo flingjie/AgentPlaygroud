@@ -134,7 +134,7 @@ export interface AgentBlueprint {
   run_seed?: number;
 }
 
-// ── Level definition (from backend /api/levels) ─────────────────────────────
+// ── Level definition ─────────────────────────────────────────────
 
 export interface LevelInfo {
   id: string;
