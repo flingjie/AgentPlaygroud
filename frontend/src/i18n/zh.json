@@ -319,5 +319,30 @@
       "on_review_reject": "on_review_reject（审查拒绝）",
       "on_human_approve": "on_human_approve（人工批准）"
     }
+  },
+  "stack": {
+    "layer": {
+      "model": {
+        "question": "能思考吗?"
+      },
+      "tool": {
+        "question": "能安全、有权地动手吗?"
+      },
+      "workspace": {
+        "question": "改动有版本、可回滚吗?"
+      },
+      "memory": {
+        "question": "装得下、不溢出吗?"
+      },
+      "observation": {
+        "question": "看得准、不陈旧吗?"
+      },
+      "loop_discipline": {
+        "question": "会迭代、会基于证据停吗?"
+      },
+      "execution": {
+        "question": "跑得完、走得通吗?"
+      }
+    }
   }
 }

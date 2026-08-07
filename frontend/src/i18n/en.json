@@ -319,5 +319,30 @@
       "on_review_reject": "on_review_reject",
       "on_human_approve": "on_human_approve"
     }
+  },
+  "stack": {
+    "layer": {
+      "model": {
+        "question": "Can it think?"
+      },
+      "tool": {
+        "question": "Can it act safely and with permission?"
+      },
+      "workspace": {
+        "question": "Are changes versioned and reversible?"
+      },
+      "memory": {
+        "question": "Can it hold state without overflowing?"
+      },
+      "observation": {
+        "question": "Does it see accurately, without stale context?"
+      },
+      "loop_discipline": {
+        "question": "Can it iterate and stop on evidence?"
+      },
+      "execution": {
+        "question": "Can it finish within budget and structure?"
+      }
+    }
   }
 }
