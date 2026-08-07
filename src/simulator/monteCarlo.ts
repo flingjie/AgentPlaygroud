@@ -59,7 +59,7 @@ export function simulateMonteCarloV2(
 
   // Convert sample traces to V2 format — re-simulate with the same seeds
   const v2Traces = result.sample_traces.map((t) =>
-    simulateRunV2(config, t.seed || seed),
+    simulateRunV2(config, t.seed ?? seed),
   );
 
   return {

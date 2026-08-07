@@ -6,10 +6,10 @@ import type {
   ContextSnapshot,
   EnvironmentSnapshot,
 } from '../types/events';
-import type { HarnessConfig, TraceStep } from '../types';
+import type { HarnessConfig, TraceAction, TraceStep } from '../types';
 
 // Map step actions to event types
-const ACTION_TO_EVENT: Record<string, AgentEventType> = {
+const ACTION_TO_EVENT: Record<TraceAction, AgentEventType> = {
   THINK: 'MODEL_CALL',
   EDIT_FILE: 'TOOL_EXECUTE',
   RUN_TEST: 'VERIFY',
@@ -107,7 +107,7 @@ export function buildContextSnapshot(
         ]
       : [],
     tokenCount: memoryUsed * 1000,
-    tokenLimit: harness.run_boundary_cap || 8000,
+    tokenLimit: harness.run_boundary_cap ?? 8000,
   };
 }
 

@@ -41,6 +41,78 @@
       "recommendedFix": "Examine the event timeline to find the failure point, then add the corresponding harness dimension or loop configuration."
     }
   },
+  "exp": {
+    "001NextToken": {
+      "title": "Next Token Prediction",
+      "desc": "Watch the LLM generate text one token at a time. Each step reveals the probability distribution behind every word choice."
+    },
+    "002KnowledgeBoundary": {
+      "title": "Knowledge Boundary",
+      "desc": "Push the model past its training cutoff and observe hallucination. Without retrieval, the model confidently fabricates plausible answers."
+    },
+    "003ContextDependency": {
+      "title": "Context Dependency",
+      "desc": "Change the input context and watch the output transform. The same model produces different answers from different prompts."
+    },
+    "004NonDeterminism": {
+      "title": "Non-Determinism",
+      "desc": "Run the same prompt multiple times with temperature > 0. Each run samples different tokens, producing different outputs."
+    }
+  },
+  "concepts": {
+    "tokenGeneration": "Token Generation",
+    "tokenGenerationDesc": "LLMs generate text one token at a time, not all at once. Each token is sampled from a probability distribution.",
+    "probabilityDistribution": "Probability Distribution",
+    "probabilityDistributionDesc": "At each step the model outputs probabilities for every possible next token, then samples one.",
+    "hallucination": "Hallucination",
+    "hallucinationDesc": "When asked about information outside its training data, the model fabricates plausible but incorrect answers.",
+    "knowledgeCutoff": "Knowledge Cutoff",
+    "knowledgeCutoffDesc": "Models have a training cutoff date; they cannot know events or facts that occurred after that point.",
+    "contextWindow": "Context Window",
+    "contextWindowDesc": "The total amount of text (tokens) the model can process at once, including system prompt, memory, and user input.",
+    "attention": "Attention",
+    "attentionDesc": "The model weighs different parts of the input context differently — some parts matter more than others for each token.",
+    "temperature": "Temperature",
+    "temperatureDesc": "Controls randomness in token selection: 0 = deterministic (always same output), 1+ = increasingly random.",
+    "sampling": "Sampling",
+    "samplingDesc": "The process of picking the next token from the probability distribution, influenced by temperature.",
+    "determinism": "Determinism",
+    "determinismDesc": "With temperature=0 and a fixed seed, an LLM produces identical output for identical input.",
+    "toolContract": "Tool Contract",
+    "toolContractDesc": "Tools must be explicitly defined with typed inputs/outputs. Without a registry, the model invents nonexistent APIs.",
+    "retryMechanism": "Retry Mechanism",
+    "retryMechanismDesc": "A structured way to attempt an action again after failure, with feedback from the previous attempt.",
+    "executionIsolation": "Execution Isolation",
+    "executionIsolationDesc": "Running code in a sandbox prevents destructive actions from corrupting the host environment.",
+    "capabilityVsPermission": "Capability vs Permission",
+    "capabilityVsPermissionDesc": "Having a capability does not mean having permission. An allowlist gates what the agent can actually do.",
+    "versioning": "Versioning",
+    "versioningDesc": "Tracking changes to workspace files prevents edits from overwriting each other.",
+    "freshness": "Freshness",
+    "freshnessDesc": "The agent must re-read current state before acting. Stale observations lead to wrong decisions.",
+    "contextLimits": "Context Limits",
+    "contextLimitsDesc": "Every model has a maximum context size. Exceeding it causes information loss or overflow.",
+    "evidenceBasedStop": "Evidence-Based Stop",
+    "evidenceBasedStopDesc": "The agent stops when real evidence (tests, schema checks) passes — never when it just 'feels done'.",
+    "statePolicy": "State Policy",
+    "statePolicyDesc": "Controls what information the agent carries between loop iterations — stateless, last error, or full summary.",
+    "loopNecessity": "Loop Necessity",
+    "loopNecessityDesc": "Without a loop, the agent quits after the first failure. A loop enables retry and recovery.",
+    "verificationLoop": "Verification Loop",
+    "verificationLoopDesc": "A loop that checks tool output against expected results before accepting it.",
+    "boundaryGuard": "Boundary Guard",
+    "boundaryGuardDesc": "A token or iteration cap that prevents runaway loops from consuming unlimited resources.",
+    "recoveryPath": "Recovery Path",
+    "recoveryPathDesc": "Every failure state in a control graph must have a way to recover. Dead-end failures produce deadlock.",
+    "topologyBasics": "Topology Basics",
+    "topologyBasicsDesc": "How nodes are connected — chain, parallel, or feedback — determines control flow and failure behavior.",
+    "parallelism": "Parallelism",
+    "parallelismDesc": "Multiple agents working simultaneously can rescue each other from failures.",
+    "feedbackEdges": "Feedback Edges",
+    "feedbackEdgesDesc": "Edges that loop back enable rework cycles — critique, revise, repeat.",
+    "recoveryDesign": "Recovery Design",
+    "recoveryDesignDesc": "Designing graphs where every failure edge leads to a recovery node, not a dead end."
+  },
   "factory": {
     "runSimulation": "Run Simulation (100 runs)",
     "runningMonteCarlo": "Running Monte Carlo...",
@@ -325,8 +397,18 @@
   },
   "realityViewer": {
     "title": "Reality Check",
-    "empty": "Run an experiment to compare agent belief with reality",
+    "empty": "Run an experiment to compare agent belief with reality.",
     "noSnapshots": "No state snapshots available in this trace.",
+    "agentBelief": "Agent Belief",
+    "reality": "Reality",
+    "differences": "Differences across all steps",
+    "noDifferences": "No differences found — agent belief matches reality.",
+    "agentAssumed": "Agent assumed this",
+    "agentMissed": "Agent missed this",
+    "contextManager": "Context Manager",
+    "statePersistence": "State Persistence",
+    "on": "ON",
+    "off": "OFF",
     "harnessHint": "Harness state shown above — enable Context Manager and State Persistence to reduce reality gaps."
   },
   "architect": {

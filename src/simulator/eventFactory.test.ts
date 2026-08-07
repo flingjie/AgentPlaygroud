@@ -8,7 +8,7 @@ import {
 } from './eventFactory';
 import { simulateRunV2 } from './runtimeSimulator';
 import { simulateMonteCarloV2 } from './monteCarlo';
-import type { HarnessConfig, LoopConfig, TraceStep } from '../types';
+import type { HarnessConfig, TraceStep } from '../types';
 import type { AgentEvent } from '../types/events';
 
 // ==================== Helpers ====================
