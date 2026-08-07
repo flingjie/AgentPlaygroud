@@ -1,0 +1,29 @@
+{
+  "id": "013-deadlock",
+  "title": "experiment.013.title",
+  "hiddenFailure": "DEADLOCK",
+  "availableHarness": [],
+  "loop": {
+    "enabled": false,
+    "trigger": "on_test_fail",
+    "goal": "tests_green",
+    "state_policy": "stateless",
+    "action_policy": "retry_same",
+    "evidence": "none",
+    "feedback": "none",
+    "stop_on": "evidence_pass",
+    "max_iterations": 3
+  },
+  "scenario": {
+    "id": "agent_graph",
+    "name": "scenario.agent_graph",
+    "failureRates": {},
+    "costMultipliers": {},
+    "inPlayFailures": ["DEADLOCK"],
+    "maxSteps": 5
+  },
+  "evaluator": {
+    "targetSuccessRate": 0.9,
+    "tokenBudget": 40000
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "007-context-overflow",
+  "title": "experiment.007.title",
+  "hiddenFailure": "CONTEXT_OVERFLOW",
+  "availableHarness": ["context_manager"],
+  "loop": {
+    "enabled": true,
+    "trigger": "on_test_fail",
+    "goal": "tests_green",
+    "state_policy": "keep_last_error",
+    "action_policy": "retry_same",
+    "evidence": "none",
+    "feedback": "none",
+    "stop_on": "budget_or_max",
+    "max_iterations": 3
+  },
+  "scenario": {
+    "id": "code_agent",
+    "name": "scenario.code_agent",
+    "failureRates": {
+      "CONTEXT_OVERFLOW": 0.55,
+      "INFINITE_LOOP_TRAP": 0.4,
+      "BUDGET_EXHAUSTED": 0.3
+    },
+    "costMultipliers": {},
+    "inPlayFailures": ["CONTEXT_OVERFLOW", "INFINITE_LOOP_TRAP", "BUDGET_EXHAUSTED"],
+    "maxSteps": 10
+  },
+  "evaluator": {
+    "targetSuccessRate": 0.35,
+    "tokenBudget": 30000
+  }
+}

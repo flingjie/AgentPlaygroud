@@ -1,0 +1,33 @@
+{
+  "id": "011-false-completion",
+  "title": "experiment.011.title",
+  "hiddenFailure": "FALSE_COMPLETION",
+  "availableHarness": [],
+  "loop": {
+    "enabled": true,
+    "trigger": "on_test_fail",
+    "goal": "tests_green",
+    "state_policy": "stateless",
+    "action_policy": "retry_same",
+    "evidence": "none",
+    "feedback": "none",
+    "stop_on": "agent_says_done",
+    "max_iterations": 3
+  },
+  "scenario": {
+    "id": "code_agent",
+    "name": "scenario.code_agent",
+    "failureRates": {
+      "FALSE_COMPLETION": 0.7,
+      "INFINITE_LOOP_TRAP": 0.4,
+      "BUDGET_EXHAUSTED": 0.3
+    },
+    "costMultipliers": {},
+    "inPlayFailures": ["FALSE_COMPLETION", "INFINITE_LOOP_TRAP", "BUDGET_EXHAUSTED"],
+    "maxSteps": 10
+  },
+  "evaluator": {
+    "targetSuccessRate": 0.35,
+    "tokenBudget": 30000
+  }
+}

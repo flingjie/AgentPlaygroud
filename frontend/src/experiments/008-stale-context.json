@@ -1,0 +1,35 @@
+{
+  "id": "008-stale-context",
+  "title": "experiment.008.title",
+  "hiddenFailure": "STALE_CONTEXT",
+  "availableHarness": ["context_manager"],
+  "loop": {
+    "enabled": false,
+    "trigger": "on_test_fail",
+    "goal": "tests_green",
+    "state_policy": "stateless",
+    "action_policy": "retry_same",
+    "evidence": "none",
+    "feedback": "none",
+    "stop_on": "evidence_pass",
+    "max_iterations": 3
+  },
+  "scenario": {
+    "id": "code_agent",
+    "name": "scenario.code_agent",
+    "failureRates": {
+      "STALE_CONTEXT": 0.20,
+      "HALLUCINATION": 0.3,
+      "FILE_CORROSION": 0.4,
+      "MEMORY_STACK_OVERFLOW": 0.3,
+      "TASK_ABANDONED": 0.5
+    },
+    "costMultipliers": {},
+    "inPlayFailures": ["STALE_CONTEXT", "HALLUCINATION", "FILE_CORROSION", "MEMORY_STACK_OVERFLOW", "TASK_ABANDONED"],
+    "maxSteps": 12
+  },
+  "evaluator": {
+    "targetSuccessRate": 0.40,
+    "tokenBudget": 20000
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "009-task-abandoned",
+  "title": "experiment.009.title",
+  "hiddenFailure": "TASK_ABANDONED",
+  "availableHarness": ["retry_policy"],
+  "loop": {
+    "enabled": false,
+    "trigger": "on_test_fail",
+    "goal": "tests_green",
+    "state_policy": "stateless",
+    "action_policy": "retry_same",
+    "evidence": "none",
+    "feedback": "none",
+    "stop_on": "evidence_pass",
+    "max_iterations": 3
+  },
+  "scenario": {
+    "id": "code_agent",
+    "name": "scenario.code_agent",
+    "failureRates": {
+      "TASK_ABANDONED": 0.5,
+      "HALLUCINATION": 0.3,
+      "FILE_CORROSION": 0.4,
+      "MEMORY_STACK_OVERFLOW": 0.3,
+      "STALE_CONTEXT": 0.3
+    },
+    "costMultipliers": {},
+    "inPlayFailures": ["TASK_ABANDONED", "HALLUCINATION", "FILE_CORROSION", "MEMORY_STACK_OVERFLOW", "STALE_CONTEXT"],
+    "maxSteps": 12
+  },
+  "evaluator": {
+    "targetSuccessRate": 0.40,
+    "tokenBudget": 20000
+  }
+}

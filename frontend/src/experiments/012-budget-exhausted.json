@@ -1,0 +1,32 @@
+{
+  "id": "012-budget-exhausted",
+  "title": "experiment.012.title",
+  "hiddenFailure": "BUDGET_EXHAUSTED",
+  "availableHarness": ["timeout_guard"],
+  "loop": {
+    "enabled": true,
+    "trigger": "on_test_fail",
+    "goal": "tests_green",
+    "state_policy": "stateless",
+    "action_policy": "retry_same",
+    "evidence": "none",
+    "feedback": "none",
+    "stop_on": "budget_or_max",
+    "max_iterations": 5
+  },
+  "scenario": {
+    "id": "code_agent",
+    "name": "scenario.code_agent",
+    "failureRates": {
+      "BUDGET_EXHAUSTED": 0.5,
+      "INFINITE_LOOP_TRAP": 0.4
+    },
+    "costMultipliers": {},
+    "inPlayFailures": ["BUDGET_EXHAUSTED", "INFINITE_LOOP_TRAP"],
+    "maxSteps": 12
+  },
+  "evaluator": {
+    "targetSuccessRate": 0.35,
+    "tokenBudget": 50000
+  }
+}

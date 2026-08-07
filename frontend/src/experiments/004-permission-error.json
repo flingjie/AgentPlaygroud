@@ -1,0 +1,35 @@
+{
+  "id": "004-permission-error",
+  "title": "experiment.004.title",
+  "hiddenFailure": "PERMISSION_ERROR",
+  "availableHarness": ["permission_layer"],
+  "loop": {
+    "enabled": false,
+    "trigger": "on_test_fail",
+    "goal": "tests_green",
+    "state_policy": "stateless",
+    "action_policy": "retry_same",
+    "evidence": "none",
+    "feedback": "none",
+    "stop_on": "evidence_pass",
+    "max_iterations": 3
+  },
+  "scenario": {
+    "id": "code_agent",
+    "name": "scenario.code_agent",
+    "failureRates": {
+      "PERMISSION_ERROR": 0.20,
+      "HALLUCINATION": 0.3,
+      "FILE_CORROSION": 0.4,
+      "MEMORY_STACK_OVERFLOW": 0.3,
+      "TASK_ABANDONED": 0.5
+    },
+    "costMultipliers": {},
+    "inPlayFailures": ["PERMISSION_ERROR", "HALLUCINATION", "FILE_CORROSION", "MEMORY_STACK_OVERFLOW", "TASK_ABANDONED"],
+    "maxSteps": 12
+  },
+  "evaluator": {
+    "targetSuccessRate": 0.40,
+    "tokenBudget": 20000
+  }
+}
