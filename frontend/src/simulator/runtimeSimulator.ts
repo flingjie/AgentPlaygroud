@@ -11,24 +11,16 @@ import type {
   FailureReason,
   TraceAction,
 } from '../types';
-import type { SeededRng as SeededRngType } from './rng';
 import {
   ACTION_COST,
   checkStepFailure,
-  checkCrossCutFailure,
   staleLag,
-  wouldFalseComplete,
-  wouldTrapNoRetry,
-  wouldAbandon,
   budgetExceeded,
   hasStructuralDeadlock,
   checkpointRecoveryChance,
   harnessQuality,
 } from './failureEngine';
 import { SeededRng } from './rng';
-
-// Use type alias to reference the value as a type
-type SeededRng = SeededRngType;
 
 // ==================== Topology ====================
 /**
@@ -39,20 +31,6 @@ export interface TopologyInfo {
   hasFeedback: boolean;
   parallelCoders: number;
   isolatedNodes: string[];
-}
-
-/**
- * Internal step context for loop simulation.
- */
-interface LoopStepContext {
-  attempt: number;
-  harnessQuality: number;
-  goalBonus: number;
-  actionBonus: number;
-  hasEvidence: boolean;
-  useReflexion: boolean;
-  useCompact: boolean;
-  maxRetries: number;
 }
 
 // ==================== Reflection Keys ====================
@@ -115,7 +93,7 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
   const steps: TraceStep[] = [];
   let globalMemory = 0;
   let costTokens = 0;
-  let failureReason: FailureReason = 'NONE';
+  let failureReason: FailureReason | 'NONE' = 'NONE';
   let stepCount = 0;
 
   // Helper to add a step
@@ -133,23 +111,6 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
     };
     steps.push(step);
     return ACTION_COST[action];
-  }
-
-  // Helper to compute memory cost per action
-  function memoryCost(action: TraceAction, capacity: number, current: number): number {
-    const base: Record<TraceAction, number> = {
-      THINK: 1,
-      EDIT_FILE: 2,
-      RUN_TEST: 1,
-      RETRY: 1,
-      CHECK_EVIDENCE: 1,
-      STOP: 0,
-    };
-    const cost = base[action] ?? 1;
-    if (current < capacity) {
-      return Math.min(cost, capacity - current);
-    }
-    return cost;
   }
 
   // ==================== DEADLOCK Short-Circuit ====================
@@ -170,7 +131,7 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
 
   // ==================== Simulate Each Node in Order ====================
   for (const node of nodeOrder) {
-    const { stepSteps, stepMemory, stepTokens, stepFailure } = simulateNode(
+    let { stepSteps, stepMemory, stepTokens, stepFailure } = simulateNode(
       node,
       harness,
       loop,
@@ -343,7 +304,7 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
         // Loop exhausted
         if (topology.hasFeedback) {
           // Try feedback rework
-          const rescued = feedbackRework(
+          const { rescued, reworkSteps } = feedbackRework(
             nodeOrder,
             harness,
             hq,
@@ -354,6 +315,9 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
             topology,
             rng
           );
+          for (const rs of reworkSteps) {
+            costTokens += addStep(rs.node as string, rs.action, rs.memoryUsed, rs.status, rs.warning, rs.reflection);
+          }
           if (rescued) {
             failureReason = 'NONE';
             costTokens += addStep(testNodeId, 'STOP', globalMemory, 'SUCCESS');
@@ -410,7 +374,7 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
       if (abandoned) {
         // Try feedback rework rescue
         if (topology.hasFeedback) {
-          const rescued = feedbackRework(
+          const { rescued, reworkSteps } = feedbackRework(
             nodeOrder,
             harness,
             hq,
@@ -421,6 +385,9 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
             topology,
             rng
           );
+          for (const rs of reworkSteps) {
+            costTokens += addStep(rs.node as string, rs.action, rs.memoryUsed, rs.status, rs.warning, rs.reflection);
+          }
           if (rescued) {
             failureReason = 'NONE';
           } else if (effectiveGraph.checkpointing && rng.next() < checkpointRecoveryChance(effectiveGraph.state_schema?.length ?? 0)) {
@@ -472,12 +439,12 @@ function simulateNode(
   schemaSurcharge: number,
   rng: SeededRng,
   stepsSoFar: TraceStep[],
-  stateSchemaLen: number
-): { stepSteps: TraceStep[]; stepMemory: number; stepTokens: number; stepFailure: FailureReason } {
+  _stateSchemaLen: number
+): { stepSteps: TraceStep[]; stepMemory: number; stepTokens: number; stepFailure: FailureReason | 'NONE' } {
   const steps: TraceStep[] = [];
   let memoryDelta = 0;
   let tokens = 0;
-  let failure: FailureReason = 'NONE';
+  let failure: FailureReason | 'NONE' = 'NONE';
   const capacity = harness.memory_capacity;
 
   // Local memory tracking
@@ -557,6 +524,9 @@ function simulateNode(
     } else {
       tokens += addStep('EDIT_FILE', 'SUCCESS');
     }
+    const editCost = computeMemoryCost('EDIT_FILE');
+    localMemory += editCost + schemaSurcharge;
+    memoryDelta = localMemory;
 
     // Second EDIT_FILE chance
     if (rng.next() < 0.4 + hq * 0.3 && failure === 'NONE') {
@@ -585,6 +555,9 @@ function simulateNode(
       } else {
         tokens += addStep('EDIT_FILE', 'SUCCESS');
       }
+      const editCost2 = computeMemoryCost('EDIT_FILE');
+      localMemory += editCost2 + schemaSurcharge;
+      memoryDelta = localMemory;
     }
 
     memoryDelta = localMemory;
@@ -597,10 +570,14 @@ function simulateNode(
     const fixChance = graphBonus ? 0.7 : 0.3;
     if (rng.next() < fixChance) {
       tokens += addStep('EDIT_FILE', 'SUCCESS');
+      const revEditCost = computeMemoryCost('EDIT_FILE');
+      localMemory += revEditCost + schemaSurcharge;
       memoryDelta = localMemory;
     }
   } else if (node.role === 'tester') {
     tokens += addStep('RUN_TEST', 'SUCCESS');
+    const testCost = computeMemoryCost('RUN_TEST');
+    localMemory += testCost + schemaSurcharge;
     memoryDelta = localMemory;
   }
 
@@ -921,16 +898,16 @@ function simulateLoop(
 function simulateLoopStack(
   loopStack: LoopStackConfig,
   harness: HarnessConfig,
-  loop: LoopConfig,
+  _loop: LoopConfig,
   hq: number,
   graphHasReviewer: boolean,
   globalMemory: number,
   testNodeId: string,
   rng: SeededRng,
-  steps: TraceStep[],
-  costTokens: number,
-  stateSchemaLen: number
-): { loopFailure: FailureReason; loopSteps: TraceStep[]; loopTokens: number } {
+  _steps: TraceStep[],
+  _costTokens: number,
+  _stateSchemaLen: number
+): { loopFailure: FailureReason | 'NONE'; loopSteps: TraceStep[]; loopTokens: number } {
   const loopSteps: TraceStep[] = [];
   let loopCost = 0;
 
@@ -951,7 +928,7 @@ function simulateLoopStack(
 
   if (loopStack.template === 'factory') {
     const stages = ['planner', 'coder', 'tester', 'reviewer'];
-    let stageMemory = globalMemory + 1;
+    let stageMemory = globalMemory;
 
     for (let i = 0; i < stages.length; i++) {
       const role = stages[i];
@@ -1107,21 +1084,63 @@ function simulateLoopStack(
 
 function feedbackRework(
   nodeOrder: GraphNode[],
-  harness: HarnessConfig,
+  _harness: HarnessConfig,
   hq: number,
   globalMemory: number,
-  testNodeId: string,
-  stepsSoFar: TraceStep[],
-  currentTokens: number,
-  topology: TopologyInfo,
+  _testNodeId: string,
+  _stepsSoFar: TraceStep[],
+  _currentTokens: number,
+  _topology: TopologyInfo,
   rng: SeededRng
-): boolean {
+): { rescued: boolean; reworkSteps: TraceStep[]; reworkTokens: number } {
   const coder = nodeOrder.find(n => n.role === 'coder');
   const reviewer = nodeOrder.find(n => n.role === 'reviewer');
   const tester = nodeOrder.find(n => n.role === 'tester');
+  const testId = tester?.id ?? reviewer?.id ?? coder?.id ?? 'node_1';
+
+  const reworkSteps: TraceStep[] = [];
+  let reworkTokens = 0;
+  let stepNo = 0;
+
+  if (coder) {
+    reworkSteps.push({
+      step: stepNo++,
+      node: coder.id,
+      action: 'EDIT_FILE',
+      status: 'SUCCESS',
+      memoryUsed: globalMemory,
+      reflection: 'reflect_test_fail',
+      costTokens: ACTION_COST.EDIT_FILE,
+    });
+    reworkTokens += ACTION_COST.EDIT_FILE;
+  }
+
+  if (reviewer) {
+    reworkSteps.push({
+      step: stepNo++,
+      node: reviewer.id,
+      action: 'THINK',
+      status: 'SUCCESS',
+      memoryUsed: globalMemory,
+      costTokens: ACTION_COST.THINK,
+    });
+    reworkTokens += ACTION_COST.THINK;
+  }
 
   const errorRate = Math.max(0.05, (0.7 - hq) * 0.5);
-  return rng.next() > errorRate;
+  const rescued = rng.next() > errorRate;
+  reworkSteps.push({
+    step: stepNo++,
+    node: testId,
+    action: 'RUN_TEST',
+    status: rescued ? 'SUCCESS' : 'FAIL',
+    memoryUsed: globalMemory,
+    warning: rescued ? undefined : 'task_abandoned',
+    costTokens: ACTION_COST.RUN_TEST,
+  });
+  reworkTokens += ACTION_COST.RUN_TEST;
+
+  return { rescued, reworkSteps, reworkTokens };
 }
 
 // ==================== Check Cross-Cut Failures (internal) ====================
@@ -1132,7 +1151,7 @@ function checkCrossCutFailureInternal(
   memoryUsed: number,
   coderEditCount: number,
   rng: SeededRng
-): FailureReason {
+): FailureReason | 'NONE' {
   const stepCount = steps.length;
   const memoryCapacity = harness.memory_capacity;
 

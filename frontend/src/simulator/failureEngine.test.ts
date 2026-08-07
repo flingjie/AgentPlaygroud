@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import type { SeededRng } from '../rng';
-import type { HarnessConfig, LoopConfig, TraceStep } from '../types';
+import { describe, it, expect } from 'vitest';
+import { SeededRng } from './rng';
+import type { HarnessConfig, LoopConfig, TraceStep, GraphSpec } from '../types';
+import type { StepContext } from './failureEngine';
 import {
   checkStepFailure,
   checkCrossCutFailure,
@@ -22,16 +23,20 @@ import {
  * When forceReturn is false, no failure triggers (for "negative" tests).
  * When forceReturn is true, failure triggers (for "positive" tests).
  */
-class ControlledRng implements SeededRng {
-  constructor(private forceReturn: boolean) {}
+class ControlledRng extends SeededRng {
+  private forceReturn: boolean;
+  constructor(forceReturn: boolean) {
+    super(0);
+    this.forceReturn = forceReturn;
+  }
 
-  chance(p: number): boolean {
+  chance(_p: number): boolean {
     return this.forceReturn;
   }
   next(): number {
     return 0.5;
   }
-  int(min: number, max: number): number {
+  int(min: number, _max: number): number {
     return min;
   }
   pick<T>(arr: T[]): T {
@@ -94,11 +99,11 @@ describe('ACTION_COST', () => {
 
 describe('checkStepFailure step-gated failures', () => {
   // Helper to get context for each failure type
-  function getHALLUCINATIONCtx() {
+  function getHALLUCINATIONCtx(): StepContext {
     return {
       harness: makeHarness({ has_tool_registry: false }),
       loop: makeLoop(),
-      nodeRole: 'coder' as const,
+      nodeRole: 'coder',
       stepCount: 5,
       coderEdits: 2,
       memoryUsed: 5,
@@ -176,13 +181,13 @@ describe('checkStepFailure step-gated failures', () => {
     };
   }
 
-  function getPERMISSION_ERRORCtx() {
+  function getPERMISSION_ERRORCtx(): StepContext {
     // PERMISSION_ERROR is checked after CONTEXT_OVERFLOW
     // Must avoid triggering CONTEXT_OVERFLOW first: no loop enabled
     return {
       harness: makeHarness({ has_permission_layer: false, has_tool_registry: true }),
       loop: makeLoop({ enabled: false }), // Disabled loop to avoid CONTEXT_OVERFLOW
-      nodeRole: 'coder' as const,
+      nodeRole: 'coder',
       stepCount: 5,
       coderEdits: 1, // < 2 to avoid FILE_CORROSION
       memoryUsed: 2, // Low memory
@@ -495,47 +500,6 @@ describe('checkStepFailure step-gated failures', () => {
 // ==================== checkCrossCutFailure Tests ====================
 
 describe('checkCrossCutFailure cross-cut failures', () => {
-  function getCrossCutForceRngCtx() {
-    // For cross-cut failures, we need conditions that match each failure type
-    // Cross-cut check order: MEMORY_STACK_OVERFLOWFirst, FILE_CORROSION, HALLUCINATION
-    // To test FILE_CORROSION: need has_tool_registry=false for HALLUCINATION to come first,
-    // but then FILE_CORROSION comes first in cross-cut order (alphabetically? no, it's 0.4 vs 0.3 rate)
-    // Actually the order in code is: MEMORY_STACK_OVERFLOW, FILE_CORROSION, HALLUCINATION
-    // So to test FILE_CORROSION, we need conditions where MEMORY_STACK_OVERFLOW would NOT trigger
-    return {
-      harness: makeHarness({
-        memory_capacity: 5, // > 3 to avoid MEMORY_STACK_OVERFLOW
-        has_state_persistence: false, // for FILE_CORROSION
-        has_tool_registry: false, // for HALLUCINATION
-      }),
-      loop: makeLoop(),
-      nodeRole: 'coder' as const,
-      stepCount: 5,
-      coderEdits: 3, // >= 2 for FILE_CORROSION
-      memoryUsed: 2,
-      staleLag: 0,
-      hasGroundedLoop: true,
-    };
-  }
-
-  function getCrossCutForceRngHllucinationCtx() {
-    // For HALLUCINATION test, we need no tool_registry AND not memory overflow
-    return {
-      harness: makeHarness({
-        memory_capacity: 5, // > 3 to avoid MEMORY_STACK_OVERFLOW
-        has_state_persistence: true, // avoid FILE_CORROSION
-        has_tool_registry: false, // for HALLUCINATION
-      }),
-      loop: makeLoop(),
-      nodeRole: 'coder' as const,
-      stepCount: 5,
-      coderEdits: 1,
-      memoryUsed: 2,
-      staleLag: 0,
-      hasGroundedLoop: true,
-    };
-  }
-
   function getCrossCutSafeCtx() {
     return {
       harness: makeHarness({ memory_capacity: 5, has_state_persistence: true, has_tool_registry: true }),

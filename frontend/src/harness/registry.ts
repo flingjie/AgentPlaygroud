@@ -1,4 +1,4 @@
-import { FailureReason, ReliabilityLayer, ReliabilityLayerId, HarnessDim } from '../types';
+import type { FailureReason, ReliabilityLayer, HarnessDim } from '../types';
 
 // Ordered by layer (tool → workspace → memory → observation → loop_discipline → execution)
 // Note: tool_registry, sandbox_isolation, permission_layer are in 'tool' layer

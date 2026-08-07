@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { HARNESS_DIMS, RELIABILITY_STACK, dimById } from './registry';
-import { FailureReason, ReliabilityLayerId } from '../types';
+import type { FailureReason, ReliabilityLayerId } from '../types';
 
 describe('HARNESS_DIMS', () => {
   it('should have exactly 7 harness dimensions', () => {

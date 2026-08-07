@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { simulateRun } from './runtimeSimulator';
-import type { RunTrace, FailureReason, HarnessConfig, LoopConfig } from '../types';
+import type { HarnessConfig, LoopConfig } from '../types';
 
 // ==================== Test Helpers ====================
 

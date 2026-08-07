@@ -1,4 +1,4 @@
-import type { HarnessConfig, LoopConfig, FailureReason, TraceAction, GraphSpec } from '../types';
+import type { HarnessConfig, LoopConfig, FailureReason, TraceAction, GraphSpec, TraceStep } from '../types';
 import type { SeededRng } from './rng';
 
 /**
@@ -36,14 +36,6 @@ function contextFullRisk(statePolicy: LoopConfig['state_policy']): number {
   if (statePolicy === 'keep_last_error') return 0.55;
   if (statePolicy === 'keep_run_summary') return 0.75;
   return 0;
-}
-
-/**
- * Compute stale risk from lag.
- * Stale iff lag >= 2. A THINK->EDIT#1->EDIT#2 coder acts on a snapshot 2 edits old.
- */
-function isStale(risk: number): boolean {
-  return risk >= 2;
 }
 
 /**
@@ -213,7 +205,7 @@ export function wouldAbandon(loop: LoopConfig): boolean {
  */
 export function budgetExceeded(harness: HarnessConfig, tokenCost: number): boolean {
   return (
-    harness.has_timeout_guard &&
+    !!harness.has_timeout_guard &&
     harness.run_boundary_cap != null &&
     tokenCost > harness.run_boundary_cap
   );
