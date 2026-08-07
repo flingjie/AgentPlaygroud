@@ -71,6 +71,7 @@ export default function Debugger() {
 
       const ws = connectSimulationWebSocket(
         runId,
+        result,
         (step: TraceStep) => {
           setLiveSteps((prev) => [...prev, step]);
         },

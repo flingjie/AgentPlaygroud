@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
   GitGraph,
   Bug,
-  FileCode2,
   ChevronLeft,
   ChevronRight,
   Sun,
@@ -15,18 +14,14 @@ import { useTheme } from '../context/ThemeContext';
 import FactoryView from './FactoryView';
 import ArchitectCanvas from './ArchitectCanvas';
 import Debugger from './Debugger';
-import ExportView from './ExportView';
 
-type Tab = 'factory' | 'architect' | 'debugger' | 'export';
+type Tab = 'factory' | 'architect' | 'debugger';
 
 const TABS: { id: Tab; i18nKey: string; icon: typeof LayoutDashboard }[] = [
   { id: 'factory', i18nKey: 'layout.factory', icon: LayoutDashboard },
   { id: 'architect', i18nKey: 'layout.architect', icon: GitGraph },
   { id: 'debugger', i18nKey: 'layout.debugger', icon: Bug },
-  { id: 'export', i18nKey: 'layout.export', icon: FileCode2 },
 ];
-
-const BOSS_LEVEL_ID = 'level_6_agent_system';
 
 export default function Layout() {
   const { t, i18n } = useTranslation();
@@ -36,14 +31,6 @@ export default function Layout() {
   const { selectedLevel } = useGame();
 
   const canAccessArchitect = selectedLevel?.unlocked_graph ?? false;
-  const isBossLevel = selectedLevel?.id === BOSS_LEVEL_ID;
-
-  // Export tab only exists on the boss level; drop out of it if we leave.
-  useEffect(() => {
-    if (activeTab === 'export' && !isBossLevel) setActiveTab('factory');
-  }, [activeTab, isBossLevel]);
-
-  const visibleTabs = isBossLevel ? TABS : TABS.filter((tab) => tab.id !== 'export');
 
   const toggleLanguage = () => {
     const next = i18n.language === 'zh' ? 'en' : 'zh';
@@ -69,7 +56,7 @@ export default function Layout() {
 
         {/* Tabs */}
         <nav className="flex-1 py-2 space-y-1 px-2">
-          {visibleTabs.map((tab) => {
+          {TABS.map((tab) => {
             const Icon = tab.icon;
             const disabled = tab.id === 'architect' && !canAccessArchitect;
             return (
@@ -158,7 +145,6 @@ export default function Layout() {
             </div>
           )}
           {activeTab === 'debugger' && <Debugger />}
-          {activeTab === 'export' && isBossLevel && <ExportView />}
         </div>
       </main>
     </div>

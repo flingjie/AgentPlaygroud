@@ -13,7 +13,6 @@
     "factory": "Factory",
     "architect": "Architect",
     "debugger": "Debugger",
-    "export": "Export",
     "architectLocked": "Unlock graph editing to access",
     "graphLocked": "Graph editing is locked for this level.",
     "graphLockedHint": "Select a higher level to unlock the Architect."
@@ -299,12 +298,6 @@
   "runtimeGraph": {
     "title": "Runtime Position",
     "empty": "No trace yet."
-  },
-  "export": {
-    "title": "Export Blueprint",
-    "generate": "Generate LangGraph + arlo_config",
-    "copy": "Copy all",
-    "download": "Download langgraph.py"
   },
   "architect": {
     "edgeCondition": "Edge condition",

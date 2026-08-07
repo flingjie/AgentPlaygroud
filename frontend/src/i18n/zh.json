@@ -13,7 +13,6 @@
     "factory": "工厂",
     "architect": "架构师",
     "debugger": "调试器",
-    "export": "导出",
     "architectLocked": "解锁图编辑功能以访问",
     "graphLocked": "当前关卡未解锁图编辑功能。",
     "graphLockedHint": "选择更高关卡以解锁架构师视图。"
@@ -299,12 +298,6 @@
   "runtimeGraph": {
     "title": "运行时位置",
     "empty": "暂无轨迹。"
-  },
-  "export": {
-    "title": "导出蓝图",
-    "generate": "生成 LangGraph + arlo_config",
-    "copy": "全部复制",
-    "download": "下载 langgraph.py"
   },
   "architect": {
     "edgeCondition": "边条件",

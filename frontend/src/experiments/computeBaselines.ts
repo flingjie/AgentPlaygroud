@@ -199,9 +199,9 @@ export function computeBaselines(
     return {
       ...spec,
       baseline: {
-        successRate: result.successRate,
-        tokenCost: result.avgTokens,
-        failureDistribution: { ...result.failureDistribution },
+        successRate: result.success_rate,
+        tokenCost: result.avg_tokens,
+        failureDistribution: { ...result.failure_distribution },
       },
     };
   }) as ExperimentSpec[];
