@@ -23,8 +23,8 @@ describe('SeededRng', () => {
 
   it('produces the classic mulberry32 sequence for seed 0', () => {
     const rng = new SeededRng(0);
-    // Standard bryc mulberry32 reference values for seed 0
-    const expected = [0.7277207633014768, 0.682494497159496, 0.8007101747207344, 0.8113794096279889, 0.5993479175958782];
+    // Standard bryc mulberry32 reference values for seed 0 (canonical)
+    const expected = [0.2664292087, 0.0003297457, 0.2232720274, 0.1462021479, 0.4673278229];
 
     for (const exp of expected) {
       expect(rng.next()).toBeCloseTo(exp, 10);
