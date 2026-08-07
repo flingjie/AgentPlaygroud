@@ -299,6 +299,12 @@
     "title": "运行时位置",
     "empty": "暂无轨迹。"
   },
+  "realityViewer": {
+    "title": "现实对照",
+    "empty": "运行实验以对比 Agent 信念与现实",
+    "noSnapshots": "该轨迹中没有状态快照。",
+    "harnessHint": "上方显示了 Harness 状态——启用上下文管理器和状态持久化可缩小现实差距。"
+  },
   "architect": {
     "edgeCondition": "边条件",
     "graphOptions": "图选项",

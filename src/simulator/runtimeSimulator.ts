@@ -11,6 +11,7 @@ import type {
   FailureReason,
   TraceAction,
 } from '../types';
+import type { Trace } from '../types/events';
 import {
   ACTION_COST,
   checkStepFailure,
@@ -21,6 +22,7 @@ import {
   harnessQuality,
 } from './failureEngine';
 import { SeededRng } from './rng';
+import { traceToV2 } from './eventFactory';
 
 // ==================== Topology ====================
 /**
@@ -1184,4 +1186,28 @@ function defaultGraph(): GraphSpec {
     entry: 'node_1',
     checkpointing: false,
   };
+}
+
+// ==================== V2 Wrapper ====================
+
+/**
+ * Run a single simulation and return a V2 Trace (with AgentEvent[] + snapshots).
+ * Deterministic: same config + seed produces identical output.
+ */
+export function simulateRunV2(
+  config: SimConfig,
+  seed: number,
+  goal: string = 'Complete the task',
+): Trace {
+  const trace = simulateRun(config, seed);
+  return traceToV2(
+    trace.run_id,
+    trace.seed,
+    trace.status,
+    trace.failure_reason === 'NONE' ? null : trace.failure_reason,
+    trace.cost_tokens,
+    trace.steps,
+    config.harness,
+    goal,
+  );
 }

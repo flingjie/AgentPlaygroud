@@ -29,6 +29,18 @@
   "shell": {
     "run": "Run"
   },
+  "diagnosis": {
+    "002": {
+      "rootCause": "The model was asked about information beyond its training cutoff date and fabricated a plausible but wrong answer.",
+      "missingCapability": "Fact Retrieval — the model cannot know what it was never trained on. Real-time data access or fact-check verification is needed.",
+      "recommendedFix": "For factual questions, add a retrieval tool or set knowledge cutoff expectations. Models hallucinate confidently when pushed past their knowledge boundary."
+    },
+    "generic": {
+      "rootCause": "The agent encountered an unexpected failure during execution.",
+      "missingCapability": "Review the runtime trace to identify which step failed and what engineering capability could have prevented it.",
+      "recommendedFix": "Examine the event timeline to find the failure point, then add the corresponding harness dimension or loop configuration."
+    }
+  },
   "factory": {
     "runSimulation": "Run Simulation (100 runs)",
     "runningMonteCarlo": "Running Monte Carlo...",
@@ -310,6 +322,12 @@
   "runtimeGraph": {
     "title": "Runtime Position",
     "empty": "No trace yet."
+  },
+  "realityViewer": {
+    "title": "Reality Check",
+    "empty": "Run an experiment to compare agent belief with reality",
+    "noSnapshots": "No state snapshots available in this trace.",
+    "harnessHint": "Harness state shown above — enable Context Manager and State Persistence to reduce reality gaps."
   },
   "architect": {
     "edgeCondition": "Edge condition",

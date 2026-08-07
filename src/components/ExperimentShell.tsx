@@ -1,6 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { Play, BarChart3 } from 'lucide-react';
 import Sidebar from './Sidebar';
+import DiagnosisPanel from './DiagnosisPanel';
+import ContextInspector from './ContextInspector';
+import AgentRuntimeTimeline from './AgentRuntimeTimeline';
+import RealityViewer from './RealityViewer';
 import { useExperimentStore } from '../stores/experimentStore';
 
 const TABS = [
@@ -72,10 +76,13 @@ export default function ExperimentShell() {
           </nav>
 
           {/* ── Tab content ─────────────────────────────────────── */}
-          {activeTab === 'runtime' && <TabPlaceholder name="Agent Runtime Timeline" />}
-          {activeTab === 'context' && <TabPlaceholder name="Context Inspector" />}
-          {activeTab === 'reality' && <TabPlaceholder name="Reality Viewer" />}
+          {activeTab === 'runtime' && <AgentRuntimeTimeline />}
+          {activeTab === 'context' && <ContextInspector />}
+          {activeTab === 'reality' && <RealityViewer />}
           {activeTab === 'architecture' && <TabPlaceholder name="Architecture Canvas" />}
+
+          {/* ── Diagnosis Panel (when failed) ──────────────────── */}
+          <DiagnosisPanel />
         </main>
       </div>
     </div>
