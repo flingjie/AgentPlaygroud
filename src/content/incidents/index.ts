@@ -12,6 +12,9 @@ import { incident009 } from './incident009';
 import { incident010 } from './incident010';
 import { incident011 } from './incident011';
 import { incident012 } from './incident012';
+import { incident013 } from './incident013';
+import { incident014 } from './incident014';
+import { incident015 } from './incident015';
 
 export const INCIDENTS: Incident[] = [
   incident000,
@@ -27,5 +30,8 @@ export const INCIDENTS: Incident[] = [
   incident010,
   incident011,
   incident012,
+  incident013,
+  incident014,
+  incident015,
 ].sort((a, b) => a.def.order - b.def.order);
 export const getIncident = (id: string) => INCIDENTS.find((i) => i.def.id === id);

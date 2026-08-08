@@ -16,6 +16,9 @@ const LEVEL_IDS = [
   'inc-010',
   'inc-011',
   'inc-012',
+  'inc-013',
+  'inc-014',
+  'inc-015',
 ];
 
 const DEF_TABLE: Record<
@@ -43,16 +46,20 @@ const DEF_TABLE: Record<
   'inc-010': { order: 10, stage: 'loop', failure: 'false-completion', base: 0.15, effects: { 'evidence-loop': 0.70 }, unlocks: ['evidence-loop'], token: 5600 },
   'inc-011': { order: 11, stage: 'loop', failure: 'budget-exhausted', base: 0.30, effects: { 'budget-guard': 0.47 }, unlocks: ['budget-guard'], token: 12000 },
   'inc-012': { order: 12, stage: 'graph', failure: 'deadlock', base: 0.10, effects: { 'graph-orchestration': 0.55, 'human-gate': 0.17 }, unlocks: ['graph-orchestration', 'human-gate'], token: 15000 },
+  'inc-013': { order: 13, stage: 'reliability', failure: 'evaluation-gap', base: 0.25, effects: { 'evaluation-harness': 0.50 }, unlocks: ['evaluation-harness'], token: 8000 },
+  'inc-014': { order: 14, stage: 'reliability', failure: 'no-observability', base: 0.20, effects: { 'observability-stack': 0.55 }, unlocks: ['observability-stack'], token: 7500 },
+  'inc-015': { order: 15, stage: 'reliability', failure: 'no-replay', base: 0.18, effects: { 'deterministic-replay': 0.57 }, unlocks: ['deterministic-replay'], token: 9000 },
 };
 
-test('level 0-3 incidents inc-000…012 are registered in order', () => {
+test('all 16 incidents inc-000…015 are registered in order with continuous orders 0..15', () => {
   for (const id of LEVEL_IDS) {
     const i = getIncident(id);
     expect(i, id).toBeDefined();
     expect(INCIDENTS).toContain(i!);
   }
-  const orders = INCIDENTS.map((i) => i.def.order);
-  expect(orders).toEqual([...orders].sort((a, b) => a - b));
+  expect(INCIDENTS).toHaveLength(16);
+  const orders = INCIDENTS.map((i) => i.def.order).sort((a, b) => a - b);
+  expect(orders).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 });
 
 test.each(Object.entries(DEF_TABLE))('%s def matches the design table', (id, row) => {
