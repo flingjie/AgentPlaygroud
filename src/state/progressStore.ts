@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CapabilityId, ScenarioDef } from '../content/schema';
+import type { CapabilityId } from '../content/schema';
 import { SCENARIOS } from '../content/scenarios';
 
 interface ProgressState {
   completed: string[];
   inventory: CapabilityId[];
-  isUnlocked: (s: ScenarioDef) => boolean;
+  isUnlocked: (s: { id: string; order: number }) => boolean;
   isCompleted: (id: string) => boolean;
-  completeScenario: (s: ScenarioDef) => void;
+  completeScenario: (s: { id: string; unlocks: CapabilityId[] }) => void;
 }
 
 export const useProgress = create<ProgressState>()(

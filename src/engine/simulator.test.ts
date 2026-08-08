@@ -1,5 +1,5 @@
 import type { ScenarioDef } from '../content/schema';
-import { runMonteCarlo, runTrial, successRateOf } from './simulator';
+import { runMonteCarlo, runMonteCarloAtRate, runTrial, successRateOf } from './simulator';
 
 const s001: ScenarioDef = {
   id: 'scenario-001', order: 1, stage: 'harness', hiddenFailure: 'hallucination',
@@ -30,4 +30,14 @@ test('same seed same result', () => {
 test('failed trial carries the hidden failure id', () => {
   const r = runTrial({ scenario: s001, enabled: new Set(), seed: 5 });
   if (!r.success) expect(r.failure).toBe('hallucination');
+});
+
+test('runMonteCarloAtRate is deterministic for the same seed and rate', () => {
+  const a = runMonteCarloAtRate(100, 1000, 'hallucination', 0.25, 12345);
+  const b = runMonteCarloAtRate(100, 1000, 'hallucination', 0.25, 12345);
+  expect(a).toEqual(b);
+  expect(a.trials).toBe(100);
+  expect(a.successRate).toBeGreaterThanOrEqual(0);
+  expect(a.successRate).toBeLessThanOrEqual(1);
+  expect(a.avgTokenCost).toBeGreaterThan(0);
 });

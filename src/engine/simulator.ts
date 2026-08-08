@@ -25,6 +25,32 @@ export interface MonteCarloSummary {
   avgTokenCost: number; failureBreakdown: Partial<Record<FailureId, number>>;
 }
 
+export function runMonteCarloAtRate(
+  trials: number,
+  baseTokenCost: number,
+  failure: FailureId,
+  rate: number,
+  seed: number,
+): MonteCarloSummary {
+  let successes = 0;
+  let tokens = 0;
+  const failureBreakdown: Partial<Record<FailureId, number>> = {};
+  for (let i = 0; i < trials; i++) {
+    const rng = mulberry32(seed * 100003 + i);
+    const success = rng() < rate;
+    if (success) successes++;
+    else failureBreakdown[failure] = (failureBreakdown[failure] ?? 0) + 1;
+    tokens += Math.round(baseTokenCost * (0.85 + 0.3 * rng()));
+  }
+  return {
+    trials,
+    successes,
+    successRate: successes / trials,
+    avgTokenCost: Math.round(tokens / trials),
+    failureBreakdown,
+  };
+}
+
 export function runMonteCarlo(scenario: ScenarioDef, enabled: ReadonlySet<CapabilityId>, seed: number): MonteCarloSummary {
   let successes = 0, tokens = 0;
   const failureBreakdown: Partial<Record<FailureId, number>> = {};

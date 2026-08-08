@@ -1,6 +1,6 @@
 import type { LocalizedText } from '../content/schema';
 export const ui = {
-  appTitle: { en: 'Agent Engineering Simulator', zh: 'Agent 工程模拟器' },
+  appTitle: { en: 'Agent Incident Simulator', zh: 'Agent 事故模拟实验室' },
   aboutIntro: {
     en: 'Agent Engineering Simulator teaches the core loop of building reliable AI agents: run a bare agent, observe failures, identify missing capabilities, inject engineering patterns, and rerun until the system becomes robust.',
     zh: 'Agent Engineering Simulator 通过运行裸 Agent、观察失败、定位缺失能力、注入工程 Pattern、重新实验，展示如何从能工作、做正确到支撑复杂流程。',
@@ -83,6 +83,7 @@ export const ui = {
   nextScenario: { en: 'Next Scenario', zh: '下一个场景' },
   about: { en: 'About', zh: '关于' },
   diagnosePrompt: { en: 'Select the diagnosis that best explains the incident.', zh: '选择最能解释该事故的根因诊断。' },
+  startDiagnosis: { en: 'Start Diagnosis', zh: '开始诊断' },
   confirmDiagnosis: { en: 'Confirm Diagnosis', zh: '确认诊断' },
   chooseFix: { en: 'Choose a fix to apply.', zh: '选择要应用的修复方案。' },
   selectPlan: { en: 'Select intervention plan', zh: '选择干预方案' },

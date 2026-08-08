@@ -71,4 +71,11 @@ describe('App shell', () => {
       expect(hint.textContent?.trim().length).toBeGreaterThan(0);
     });
   });
+
+  it('renders the updated app title and temporary INC-010 home banner', () => {
+    renderApp();
+    expect(screen.getByText('Agent 事故模拟实验室')).toBeDefined();
+    expect(screen.getByText('INC-010 虚假完成：从未运行的 Auth 修复')).toBeDefined();
+    expect(screen.getByRole('link', { name: /开始诊断/ })).toBeDefined();
+  });
 });
