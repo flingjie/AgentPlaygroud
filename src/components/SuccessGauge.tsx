@@ -14,7 +14,7 @@ export function SuccessGauge({ value, label, accentClassName = 'text-sky-500' }:
 
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 120 80" className="w-44 h-auto">
+      <svg viewBox="0 0 120 80" className="w-full max-w-xs h-auto">
         <circle
           cx="60"
           cy="60"

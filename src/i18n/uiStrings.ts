@@ -1,6 +1,37 @@
 import type { LocalizedText } from '../content/schema';
 export const ui = {
   appTitle: { en: 'Agent Engineering Simulator', zh: 'Agent 工程模拟器' },
+  aboutIntro: {
+    en: 'Agent Engineering Simulator teaches the core loop of building reliable AI agents: run a bare agent, observe failures, identify missing capabilities, inject engineering patterns, and rerun until the system becomes robust.',
+    zh: 'Agent Engineering Simulator 通过运行裸 Agent、观察失败、定位缺失能力、注入工程 Pattern、重新实验，展示如何从能工作、做正确到支撑复杂流程。',
+  },
+  aboutLoop: [
+    { en: 'Bare agent runs the task', zh: '裸 Agent 运行任务' },
+    { en: 'Hits a hidden failure', zh: '遇到隐藏失败' },
+    { en: 'Locate the missing capability', zh: '定位缺失能力' },
+    { en: 'Add an Engineering Pattern', zh: '增加 Engineering Pattern' },
+    { en: 'Rerun the experiment', zh: '重新运行实验' },
+    { en: 'Understand Harness / Loop / Graph', zh: '理解 Harness / Loop / Graph' },
+  ],
+  aboutStages: {
+    harness: {
+      en: 'Make it work',
+      zh: '能工作',
+    },
+    loop: {
+      en: 'Make it right',
+      zh: '做正确',
+    },
+    graph: {
+      en: 'Make it complex',
+      zh: '做复杂',
+    },
+  },
+  aboutKeywords: {
+    harness: { en: 'Tool · Memory · Context · Workspace · Permission', zh: 'Tool · Memory · Context · Workspace · Permission' },
+    loop: { en: 'Trigger · Evidence · Feedback · Stop · Retry', zh: 'Trigger · Evidence · Feedback · Stop · Retry' },
+    graph: { en: 'Node · Edge · Branch · Recovery · Human', zh: 'Node · Edge · Branch · Recovery · Human' },
+  },
   stages: {
     harness: { en: 'Harness Engineering', zh: 'Harness 工程' },
     loop: { en: 'Loop Engineering', zh: 'Loop 工程' },
@@ -36,4 +67,4 @@ export const ui = {
   improved: { en: 'With Capabilities', zh: '注入能力后' },
   nextScenario: { en: 'Next Scenario', zh: '下一个场景' },
   about: { en: 'About', zh: '关于' },
-} satisfies Record<string, LocalizedText | Record<string, LocalizedText>>;
+} satisfies Record<string, LocalizedText | Record<string, LocalizedText> | LocalizedText[]>;

@@ -36,10 +36,10 @@ export default function Layout() {
     <div className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="font-bold text-lg hover:opacity-80">
+          <Link to="/" className="font-bold text-lg hover:opacity-80 truncate min-w-0">
             {pick(ui.appTitle)}
           </Link>
-          <nav className="flex items-center gap-3">
+          <nav className="flex items-center gap-3 shrink-0">
             <Link to="/patterns" className="hover:underline">
               {pick(ui.unlockedPatterns)}
             </Link>
