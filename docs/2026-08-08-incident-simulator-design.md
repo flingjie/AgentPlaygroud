@@ -28,28 +28,41 @@
 | "Agent 会自己判断完成" | 测试没过就说"完成了" | 需要 Evidence Loop |
 | "多 Agent 就是 Graph" | Agent 之间死锁/职责混乱 | 需要 Graph 编排 |
 
-## 2. 五层教学结构
+## 2. 五层教学结构（共 16 个事故工单）
+
+编号为 **INC-000 … INC-015**（含两端，共 16）。幻觉只在 Level 0 出现一次，不再在 Harness 层重复。
 
 ```
-Level 0: LLM ≠ Agent
+Level 0: LLM ≠ Agent                          (1)
     "同一个问题，ChatGPT 能答，Agent 为什么失败？"
-    └── 场景 000: 幻觉（无工作环境）
+    └── INC-000 幻觉（无工作环境）
 
-Level 1: Harness Engineering
+Level 1: Harness Engineering                  (7)
     "给 Agent 一个工作台"
-    └── 场景 001-008: 工具、环境、记忆、上下文、权限
+    └── INC-001 工具故障
+        INC-002 非安全执行
+        INC-003 权限错误
+        INC-004 状态损坏
+        INC-005 记忆故障
+        INC-006 上下文溢出
+        INC-007 上下文过期
 
-Level 2: Loop Engineering
+Level 2: Loop Engineering                     (4)
     "Agent 如何持续可靠工作"
-    └── 场景 009-012: 恢复、停止、证据、预算
+    └── INC-008 任务放弃
+        INC-009 无限循环
+        INC-010 虚假完成 ⭐（标杆场景）
+        INC-011 预算耗尽
 
-Level 3: Graph Engineering
+Level 3: Graph Engineering                    (1)
     "管理复杂任务状态"
-    └── 场景 013: 死锁与编排
+    └── INC-012 死锁与编排
 
-Level 4: Reliability Engineering
+Level 4: Reliability Engineering              (3)
     "生产级 Agent 系统"
-    └── 场景 014-016: 评估、可观测性、回放（新增）
+    └── INC-013 评估缺失
+        INC-014 无观测性
+        INC-015 无法回放
 ```
 
 ## 3. 事故工单叙事框架
@@ -58,7 +71,7 @@ Level 4: Reliability Engineering
 
 ```
 ┌────────────────────────────────────────┐
-│  INC-001: Agent 声称完成但代码未修改      │
+│  INC-000: Agent 声称完成但代码未修改      │
 │  严重级别: P1 (功能失效)                 │
 │  影响范围: 生产环境 3 个服务              │
 │  报告时间: 2026-08-08 14:32 UTC         │
@@ -234,7 +247,7 @@ Level 4: Reliability Engineering
 
 ```
 ┌────────────────────────────────────────┐
-│  🧠 Agent X-Ray: INC-011 虚假完成       │
+│  🧠 Agent X-Ray: INC-010 虚假完成       │
 ├────────────────────────────────────────┤
 │  Iteration: [1]──[2]──[3]──[4]──[5]──● │
 │             ↑___________________________│
@@ -322,15 +335,17 @@ interface XRayIteration {
 }
 ```
 
-## 7. 新增 Level 4: Reliability Engineering
+## 7. Level 4: Reliability Engineering（本次范围，必做）
 
-三个新场景（简要）：
+三个新场景，与 Level 0–3 同等交付标准（完整证据 / 假设 / 方案 / X-Ray）：
 
-| 场景 | 故障 | 学习点 |
-|---|---|---|
-| INC-014 | 评估缺失：上线后才发现 Agent 在边缘情况失败 | Evaluation Loop, 离线评估集 |
-| INC-015 | 无观测性：Agent 行为无法追踪，问题难以复现 | Observability, Trace/Log/Metric |
-| INC-016 | 无法回放：线上事故无法本地复现调试 | Replay, Deterministic Simulation |
+| 场景 | 故障 | 学习点 | 解锁能力 |
+|---|---|---|---|
+| INC-013 | 评估缺失：上线后才发现 Agent 在边缘情况失败 | Evaluation Loop, 离线评估集 | evaluation-harness |
+| INC-014 | 无观测性：Agent 行为无法追踪，问题难以复现 | Observability, Trace / Log / Metric | observability-stack |
+| INC-015 | 无法回放：线上事故无法本地复现调试 | Replay, Deterministic Simulation | deterministic-replay |
+
+**内容量目标**：全库 **16 个事故工单**（INC-000 … INC-015）。
 
 ## 8. 技术架构（纯前端）
 
@@ -345,9 +360,9 @@ interface XRayIteration {
 │  - VerificationPanel (验证+复盘)         │
 ├─────────────────────────────────────────┤
 │  Content Layer                          │
-│  - 16 个 incidentXXX.ts (完整场景数据)   │
+│  - 16 个 incidentXXX.ts（INC-000…015）  │
 │  - 每个包含 evidences/hypotheses/        │
-│    interventions/xrayTimeline           │
+│    interventions/xrayTimeline（同标准）  │
 ├─────────────────────────────────────────┤
 │  Engine Layer (扩展)                     │
 │  - simulator.ts (保留)                   │
@@ -375,22 +390,38 @@ interface XRayIteration {
 - 简单时间线 → X-Ray 时间轴回放
 
 **新增**：
-- Level 0 和 Level 4（共 3 个新场景）
-- Evidence/Hypothesis/Intervention 内容模型
+- Level 0（INC-000）与 Level 4（INC-013…015），合计 **16** 个事故工单
+- Evidence / Hypothesis / Intervention 内容模型
 - X-Ray 时间轴组件
+- investigationStore（调查行为记录）
 
-## 10. 内容创作策略
+## 10. 实现分期（内容量可控）
 
-16 个场景 × (5-8 证据 + 3-4 假设 + 2-3 方案 + 5-10 X-Ray 迭代) = 大量内容。
+全量 16 场景 × (5–8 证据 + 3–4 假设 + 2–3 方案 + 5–10 X-Ray 迭代) 内容量大。**本次交付为 16 场景全量（含 Level 4）**，实现顺序强制分期，避免「空壳产品」：
 
-**策略**：
-1. 先实现 1 个标杆场景（建议 INC-011 虚假完成，核心实验）
-2. 建立内容模板和格式规范
-3. 批量生成初稿（AI 辅助）
-4. 人工精修关键场景
+| 阶段 | 交付物 | 验收 |
+|---|---|---|
+| M1 | 壳 + 数据模型 + 引擎扩展 + **INC-010 标杆（虚假完成）**（含完整 X-Ray） | 四幕循环可走通；Pages 可预览 |
+| M2 | Level 0–1（INC-000…007） | 事故工单叙事统一；Harness 闭环 |
+| M3 | Level 2–3（INC-008…012） | Loop/Graph；X-Ray 覆盖假完成/死锁 |
+| M4 | Level 4（INC-013…015）+ 打磨 | Reliability；全库 16；双语/主题/响应式 |
 
-## 11. 成功指标
+**内容策略**：
+1. INC-010（虚假完成）人工精修为模板与质量标尺
+2. 其余场景按同一 schema 批量初稿 → 人工过关键证据与「合理性陷阱」假设
+3. 代码/配置预览用 `<pre><code>`；**不引入** prism/highlight.js（保持极简依赖）
 
-- 用户完成事故后的"恍然大悟"时刻（"原来 Agent 需要这个！"）
-- 决策复盘环节的对比学习（"我的选择 vs 最优解"）
-- 能向他人解释"为什么需要 Harness/Loop/Graph"（费曼检验）
+## 11. 全局约束（继承 + 增量）
+
+- 纯前端静态 SPA；GitHub Pages；`base: './'`；**HashRouter**
+- 无后端、无真实 LLM Key、无外部 API
+- 双语 en/zh；深浅主题；进度 localStorage
+- 模拟引擎保持确定性（同 seed → 同结果）
+- 成功率仍由数值模型驱动；方案/参数映射到能力权重与微调修正项
+
+## 12. 成功指标
+
+- 用户完成事故后的「恍然大悟」时刻（「原来 Agent 需要这个！」）
+- 决策复盘对比（我的选择 vs 最优解）
+- 能向他人解释「为什么需要 Harness / Loop / Graph / Reliability」（费曼检验）
+- 16 个工单均可在 Pages 上完整走通四幕循环
