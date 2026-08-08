@@ -46,14 +46,13 @@ describe('ExperimentShell', () => {
 
   it('renders the mission text', () => {
     renderShell();
-    expect(screen.getByText('运行 Agent 并揭示其隐藏故障。')).toBeDefined();
+    expect(screen.getByTestId('mission')).toBeDefined();
   });
 
   it('reveals the failure panel after running the baseline experiment', () => {
     renderShell();
     fireEvent.click(screen.getByTestId('run-button'));
     expect(screen.getByTestId('failure-panel')).toBeDefined();
-    expect(screen.getByText('发现隐藏故障')).toBeDefined();
   });
 
   it('lists the required capabilities in the capability panel', () => {

@@ -45,6 +45,7 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
     scenario.def.requiredCapabilities.every((c) => lastRunEnabled.has(c));
 
   function handleComplete() {
+    if (phase === 'completed') return;
     if (!canComplete) return;
     completeScenario(scenario.def);
     setPhase('completed');
@@ -70,7 +71,10 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1">
           {pick(ui.mission)}
         </h2>
-        <p className="text-zinc-800 dark:text-zinc-200">{pick(scenario.content.mission)}</p>
+        <p data-testid="mission" className="text-zinc-800 dark:text-zinc-200">
+          {pick(scenario.content.mission)}
+        </p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{pick(ui.baselineConfig)}</p>
       </div>
 
       {phase === 'completed' ? (

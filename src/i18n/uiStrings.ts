@@ -27,6 +27,7 @@ export const ui = {
   newBadge: { en: 'NEW', zh: '新' },
   unlockedPatterns: { en: 'Pattern Library', zh: 'Pattern 库' },
   mission: { en: 'Mission', zh: '实验目标' },
+  baselineConfig: { en: 'Baseline: no capabilities injected', zh: '基线：未注入任何能力' },
   explanation: { en: 'Why it works', zh: '设计原理' },
   baseline: { en: 'Baseline', zh: '基线' },
   improved: { en: 'With Capabilities', zh: '注入能力后' },
