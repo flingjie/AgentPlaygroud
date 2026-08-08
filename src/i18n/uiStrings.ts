@@ -1,0 +1,33 @@
+import type { LocalizedText } from '../content/schema';
+export const ui = {
+  appTitle: { en: 'Agent Engineering Simulator', zh: 'Agent 工程模拟器' },
+  stages: {
+    harness: { en: 'Harness Engineering', zh: 'Harness 工程' },
+    loop: { en: 'Loop Engineering', zh: 'Loop 工程' },
+    graph: { en: 'Graph Engineering', zh: 'Graph 工程' },
+  },
+  stageTaglines: {
+    harness: { en: 'Make the agent work', zh: '让 Agent 能工作' },
+    loop: { en: 'Make the agent finish reliably', zh: '让 Agent 可靠完成' },
+    graph: { en: 'Make the agent run complex flows', zh: '让 Agent 支撑复杂流程' },
+  },
+  runBaseline: { en: 'Run Baseline Experiment', zh: '运行基线实验' },
+  runAgain: { en: 'Re-run with Capabilities', zh: '注入能力后重跑' },
+  running: { en: 'Running…', zh: '实验运行中…' },
+  failureRevealed: { en: 'Hidden Failure Revealed', zh: '发现隐藏故障' },
+  missingCapability: { en: 'Missing Capability', zh: '缺失能力' },
+  injectCapability: { en: 'Capability Panel', zh: '能力注入面板' },
+  successRate: { en: 'Success Rate', zh: '成功率' },
+  tokenCost: { en: 'Avg Token Cost', zh: '平均 Token 消耗' },
+  trials: { en: 'trials', zh: '次试验' },
+  complete: { en: 'Complete & Export Pattern', zh: '完成实验 · 导出 Pattern' },
+  completed: { en: 'Completed', zh: '已完成' },
+  locked: { en: 'Locked', zh: '未解锁' },
+  unlockedPatterns: { en: 'Pattern Library', zh: 'Pattern 库' },
+  mission: { en: 'Mission', zh: '实验目标' },
+  explanation: { en: 'Why it works', zh: '设计原理' },
+  baseline: { en: 'Baseline', zh: '基线' },
+  improved: { en: 'With Capabilities', zh: '注入能力后' },
+  nextScenario: { en: 'Next Scenario', zh: '下一个场景' },
+  about: { en: 'About', zh: '关于' },
+} satisfies Record<string, LocalizedText | Record<string, LocalizedText>>;
