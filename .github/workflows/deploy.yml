@@ -1,6 +1,6 @@
 name: Deploy to GitHub Pages
 on:
-  push: { branches: [main, feat/rebuild-simulator] }
+  push: { branches: [main] }
   workflow_dispatch:
 permissions:
   pages: write

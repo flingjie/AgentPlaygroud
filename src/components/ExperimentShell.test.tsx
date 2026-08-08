@@ -53,6 +53,7 @@ describe('ExperimentShell', () => {
     renderShell();
     fireEvent.click(screen.getByTestId('run-button'));
     expect(screen.getByTestId('failure-panel')).toBeDefined();
+    expect(screen.getByTestId('missing-capability-hint').textContent).not.toBe('');
   });
 
   it('lists the required capabilities in the capability panel', () => {
@@ -73,5 +74,24 @@ describe('ExperimentShell', () => {
     fireEvent.click(screen.getByTestId('run-button'));
 
     expect(completeButton.disabled).toBe(false);
+  });
+
+  it('does not leak state across scenario navigation (different keys)', () => {
+    const { rerender } = render(
+      <I18nProvider>
+        <ExperimentShell key={scenario.def.id} scenario={scenario} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByTestId('run-button'));
+    expect(screen.getByTestId('failure-panel')).toBeDefined();
+
+    const scenarioB = { ...scenario, def: { ...scenario.def, id: 'scenario-b' } };
+    rerender(
+      <I18nProvider>
+        <ExperimentShell key={scenarioB.def.id} scenario={scenarioB} />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId('run-button')).toBeDefined();
+    expect(screen.queryByTestId('failure-panel')).toBeNull();
   });
 });

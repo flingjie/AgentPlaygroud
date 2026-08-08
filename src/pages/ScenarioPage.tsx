@@ -20,7 +20,7 @@ export default function ScenarioPage() {
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-6 text-center">
         <h2 className="text-lg font-semibold mb-2">{pick(ui.locked)}</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-          {pick(ui.lockedHint)}
+          {pick(ui.unlockHint)}
         </p>
         <Link
           to="/"
@@ -32,5 +32,5 @@ export default function ScenarioPage() {
     );
   }
 
-  return <ExperimentShell scenario={scenario} />;
+  return <ExperimentShell key={scenario.def.id} scenario={scenario} />;
 }

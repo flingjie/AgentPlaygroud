@@ -15,13 +15,11 @@ export function CapabilityPanel({ scenario, enabled, inventory, onChange }: Capa
   const inventorySet = new Set(inventory);
 
   const required = new Set(scenario.def.requiredCapabilities);
-  const effectIds = Object.keys(scenario.def.capabilityEffects) as CapabilityId[];
 
   const ids = Array.from(
     new Set<CapabilityId>([
       ...inventory,
       ...scenario.def.requiredCapabilities,
-      ...effectIds.filter((id) => inventorySet.has(id)),
     ]),
   );
 

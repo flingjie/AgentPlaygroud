@@ -48,7 +48,7 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
 
   const canComplete =
     lastRunEnabled !== null &&
-    scenario.def.requiredCapabilities.every((c) => lastRunEnabled.has(c));
+    scenario.def.requiredCapabilities.every((c) => lastRunEnabled.has(c) && enabled.has(c));
 
   function handleComplete() {
     if (phase === 'completed') return;
@@ -96,6 +96,14 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
 
       {phase === 'completed' ? (
         <div className="space-y-4">
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1">
+              {pick(ui.explanation)}
+            </h3>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              {pick(scenario.content.explanation)}
+            </p>
+          </div>
           <PatternCard scenario={scenario} />
           {nextScenario ? (
             <Link
@@ -134,11 +142,22 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
               className="rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20 p-4"
             >
               <h3 className="font-semibold text-red-800 dark:text-red-200 mb-1">
-                {pick(ui.failureRevealed)}
+                {pick(ui.failureRevealed)}: {pick(scenario.content.failureName)}
               </h3>
               <p className="text-sm text-red-700 dark:text-red-300">
                 {pick(scenario.content.failureNarrative)}
               </p>
+              <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-900/40">
+                <span className="font-medium text-red-800 dark:text-red-200">
+                  {pick(ui.missingCapability)}:
+                </span>{' '}
+                <span
+                  data-testid="missing-capability-hint"
+                  className="text-sm text-red-700 dark:text-red-300"
+                >
+                  {pick(scenario.content.missingCapabilityHint)}
+                </span>
+              </div>
             </div>
           )}
 

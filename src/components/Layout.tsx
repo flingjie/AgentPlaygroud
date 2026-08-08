@@ -43,6 +43,9 @@ export default function Layout() {
             <Link to="/patterns" className="hover:underline">
               {pick(ui.unlockedPatterns)}
             </Link>
+            <Link to="/about" className="hover:underline">
+              {pick(ui.about)}
+            </Link>
             <button
               type="button"
               onClick={() => setLocale(locale === 'zh' ? 'en' : 'zh')}

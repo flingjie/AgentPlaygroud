@@ -8,7 +8,7 @@ const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem('theme') as Theme | null;
-    if (stored) return stored;
+    if (stored === 'dark' || stored === 'light') return stored;
     return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 

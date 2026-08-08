@@ -7,9 +7,10 @@ const I18nCtx = createContext<{ locale: Locale; setLocale: (l: Locale) => void }
 });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocale] = useState<Locale>(
-    () => (localStorage.getItem('locale') as Locale) || 'zh',
-  );
+  const [locale, setLocale] = useState<Locale>(() => {
+    const stored = localStorage.getItem('locale');
+    return stored === 'en' || stored === 'zh' ? stored : 'zh';
+  });
   const set = (l: Locale) => { setLocale(l); localStorage.setItem('locale', l); };
   return <I18nCtx.Provider value={{ locale, setLocale: set }}>{children}</I18nCtx.Provider>;
 }

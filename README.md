@@ -17,7 +17,7 @@ npm run build
 
 ## Deployment
 
-GitHub Actions builds and deploys the `dist` folder to GitHub Pages on every push to `main` or `feat/rebuild-simulator`.
+GitHub Actions builds and deploys the `dist` folder to GitHub Pages on every push to `main`.
 
 ## Tech Stack
 
@@ -49,7 +49,7 @@ npm run build
 
 ## 部署
 
-每次推送到 `main` 或 `feat/rebuild-simulator` 分支时，GitHub Actions 会自动构建 `dist` 并部署到 GitHub Pages。
+每次推送到 `main` 分支时，GitHub Actions 会自动构建 `dist` 并部署到 GitHub Pages。
 
 ## 技术栈
 

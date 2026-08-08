@@ -73,7 +73,7 @@ const FAILURE_STORY: Record<FailureId, {
   },
 };
 
-export type EventKind = 'trigger' | 'thought' | 'action' | 'tool-call' | 'failure' | 'mitigation' | 'verdict';
+export type EventKind = 'trigger' | 'thought' | 'action' | 'failure' | 'mitigation' | 'verdict';
 
 export interface RunEvent {
   step: number;
