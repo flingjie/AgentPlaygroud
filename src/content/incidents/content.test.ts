@@ -2,7 +2,7 @@ import { INCIDENTS, getIncident } from './index';
 import { successRateWithInterventions, canCloseIncident } from '../../engine/interventionEngine';
 import type { CapabilityId, Incident, LocalizedText } from '../schema';
 
-const LEVEL01_IDS = [
+const LEVEL_IDS = [
   'inc-000',
   'inc-001',
   'inc-002',
@@ -11,7 +11,11 @@ const LEVEL01_IDS = [
   'inc-005',
   'inc-006',
   'inc-007',
+  'inc-008',
+  'inc-009',
   'inc-010',
+  'inc-011',
+  'inc-012',
 ];
 
 const DEF_TABLE: Record<
@@ -34,10 +38,15 @@ const DEF_TABLE: Record<
   'inc-005': { order: 5, stage: 'harness', failure: 'memory-failure', base: 0.35, effects: { 'memory-management': 0.39 }, unlocks: ['memory-management'], token: 5200 },
   'inc-006': { order: 6, stage: 'harness', failure: 'context-overflow', base: 0.28, effects: { 'context-engineering': 0.48 }, unlocks: ['context-engineering'], token: 6800 },
   'inc-007': { order: 7, stage: 'harness', failure: 'stale-context', base: 0.33, effects: { 'observation-loop': 0.46 }, unlocks: ['observation-loop'], token: 3900 },
+  'inc-008': { order: 8, stage: 'loop', failure: 'task-abandoned', base: 0.25, effects: { 'recovery-loop': 0.45 }, unlocks: ['recovery-loop'], token: 7400 },
+  'inc-009': { order: 9, stage: 'loop', failure: 'infinite-loop', base: 0.20, effects: { 'stop-rule': 0.53 }, unlocks: ['stop-rule'], token: 9100 },
+  'inc-010': { order: 10, stage: 'loop', failure: 'false-completion', base: 0.15, effects: { 'evidence-loop': 0.70 }, unlocks: ['evidence-loop'], token: 5600 },
+  'inc-011': { order: 11, stage: 'loop', failure: 'budget-exhausted', base: 0.30, effects: { 'budget-guard': 0.47 }, unlocks: ['budget-guard'], token: 12000 },
+  'inc-012': { order: 12, stage: 'graph', failure: 'deadlock', base: 0.10, effects: { 'graph-orchestration': 0.55, 'human-gate': 0.17 }, unlocks: ['graph-orchestration', 'human-gate'], token: 15000 },
 };
 
-test('level 0-1 incidents inc-000…007 and inc-010 are registered in order', () => {
-  for (const id of LEVEL01_IDS) {
+test('level 0-3 incidents inc-000…012 are registered in order', () => {
+  for (const id of LEVEL_IDS) {
     const i = getIncident(id);
     expect(i, id).toBeDefined();
     expect(INCIDENTS).toContain(i!);
@@ -95,7 +104,7 @@ function* iterLocalized(i: Incident): Generator<LocalizedText> {
   yield i.def.incidentMeta.agentClaim;
 }
 
-test.each(LEVEL01_IDS)('%s meets content minima and is fully localized', (id) => {
+test.each(LEVEL_IDS)('%s meets content minima and is fully localized', (id) => {
   const i = getIncident(id)!;
   expect(i.content.evidences.length).toBeGreaterThanOrEqual(5);
   expect(i.content.evidences.some((e) => e.isKeyEvidence)).toBe(true);
@@ -131,7 +140,7 @@ test('unlock chain: every optimal grant is unlocked by this or an earlier incide
   }
 });
 
-test.each(LEVEL01_IDS)('%s optimal path improves rate and can close', (id) => {
+test.each(LEVEL_IDS)('%s optimal path improves rate and can close', (id) => {
   const i = getIncident(id)!;
   const opt = i.content.interventions.filter((x) => x.isOptimal).map((x) => x.id);
   const selected = new Set(opt);
