@@ -62,7 +62,7 @@ export function MetricsPanel({ baseline, current }: MetricsPanelProps) {
       {failures.length > 0 && (
         <div className="space-y-2">
           {failures.map(([id, count]) => {
-            const width = (count / summary!.trials) * 100;
+            const width = summary!.trials > 0 ? (count / summary!.trials) * 100 : 0;
             return (
               <div key={id}>
                 <div className="flex justify-between text-xs mb-1 text-zinc-700 dark:text-zinc-300">

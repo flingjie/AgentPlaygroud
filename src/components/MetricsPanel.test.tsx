@@ -34,4 +34,21 @@ describe('MetricsPanel', () => {
     expect(screen.getByText('hallucination')).toBeDefined();
     expect(screen.getByText('130')).toBeDefined();
   });
+
+  it('renders safely when trials is zero', () => {
+    const zeroTrials: MonteCarloSummary = {
+      trials: 0,
+      successes: 0,
+      successRate: 0,
+      avgTokenCost: 0,
+      failureBreakdown: {},
+    };
+    const { container } = render(
+      <I18nProvider>
+        <MetricsPanel baseline={null} current={zeroTrials} />
+      </I18nProvider>,
+    );
+    expect(container.textContent).not.toContain('Infinity');
+    expect(container.innerHTML).not.toContain('Infinity');
+  });
 });

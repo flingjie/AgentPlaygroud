@@ -17,4 +17,27 @@ describe('SuccessGauge', () => {
     expect(screen.getByText('35%')).toBeDefined();
     expect(screen.getByText('Success')).toBeDefined();
   });
+
+  it('clamps out-of-range and non-finite values', () => {
+    const { rerender } = render(
+      <I18nProvider>
+        <SuccessGauge value={1.4} label="High" />
+      </I18nProvider>,
+    );
+    expect(screen.getByText('100%')).toBeDefined();
+
+    rerender(
+      <I18nProvider>
+        <SuccessGauge value={-0.2} label="Low" />
+      </I18nProvider>,
+    );
+    expect(screen.getByText('0%')).toBeDefined();
+
+    rerender(
+      <I18nProvider>
+        <SuccessGauge value={NaN} label="Invalid" />
+      </I18nProvider>,
+    );
+    expect(screen.getByText('0%')).toBeDefined();
+  });
 });

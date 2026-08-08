@@ -5,11 +5,12 @@ export interface SuccessGaugeProps {
 }
 
 export function SuccessGauge({ value, label, accentClassName = 'text-sky-500' }: SuccessGaugeProps) {
-  const percent = Math.round(value * 100);
+  const v = Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+  const percent = Math.round(v * 100);
   const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const arc = Math.PI * radius;
-  const offset = arc * (1 - value);
+  const offset = arc * (1 - v);
 
   return (
     <div className="flex flex-col items-center">
