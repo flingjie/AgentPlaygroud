@@ -1,41 +1,4 @@
-# Node / Frontend
-node_modules/
-dist/
-dist-ssr
+node_modules
+dist
 *.local
-
-# Vite
-.vite/
-
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# IDE
-.vscode/*
-!.vscode/extensions.json
-.idea/
-*.swp
-*.swo
-*~
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Superpowers working artifacts
-.superpowers/
-docs/superpowers/
-.claude/
