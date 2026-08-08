@@ -161,31 +161,33 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              data-testid="run-button"
-              onClick={run}
-              disabled={isRunning}
-              className={`rounded-lg px-4 py-2 font-medium transition ${
-                isRunning
-                  ? 'bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed'
-                  : 'bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500'
-              }`}
-            >
-              {pick(runButtonText)}
-            </button>
-            <button
-              data-testid="complete-button"
-              onClick={handleComplete}
-              disabled={!canComplete}
-              className={`rounded-lg px-4 py-2 font-medium transition ${
-                canComplete
-                  ? 'bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500'
-                  : 'bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed'
-              }`}
-            >
-              {pick(ui.complete)}
-            </button>
+          <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+            <div className="flex flex-wrap gap-3">
+              <button
+                data-testid="run-button"
+                onClick={run}
+                disabled={isRunning}
+                className={`rounded-lg px-4 py-2 font-medium transition ${
+                  isRunning
+                    ? 'bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed'
+                    : 'bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500'
+                }`}
+              >
+                {pick(runButtonText)}
+              </button>
+              <button
+                data-testid="complete-button"
+                onClick={handleComplete}
+                disabled={!canComplete}
+                className={`rounded-lg px-4 py-2 font-medium transition ${
+                  canComplete
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500'
+                    : 'bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed'
+                }`}
+              >
+                {pick(ui.complete)}
+              </button>
+            </div>
           </div>
         </>
       )}

@@ -52,10 +52,13 @@ export function EventTimeline({ events, onComplete }: EventTimelineProps) {
 
   if (events.length === 0) return null;
 
+  // Reserve full timeline height so reveal animation doesn't push the sticky action bar.
+  const rowMinHeight = '2.75rem';
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" style={{ minHeight: `calc(${events.length} * ${rowMinHeight})` }}>
       {events.slice(0, visibleCount).map((event, index) => (
-        <div key={index} className="flex items-start gap-3">
+        <div key={event.step} className="flex items-start gap-3" style={{ minHeight: rowMinHeight }}>
           <div className="relative flex flex-col items-center">
             <div
               className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${DOT_COLORS[event.kind]}`}
