@@ -2,6 +2,7 @@ import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { I18nProvider, useLocale } from './i18n/I18nProvider';
 import { ThemeProvider } from './theme/ThemeProvider';
+import { useProgress } from './state/progressStore';
 import App from './App';
 
 function TestWrapper() {
@@ -36,6 +37,7 @@ describe('App shell', () => {
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     })) as unknown as typeof window.matchMedia;
+    useProgress.setState({ completed: [], inventory: [] });
   });
 
   it('renders home page in Chinese by default', () => {
@@ -49,5 +51,15 @@ describe('App shell', () => {
       screen.getByTestId('switch-en').click();
     });
     expect(screen.getByText('Harness Engineering')).toBeDefined();
+  });
+
+  it('unlocks the next scenario after the first is completed', () => {
+    useProgress.setState({
+      completed: ['scenario-001'],
+      inventory: ['context-injection', 'tool-registry'],
+    });
+    renderApp();
+    expect(screen.getByRole('link', { name: '工具故障' })).toBeDefined();
+    expect(screen.getByText('非安全执行')).toBeDefined();
   });
 });

@@ -15,6 +15,7 @@ export function PatternCard({ scenario }: PatternCardProps) {
 
   return (
     <div
+      data-testid="pattern-card"
       className={`rounded-r-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 border-l-4 ${stageAccent[scenario.def.stage]}`}
     >
       <h3 className="text-lg font-semibold mb-1">

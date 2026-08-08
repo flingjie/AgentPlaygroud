@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { runMonteCarlo, type MonteCarloSummary } from '../engine/simulator';
 import { pickShowcaseTrial } from '../engine/showcase';
 import { buildTimeline, type RunEvent } from '../engine/events';
 import { usePick } from '../i18n/I18nProvider';
 import { ui } from '../i18n/uiStrings';
 import { useProgress } from '../state/progressStore';
+import { SCENARIOS } from '../content/scenarios';
 import { CapabilityPanel } from './CapabilityPanel';
 import { MetricsPanel } from './MetricsPanel';
 import { EventTimeline } from './EventTimeline';
@@ -20,6 +22,7 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
   const pick = usePick();
   const completeScenario = useProgress((s) => s.completeScenario);
   const inventory = useProgress((s) => s.inventory);
+  const isCompleted = useProgress((s) => s.isCompleted);
 
   const [enabled, setEnabled] = useState<Set<CapabilityId>>(new Set());
   const [phase, setPhase] = useState<'idle' | 'running' | 'failed' | 'reviewed' | 'completed'>('idle');
@@ -27,6 +30,9 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
   const [timeline, setTimeline] = useState<RunEvent[]>([]);
   const [baselineSummary, setBaselineSummary] = useState<MonteCarloSummary | null>(null);
   const [lastRunEnabled, setLastRunEnabled] = useState<Set<CapabilityId> | null>(null);
+
+  const alreadyCompleted = isCompleted(scenario.def.id);
+  const nextScenario = SCENARIOS.find((x) => x.def.order === scenario.def.order + 1);
 
   function run() {
     setPhase('running');
@@ -65,6 +71,17 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          {pick(scenario.content.title)}
+        </h1>
+        {alreadyCompleted && (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-1 rounded-full">
+            ✓ {pick(ui.completed)}
+          </span>
+        )}
+      </div>
+
       <div
         className={`rounded-r-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 border-l-4 ${stageAccent[scenario.def.stage]}`}
       >
@@ -78,7 +95,24 @@ export function ExperimentShell({ scenario }: ExperimentShellProps) {
       </div>
 
       {phase === 'completed' ? (
-        <PatternCard scenario={scenario} />
+        <div className="space-y-4">
+          <PatternCard scenario={scenario} />
+          {nextScenario ? (
+            <Link
+              to={`/scenario/${nextScenario.def.id}`}
+              className="inline-block rounded-lg px-4 py-2 bg-sky-600 text-white font-medium hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500 transition"
+            >
+              {pick(ui.nextScenario)} →
+            </Link>
+          ) : (
+            <Link
+              to="/patterns"
+              className="inline-block rounded-lg px-4 py-2 bg-emerald-600 text-white font-medium hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 transition"
+            >
+              {pick(ui.allComplete)} →
+            </Link>
+          )}
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
