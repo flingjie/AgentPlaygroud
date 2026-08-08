@@ -107,9 +107,17 @@ function ScenarioRow({ scenario }: { scenario: Scenario }) {
   return (
     <li
       className={`${baseClasses} opacity-60 cursor-not-allowed`}
-      title={pick(ui.unlockHint)}
+      aria-label={`${pick(scenario.content.title)} — ${pick(ui.locked)}. ${pick(ui.unlockHint)}`}
     >
-      <span className="text-zinc-500 dark:text-zinc-400">{pick(scenario.content.title)}</span>
+      <span>
+        <span className="text-zinc-500 dark:text-zinc-400">{pick(scenario.content.title)}</span>
+        <span
+          className="block text-xs text-zinc-400 dark:text-zinc-500"
+          data-testid="unlock-hint"
+        >
+          {pick(ui.unlockHint)}
+        </span>
+      </span>
       <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
         🔒 {pick(ui.locked)}
       </span>

@@ -62,4 +62,13 @@ describe('App shell', () => {
     expect(screen.getByRole('link', { name: '工具故障' })).toBeDefined();
     expect(screen.getByText('非安全执行')).toBeDefined();
   });
+
+  it('shows visible unlock hint on locked scenarios', () => {
+    renderApp();
+    const hints = screen.getAllByTestId('unlock-hint');
+    expect(hints.length).toBeGreaterThan(0);
+    hints.forEach((hint) => {
+      expect(hint.textContent?.trim().length).toBeGreaterThan(0);
+    });
+  });
 });
