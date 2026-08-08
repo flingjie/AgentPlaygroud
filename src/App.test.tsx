@@ -54,20 +54,21 @@ describe('App shell', () => {
     expect(screen.getByText('Loop Engineering')).toBeDefined();
   });
 
-  it('renders the only incident as a playable map item', () => {
+  it('renders the lowest-order incident as a playable map item', () => {
     renderApp();
-    expect(screen.getByText('INC-010 虚假完成：从未运行的 Auth 修复')).toBeDefined();
-    const link = screen.getByRole('link', { name: /INC-010/ });
-    expect(link.getAttribute('href')).toBe('#/incident/inc-010');
+    expect(screen.getByText(/INC-000/)).toBeDefined();
+    const link = screen.getByRole('link', { name: /INC-000/ });
+    expect(link.getAttribute('href')).toBe('#/incident/inc-000');
   });
 
-  it('marks the incident as completed after it is closed', () => {
+  it('marks a completed incident and keeps later ones locked until predecessors finish', () => {
     useProgress.setState({
-      completed: ['inc-010'],
-      inventory: ['evidence-loop'],
+      completed: ['inc-000'],
+      inventory: ['context-injection', 'tool-registry'],
     });
     renderApp();
     expect(screen.getByText(/已完成/)).toBeDefined();
-    expect(screen.queryByRole('link', { name: /INC-010/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /INC-000/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /INC-001/ })).toBeDefined();
   });
 });
