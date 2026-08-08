@@ -3,7 +3,7 @@ import { ui } from '../i18n/uiStrings';
 import { stageAccent } from '../components/stageAccent';
 import type { StageId } from '../content/schema';
 
-const STAGE_ORDER: StageId[] = ['harness', 'loop', 'graph'];
+const STAGE_ORDER: StageId[] = ['llm', 'harness', 'loop', 'graph', 'reliability'];
 
 export default function AboutPage() {
   const pick = usePick();
@@ -33,7 +33,7 @@ export default function AboutPage() {
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">{pick(ui.aboutThreeStages)}</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {STAGE_ORDER.map((id) => (
             <div
               key={id}

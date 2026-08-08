@@ -1,8 +1,8 @@
-# Agent Engineering Simulator
+# Agent Incident Simulator
 
-A hands-on, bilingual simulator for learning how to engineer reliable AI agents.
+A hands-on, bilingual simulator for learning how to respond to AI agent incidents.
 
-Play through 13 progressive scenarios covering Harness, Loop, and Graph engineering. Run baseline experiments, reveal hidden failures, inject capabilities, and export patterns to unlock the next stage.
+Play through 16 progressive incident tickets (INC-000…015) across five engineering layers: LLM, Harness, Loop, Graph, and Reliability. Investigate the scene, diagnose the root cause, choose interventions, run a deterministic Monte Carlo verification, and close the ticket to unlock the next stage.
 
 Live: https://flingjie.github.io/AgentPlaygroud/
 
@@ -30,11 +30,11 @@ GitHub Actions builds and deploys the `dist` folder to GitHub Pages on every pus
 
 ---
 
-# Agent Engineering Simulator（中文）
+# Agent Incident Simulator（中文）
 
-一个用于学习如何构建可靠 AI Agent 的双语交互模拟器。
+一个用于学习如何响应 AI Agent 事故的双语交互模拟器。
 
-包含 13 个渐进式场景，涵盖 Harness、Loop、Graph 三阶段工程。运行基线实验、揭示隐藏失败、注入能力并导出 Pattern，解锁下一阶段。
+包含 16 个渐进式事故工单（INC-000…015），涵盖 LLM、Harness、Loop、Graph、Reliability 五层工程。调查现场、诊断根因、选择干预方案、运行确定性 Monte Carlo 验证，并关闭工单以解锁下一阶段。
 
 在线预览：https://flingjie.github.io/AgentPlaygroud/
 

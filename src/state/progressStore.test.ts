@@ -58,7 +58,7 @@ describe('progress store', () => {
 
   test('completing an incident records it and merges unlocks into inventory', () => {
     const s001 = INCIDENTS.find(s => s.def.id === 'inc-001')!.def;
-    useProgress.getState().completeScenario(s001);
+    useProgress.getState().completeIncident(s001);
 
     expect(useProgress.getState().isCompleted('inc-001')).toBe(true);
     expect(useProgress.getState().inventory).toContain('tool-contract');
@@ -67,8 +67,8 @@ describe('progress store', () => {
 
   test('repeating completion is idempotent', () => {
     const s001 = INCIDENTS.find(s => s.def.id === 'inc-001')!.def;
-    useProgress.getState().completeScenario(s001);
-    useProgress.getState().completeScenario(s001);
+    useProgress.getState().completeIncident(s001);
+    useProgress.getState().completeIncident(s001);
 
     expect(useProgress.getState().completed).toEqual(['inc-001']);
     expect(useProgress.getState().inventory).toEqual(['tool-contract', 'retry-policy']);
@@ -85,7 +85,7 @@ describe('progress store', () => {
 
     expect(useProgress.getState().isUnlocked(s001)).toBe(false);
 
-    useProgress.getState().completeScenario(s000);
+    useProgress.getState().completeIncident(s000);
 
     expect(useProgress.getState().isUnlocked(s001)).toBe(true);
   });
@@ -97,15 +97,15 @@ describe('progress store', () => {
 
     expect(useProgress.getState().isUnlocked(s002)).toBe(false);
 
-    useProgress.getState().completeScenario(s000);
-    useProgress.getState().completeScenario(s001);
+    useProgress.getState().completeIncident(s000);
+    useProgress.getState().completeIncident(s001);
 
     expect(useProgress.getState().isUnlocked(s002)).toBe(true);
   });
 
   test('persists under ais-progress key', () => {
     const s001 = INCIDENTS.find(s => s.def.id === 'inc-001')!.def;
-    useProgress.getState().completeScenario(s001);
+    useProgress.getState().completeIncident(s001);
 
     expect(localStorage.getItem('ais-progress')).not.toBeNull();
     expect(localStorage.getItem('aes-progress')).toBeNull();

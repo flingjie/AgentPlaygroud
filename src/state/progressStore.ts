@@ -8,7 +8,7 @@ interface ProgressState {
   inventory: CapabilityId[];
   isUnlocked: (s: { id: string; order: number }) => boolean;
   isCompleted: (id: string) => boolean;
-  completeScenario: (s: { id: string; unlocks: CapabilityId[] }) => void;
+  completeIncident: (s: { id: string; unlocks: CapabilityId[] }) => void;
 }
 
 export const useProgress = create<ProgressState>()(
@@ -27,7 +27,7 @@ export const useProgress = create<ProgressState>()(
         return get().isCompleted(prev.def.id);
       },
       isCompleted: (id) => get().completed.includes(id),
-      completeScenario: (s) => {
+      completeIncident: (s) => {
         set((state) => {
           if (state.completed.includes(s.id)) return state;
           const additions = s.unlocks.filter((u) => !state.inventory.includes(u));

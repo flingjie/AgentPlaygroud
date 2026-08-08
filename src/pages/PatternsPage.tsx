@@ -1,14 +1,14 @@
 import { usePick } from '../i18n/I18nProvider';
 import { ui } from '../i18n/uiStrings';
 import { useProgress } from '../state/progressStore';
-import { SCENARIOS } from '../content/scenarios';
+import { INCIDENTS } from '../content/incidents';
 import { PatternCard } from '../components/PatternCard';
 
 export default function PatternsPage() {
   const pick = usePick();
   const isCompleted = useProgress((s) => s.isCompleted);
 
-  const completed = SCENARIOS.filter((s) => isCompleted(s.def.id)).sort(
+  const completed = INCIDENTS.filter((i) => isCompleted(i.def.id)).sort(
     (a, b) => a.def.order - b.def.order,
   );
 
@@ -21,8 +21,8 @@ export default function PatternsPage() {
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {completed.map((scenario) => (
-            <PatternCard key={scenario.def.id} scenario={scenario} />
+          {completed.map((incident) => (
+            <PatternCard key={incident.def.id} incident={incident} />
           ))}
         </div>
       )}

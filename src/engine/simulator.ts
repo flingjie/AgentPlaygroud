@@ -1,10 +1,10 @@
 import { mulberry32 } from './rng';
-import type { CapabilityId, FailureId, ScenarioDef } from '../content/schema';
+import type { CapabilityId, FailureId, IncidentDef } from '../content/schema';
 
-export interface TrialInput { scenario: ScenarioDef; enabled: ReadonlySet<CapabilityId>; seed: number; }
+export interface TrialInput { scenario: IncidentDef; enabled: ReadonlySet<CapabilityId>; seed: number; }
 export interface TrialResult { success: boolean; failure: FailureId | null; tokenCost: number; steps: number; seed: number; }
 
-export function successRateOf(scenario: ScenarioDef, enabled: ReadonlySet<CapabilityId>): number {
+export function successRateOf(scenario: IncidentDef, enabled: ReadonlySet<CapabilityId>): number {
   let p = scenario.baseSuccess;
   for (const [cap, w] of Object.entries(scenario.capabilityEffects))
     if (enabled.has(cap as CapabilityId)) p += w;
@@ -51,7 +51,7 @@ export function runMonteCarloAtRate(
   };
 }
 
-export function runMonteCarlo(scenario: ScenarioDef, enabled: ReadonlySet<CapabilityId>, seed: number): MonteCarloSummary {
+export function runMonteCarlo(scenario: IncidentDef, enabled: ReadonlySet<CapabilityId>, seed: number): MonteCarloSummary {
   let successes = 0, tokens = 0;
   const failureBreakdown: Partial<Record<FailureId, number>> = {};
   for (let i = 0; i < scenario.trials; i++) {

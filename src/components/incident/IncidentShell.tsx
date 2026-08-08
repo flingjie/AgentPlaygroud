@@ -34,7 +34,7 @@ export function IncidentShell({ incident }: IncidentShellProps) {
   const markViewed = useInvestigation((s) => s.markViewed);
   const resetInvestigation = useInvestigation((s) => s.reset);
   const viewedIds = useMemo(() => new Set(viewedIdsArray), [viewedIdsArray]);
-  const completeScenario = useProgress((s) => s.completeScenario);
+  const completeIncident = useProgress((s) => s.completeIncident);
   const isCompleted = useProgress((s) => s.isCompleted);
 
   useEffect(() => {
@@ -98,7 +98,7 @@ export function IncidentShell({ incident }: IncidentShellProps) {
 
   function handleClose() {
     if (!canCloseIncident(incident.content.interventions, selectedInterventionIds, verified)) return;
-    completeScenario(incident.def);
+    completeIncident(incident.def);
     setPhase('closed');
   }
 

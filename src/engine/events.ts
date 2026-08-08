@@ -1,4 +1,4 @@
-import type { CapabilityId, FailureId, LocalizedText, ScenarioDef } from '../content/schema';
+import type { CapabilityId, FailureId, LocalizedText, IncidentDef } from '../content/schema';
 import type { TrialResult } from './simulator';
 
 const FAILURE_STORY: Record<FailureId, {
@@ -97,7 +97,7 @@ export interface RunEvent {
 }
 
 export function buildTimeline(
-  scenario: ScenarioDef,
+  scenario: IncidentDef,
   result: TrialResult,
   enabled: ReadonlySet<CapabilityId>,
 ): RunEvent[] {
@@ -106,7 +106,8 @@ export function buildTimeline(
     throw new Error(`missing failure story: ${scenario.hiddenFailure}`);
   }
 
-  const covered = scenario.requiredCapabilities.every(c => enabled.has(c));
+  const requiredCapabilities = Object.keys(scenario.capabilityEffects) as CapabilityId[];
+  const covered = requiredCapabilities.every(c => enabled.has(c));
   const events: RunEvent[] = [
     { step: 1, kind: 'trigger', text: { en: 'Task received', zh: '收到任务' } },
   ];

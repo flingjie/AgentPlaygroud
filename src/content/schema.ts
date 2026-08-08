@@ -117,32 +117,3 @@ export interface Incident {
   def: IncidentDef;
   content: IncidentContent;
 }
-
-/** @deprecated Use IncidentDef — will be removed in a future task */
-export interface ScenarioDef {
-  id: string;
-  order: number;
-  stage: StageId;
-  hiddenFailure: FailureId;
-  baseSuccess: number;
-  capabilityEffects: Partial<Record<CapabilityId, number>>;
-  requiredCapabilities: CapabilityId[];
-  unlocks: CapabilityId[];
-  baseTokenCost: number;
-  trials: number;
-}
-
-/** @deprecated Use IncidentContent — will be removed in a future task */
-export interface ScenarioContent {
-  title: LocalizedText;
-  mission: LocalizedText;
-  failureName: LocalizedText;
-  failureNarrative: LocalizedText;
-  missingCapabilityHint: LocalizedText;
-  explanation: LocalizedText;
-  patternName: LocalizedText;
-  patternSummary: LocalizedText;
-}
-
-/** @deprecated Use Incident — will be removed in a future task */
-export interface Scenario { def: ScenarioDef; content: ScenarioContent; }

@@ -18,18 +18,18 @@ describe('PatternsPage', () => {
     useProgress.setState({ completed: [], inventory: [] });
   });
 
-  it('renders the empty state when no scenarios are completed', () => {
+  it('renders the empty state when no incidents are completed', () => {
     renderPatternsPage();
-    expect(screen.getByText('完成实验以收集 Pattern。')).toBeDefined();
+    expect(screen.getByText('关闭事故以收集 Pattern。')).toBeDefined();
   });
 
-  it('renders a PatternCard for each completed scenario', () => {
+  it('renders a PatternCard for each completed incident', () => {
     useProgress.setState({
-      completed: ['scenario-001'],
+      completed: ['inc-000'],
       inventory: ['context-injection', 'tool-registry'],
     });
     renderPatternsPage();
     expect(screen.getByTestId('pattern-card')).toBeDefined();
-    expect(screen.getByText('Grounding（上下文 + 工具）')).toBeDefined();
+    expect(screen.getByText('Grounding（落地）：上下文注入 + 工具注册表')).toBeDefined();
   });
 });
