@@ -1,9 +1,37 @@
-import { beforeEach, describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { SCENARIOS } from '../content/scenarios';
 import { useProgress } from './progressStore';
 
+const { scenarioContent } = vi.hoisted(() => ({
+  scenarioContent: {
+    title: { en: 'T', zh: 'T' },
+    mission: { en: 'm', zh: 'm' },
+    failureName: { en: 'f', zh: 'f' },
+    failureNarrative: { en: 'n', zh: 'n' },
+    missingCapabilityHint: { en: 'h', zh: 'h' },
+    explanation: { en: 'e', zh: 'e' },
+    patternName: { en: 'p', zh: 'p' },
+    patternSummary: { en: 's', zh: 's' },
+  },
+}));
+
 vi.mock('../content/scenarios', () => ({
   SCENARIOS: [
+    {
+      def: {
+        id: 'inc-000',
+        order: 0,
+        stage: 'harness',
+        hiddenFailure: 'hallucination',
+        baseSuccess: 0.05,
+        capabilityEffects: {},
+        requiredCapabilities: [],
+        unlocks: [],
+        baseTokenCost: 800,
+        trials: 200,
+      },
+      content: scenarioContent,
+    },
     {
       def: {
         id: 'scenario-001',
@@ -17,16 +45,7 @@ vi.mock('../content/scenarios', () => ({
         baseTokenCost: 1000,
         trials: 200,
       },
-      content: {
-        title: { en: 'S001', zh: 'S001' },
-        mission: { en: 'm', zh: 'm' },
-        failureName: { en: 'f', zh: 'f' },
-        failureNarrative: { en: 'n', zh: 'n' },
-        missingCapabilityHint: { en: 'h', zh: 'h' },
-        explanation: { en: 'e', zh: 'e' },
-        patternName: { en: 'p', zh: 'p' },
-        patternSummary: { en: 's', zh: 's' },
-      },
+      content: scenarioContent,
     },
     {
       def: {
@@ -41,16 +60,7 @@ vi.mock('../content/scenarios', () => ({
         baseTokenCost: 1200,
         trials: 200,
       },
-      content: {
-        title: { en: 'S002', zh: 'S002' },
-        mission: { en: 'm', zh: 'm' },
-        failureName: { en: 'f', zh: 'f' },
-        failureNarrative: { en: 'n', zh: 'n' },
-        missingCapabilityHint: { en: 'h', zh: 'h' },
-        explanation: { en: 'e', zh: 'e' },
-        patternName: { en: 'p', zh: 'p' },
-        patternSummary: { en: 's', zh: 's' },
-      },
+      content: scenarioContent,
     },
   ],
 }));
@@ -83,13 +93,85 @@ describe('progress store', () => {
     expect(useProgress.getState().inventory).toEqual(['context-injection', 'tool-registry']);
   });
 
+  test('isUnlocked returns true for order 0 initially', () => {
+    const s000 = SCENARIOS.find(s => s.def.id === 'inc-000')!.def;
+    expect(useProgress.getState().isUnlocked(s000)).toBe(true);
+  });
+
+  test('isUnlocked returns false for order 1 until order 0 completed', () => {
+    const s000 = SCENARIOS.find(s => s.def.id === 'inc-000')!.def;
+    const s001 = SCENARIOS.find(s => s.def.id === 'scenario-001')!.def;
+
+    expect(useProgress.getState().isUnlocked(s001)).toBe(false);
+
+    useProgress.getState().completeScenario(s000);
+
+    expect(useProgress.getState().isUnlocked(s001)).toBe(true);
+  });
+
   test('isUnlocked returns false for order 2 before previous completed, true after', () => {
+    const s000 = SCENARIOS.find(s => s.def.id === 'inc-000')!.def;
+    const s001 = SCENARIOS.find(s => s.def.id === 'scenario-001')!.def;
     const s002 = SCENARIOS.find(s => s.def.id === 'scenario-002')!.def;
+
     expect(useProgress.getState().isUnlocked(s002)).toBe(false);
 
-    const s001 = SCENARIOS.find(s => s.def.id === 'scenario-001')!.def;
+    useProgress.getState().completeScenario(s000);
     useProgress.getState().completeScenario(s001);
 
     expect(useProgress.getState().isUnlocked(s002)).toBe(true);
+  });
+
+  test('persists under ais-progress key', () => {
+    const s001 = SCENARIOS.find(s => s.def.id === 'scenario-001')!.def;
+    useProgress.getState().completeScenario(s001);
+
+    expect(localStorage.getItem('ais-progress')).not.toBeNull();
+    expect(localStorage.getItem('aes-progress')).toBeNull();
+  });
+});
+
+describe('progress store bridge (no order 0 in registry)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.resetModules();
+  });
+
+  test('isUnlocked returns true for order 1 when registry lacks order 0', async () => {
+    vi.doMock('../content/scenarios', () => ({
+      SCENARIOS: [
+        {
+          def: {
+            id: 'scenario-001',
+            order: 1,
+            stage: 'harness',
+            hiddenFailure: 'hallucination',
+            baseSuccess: 0.08,
+            capabilityEffects: {},
+            requiredCapabilities: [],
+            unlocks: [],
+            baseTokenCost: 1000,
+            trials: 200,
+          },
+          content: scenarioContent,
+        },
+      ],
+    }));
+
+    const { useProgress: bridgedProgress } = await import('./progressStore');
+    const s001 = {
+      id: 'scenario-001',
+      order: 1,
+      stage: 'harness' as const,
+      hiddenFailure: 'hallucination' as const,
+      baseSuccess: 0.08,
+      capabilityEffects: {},
+      requiredCapabilities: [],
+      unlocks: [],
+      baseTokenCost: 1000,
+      trials: 200,
+    };
+
+    expect(bridgedProgress.getState().isUnlocked(s001)).toBe(true);
   });
 });

@@ -17,9 +17,11 @@ export const useProgress = create<ProgressState>()(
       completed: [],
       inventory: [],
       isUnlocked: (s) => {
-        if (s.order === 1) return true;
+        if (s.order === 0) return true;
         const prev = SCENARIOS.find((x) => x.def.order === s.order - 1);
-        return prev ? get().isCompleted(prev.def.id) : false;
+        if (prev) return get().isCompleted(prev.def.id);
+        if (s.order === 1 && !SCENARIOS.some((x) => x.def.order === 0)) return true;
+        return false;
       },
       isCompleted: (id) => get().completed.includes(id),
       completeScenario: (s) => {
@@ -34,7 +36,7 @@ export const useProgress = create<ProgressState>()(
       },
     }),
     {
-      name: 'aes-progress',
+      name: 'ais-progress',
       partialize: (state) => ({ completed: state.completed, inventory: state.inventory }),
     },
   ),
