@@ -82,21 +82,6 @@ describe('SeededRng', () => {
     expect(results.some(r => !r)).toBe(true);
   });
 
-  it('pick returns a member of the array', () => {
-    const rng = new SeededRng(111);
-    const arr = ['a', 'b', 'c', 'd', 'e'];
-
-    for (let i = 0; i < 100; i++) {
-      const picked = rng.pick(arr);
-      expect(arr).toContain(picked);
-    }
-  });
-
-  it('pick throws on empty array', () => {
-    const rng = new SeededRng(222);
-    expect(() => rng.pick([])).toThrow('Cannot pick from an empty array');
-  });
-
   it('int throws when min > max', () => {
     const rng = new SeededRng(333);
     expect(() => rng.int(6, 1)).toThrow('Invalid range');

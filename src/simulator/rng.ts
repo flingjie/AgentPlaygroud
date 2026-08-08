@@ -25,14 +25,6 @@ export class SeededRng {
     if (p >= 1) return true;
     return this.next() < p;
   }
-
-  pick<T>(arr: T[]): T {
-    if (arr.length === 0) {
-      throw new Error('Cannot pick from an empty array');
-    }
-    const index = Math.floor(this.next() * arr.length);
-    return arr[index];
-  }
 }
 
 export function deriveRunSeed(baseSeed: number, i: number): number {

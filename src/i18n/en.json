@@ -27,21 +27,8 @@
     "architecture": "Architecture"
   },
   "shell": {
-    "run": "Run",
     "enterFactory": "Enter Harness Engineering",
     "backToLab": "← Back to Lab"
-  },
-  "diagnosis": {
-    "002": {
-      "rootCause": "The model was asked about information beyond its training cutoff date and fabricated a plausible but wrong answer.",
-      "missingCapability": "Fact Retrieval — the model cannot know what it was never trained on. Real-time data access or fact-check verification is needed.",
-      "recommendedFix": "For factual questions, add a retrieval tool or set knowledge cutoff expectations. Models hallucinate confidently when pushed past their knowledge boundary."
-    },
-    "generic": {
-      "rootCause": "The agent encountered an unexpected failure during execution.",
-      "missingCapability": "Review the runtime trace to identify which step failed and what engineering capability could have prevented it.",
-      "recommendedFix": "Examine the event timeline to find the failure point, then add the corresponding harness dimension or loop configuration."
-    }
   },
   "exp": {
     "000NextToken": {
@@ -64,60 +51,6 @@
       "title": "Reasoning ≠ Execution",
       "desc": "The model confidently reports actions as completed — but nothing actually happened. Model output is a proposal, not execution."
     }
-  },
-  "concepts": {
-    "tokenGeneration": "Token Generation",
-    "tokenGenerationDesc": "LLMs generate text one token at a time, not all at once. Each token is sampled from a probability distribution.",
-    "probabilityDistribution": "Probability Distribution",
-    "probabilityDistributionDesc": "At each step the model outputs probabilities for every possible next token, then samples one.",
-    "hallucination": "Hallucination",
-    "hallucinationDesc": "When asked about information outside its training data, the model fabricates plausible but incorrect answers.",
-    "knowledgeCutoff": "Knowledge Cutoff",
-    "knowledgeCutoffDesc": "Models have a training cutoff date; they cannot know events or facts that occurred after that point.",
-    "contextWindow": "Context Window",
-    "contextWindowDesc": "The total amount of text (tokens) the model can process at once, including system prompt, memory, and user input.",
-    "attention": "Attention",
-    "attentionDesc": "The model weighs different parts of the input context differently — some parts matter more than others for each token.",
-    "temperature": "Temperature",
-    "temperatureDesc": "Controls randomness in token selection: 0 = deterministic (always same output), 1+ = increasingly random.",
-    "sampling": "Sampling",
-    "samplingDesc": "The process of picking the next token from the probability distribution, influenced by temperature.",
-    "determinism": "Determinism",
-    "determinismDesc": "With temperature=0 and a fixed seed, an LLM produces identical output for identical input.",
-    "toolContract": "Tool Contract",
-    "toolContractDesc": "Tools must be explicitly defined with typed inputs/outputs. Without a registry, the model invents nonexistent APIs.",
-    "retryMechanism": "Retry Mechanism",
-    "retryMechanismDesc": "A structured way to attempt an action again after failure, with feedback from the previous attempt.",
-    "executionIsolation": "Execution Isolation",
-    "executionIsolationDesc": "Running code in a sandbox prevents destructive actions from corrupting the host environment.",
-    "capabilityVsPermission": "Capability vs Permission",
-    "capabilityVsPermissionDesc": "Having a capability does not mean having permission. An allowlist gates what the agent can actually do.",
-    "versioning": "Versioning",
-    "versioningDesc": "Tracking changes to workspace files prevents edits from overwriting each other.",
-    "freshness": "Freshness",
-    "freshnessDesc": "The agent must re-read current state before acting. Stale observations lead to wrong decisions.",
-    "contextLimits": "Context Limits",
-    "contextLimitsDesc": "Every model has a maximum context size. Exceeding it causes information loss or overflow.",
-    "evidenceBasedStop": "Evidence-Based Stop",
-    "evidenceBasedStopDesc": "The agent stops when real evidence (tests, schema checks) passes — never when it just 'feels done'.",
-    "statePolicy": "State Policy",
-    "statePolicyDesc": "Controls what information the agent carries between loop iterations — stateless, last error, or full summary.",
-    "loopNecessity": "Loop Necessity",
-    "loopNecessityDesc": "Without a loop, the agent quits after the first failure. A loop enables retry and recovery.",
-    "verificationLoop": "Verification Loop",
-    "verificationLoopDesc": "A loop that checks tool output against expected results before accepting it.",
-    "boundaryGuard": "Boundary Guard",
-    "boundaryGuardDesc": "A token or iteration cap that prevents runaway loops from consuming unlimited resources.",
-    "recoveryPath": "Recovery Path",
-    "recoveryPathDesc": "Every failure state in a control graph must have a way to recover. Dead-end failures produce deadlock.",
-    "topologyBasics": "Topology Basics",
-    "topologyBasicsDesc": "How nodes are connected — chain, parallel, or feedback — determines control flow and failure behavior.",
-    "parallelism": "Parallelism",
-    "parallelismDesc": "Multiple agents working simultaneously can rescue each other from failures.",
-    "feedbackEdges": "Feedback Edges",
-    "feedbackEdgesDesc": "Edges that loop back enable rework cycles — critique, revise, repeat.",
-    "recoveryDesign": "Recovery Design",
-    "recoveryDesignDesc": "Designing graphs where every failure edge leads to a recovery node, not a dead end."
   },
   "factory": {
     "runSimulation": "Run Simulation (100 runs)",
@@ -233,8 +166,6 @@
     "title": "Loop Stack",
     "template": "Loop Stack Template",
     "single": "Single Loop",
-    "dual": "Dual Loop",
-    "factory": "Agent Factory Loop",
     "singleHint": "Single Loop is the Level 3 loop — the Loop panel governs its behavior. Pick Dual or Factory to run a preset loop-stack template.",
     "lockedNote": "Preset — click a field to see why it exists",
     "inner": "Inner (verify)",
@@ -305,8 +236,6 @@
     "live": "Live",
     "tokens": "tokens",
     "liveSimulationFailed": "Live simulation failed",
-    "whyFailed": "Why did it fail?",
-    "showHint": "Need a hint?",
     "topology": {
       "single": "Topology: single",
       "chain": "Topology: chain",
@@ -401,22 +330,6 @@
     "title": "Runtime Position",
     "empty": "No trace yet."
   },
-  "realityViewer": {
-    "title": "Reality Check",
-    "empty": "Run an experiment to compare agent belief with reality.",
-    "noSnapshots": "No state snapshots available in this trace.",
-    "agentBelief": "Agent Belief",
-    "reality": "Reality",
-    "differences": "Differences across all steps",
-    "noDifferences": "No differences found — agent belief matches reality.",
-    "agentAssumed": "Agent assumed this",
-    "agentMissed": "Agent missed this",
-    "contextManager": "Context Manager",
-    "statePersistence": "State Persistence",
-    "on": "ON",
-    "off": "OFF",
-    "harnessHint": "Harness state shown above — enable Context Manager and State Persistence to reduce reality gaps."
-  },
   "architect": {
     "edgeCondition": "Edge condition",
     "graphOptions": "Graph options",
@@ -433,11 +346,8 @@
   },
   "stage0": {
     "modelLayer": "🧠 Model Layer",
-    "modelLayerDesc": "Stage 0 concept — why this failure class exists at the model level:",
     "engineeringLayer": "🔧 Engineering Layer",
-    "engineeringLayerDesc": "What went wrong in this run:",
     "fixLayer": "✅ Fix",
-    "fixLayerDesc": "How to fix it in your architecture:",
     "modelLayerConcepts": {
       "HALLUCINATION": "LLMs are probability models, not databases. Without a tool surface, the model invents plausible but nonexistent APIs.",
       "TOOL_FAILURE": "LLM output is a proposal, not execution. Real tools can return garbage — the model cannot inherently validate what it receives.",
@@ -454,29 +364,10 @@
       "UNSAFE_EXECUTION": "LLM output has no execution boundary. A generated 'rm -rf /' is just text to the model — but catastrophic to the host."
     }
   },
-  "stack": {
-    "layer": {
-      "model": {
-        "question": "Can it think?"
-      },
-      "tool": {
-        "question": "Can it act safely and with permission?"
-      },
-      "workspace": {
-        "question": "Are changes versioned and reversible?"
-      },
-      "memory": {
-        "question": "Can it hold state without overflowing?"
-      },
-      "observation": {
-        "question": "Does it see accurately, without stale context?"
-      },
-      "loop_discipline": {
-        "question": "Can it iterate and stop on evidence?"
-      },
-      "execution": {
-        "question": "Can it finish within budget and structure?"
-      }
-    }
+  "realityViewer": {
+    "title": "Reality Viewer",
+    "empty": "Run an experiment to see agent belief vs. reality",
+    "noSnapshots": "No state snapshots recorded for this experiment",
+    "harnessHint": "Tip: Enable harness dimensions to reduce mismatches"
   }
 }

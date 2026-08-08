@@ -5,31 +5,8 @@ export type FailureReason =
   | 'INFINITE_LOOP_TRAP' | 'BUDGET_EXHAUSTED' | 'TASK_ABANDONED'
   | 'UNSAFE_EXECUTION';
 
-export type ReliabilityLayerId =
-  | 'model' | 'tool' | 'workspace' | 'memory'
-  | 'observation' | 'loop_discipline' | 'execution';
-
 export type TraceAction = 'THINK' | 'EDIT_FILE' | 'RUN_TEST'
   | 'RETRY' | 'CHECK_EVIDENCE' | 'STOP';
-
-export interface ReliabilityLayer {
-  id: ReliabilityLayerId;
-  question: string;
-  order: number;
-}
-
-export interface HarnessDim {
-  id: string;
-  category: ReliabilityLayerId;
-  nameKey: string;
-  descKey: string;
-  effect: {
-    successRate: number;
-    tokenCost: number;
-    prevents: FailureReason[];
-  };
-  requires?: string[];
-}
 
 export interface HarnessConfig {
   has_tool_registry: boolean;
@@ -53,26 +30,6 @@ export interface LoopConfig {
   feedback: 'none' | 'compact_error' | 'reflexion';
   stop_on: 'agent_says_done' | 'evidence_pass' | 'budget_or_max';
   max_iterations: number;
-}
-
-export interface Scenario {
-  id: string;
-  name: string;
-  failureRates: Partial<Record<FailureReason, number>>;
-  costMultipliers: Partial<Record<TraceAction, number>>;
-  inPlayFailures: FailureReason[];
-  maxSteps: number;
-}
-
-export interface ExperimentSpec {
-  id: string;
-  title: string;
-  scenario: Scenario;
-  hiddenFailure: FailureReason;
-  availableHarness: string[];
-  loop: LoopConfig;
-  evaluator: { targetSuccessRate: number; tokenBudget: number };
-  baseline: { successRate: number; tokenCost: number; failureDistribution: Partial<Record<FailureReason, number>> };
 }
 
 // ── Loop sub-types (extracted from LoopConfig for component usage) ──────────
@@ -186,20 +143,9 @@ export interface MonteCarloResult {
   runs: number;
 }
 
-// ── Legacy (kept for backward compat) ───────────────────────────────────────
-
 export interface SimConfig {
   harness: HarnessConfig;
   loop: LoopConfig;
   loopStack?: LoopStackConfig;
   graph?: GraphSpec;
-}
-
-export class ApiError extends Error {
-  status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-  }
 }

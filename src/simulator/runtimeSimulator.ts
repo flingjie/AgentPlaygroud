@@ -15,6 +15,8 @@ import type { Trace } from '../types/events';
 import {
   ACTION_COST,
   checkStepFailure,
+  checkCrossCutFailure,
+  contextFullRisk as baseContextFullRisk,
   staleLag,
   budgetExceeded,
   hasStructuralDeadlock,
@@ -28,7 +30,7 @@ import { traceToV2 } from './eventFactory';
 /**
  * Topology info computed from graph structure.
  */
-export interface TopologyInfo {
+interface TopologyInfo {
   kind: 'single' | 'chain' | 'parallel' | 'feedback';
   has_feedback: boolean;
   parallel_coders: number;
@@ -215,14 +217,20 @@ export function simulateRun(config: SimConfig, seed: number): RunTrace {
 
   // Cross-cut failures
   if (failureReason === 'NONE') {
-    const crossFailure = checkCrossCutFailureInternal(
-      harness,
-      steps,
-      globalMemory,
-      coderEditCount,
+    const crossFailure = checkCrossCutFailure(
+      {
+        harness,
+        loop,
+        nodeRole: 'coder',
+        stepCount: steps.length,
+        coderEdits: coderEditCount,
+        memoryUsed: globalMemory,
+        staleLag: 0,
+        hasGroundedLoop: loop.enabled && loop.evidence !== 'none',
+      },
       rng
     );
-    if (crossFailure !== 'NONE') {
+    if (crossFailure !== null) {
       failureReason = crossFailure;
     }
   }
@@ -839,10 +847,7 @@ function hasGraphBonus(nodes: GraphNode[]): boolean {
 
 function contextFullRisk(statePolicy: LoopConfig['state_policy'], memoryUsed: number, memoryCapacity: number): number {
   if (memoryUsed < memoryCapacity) return 0;
-  if (statePolicy === 'stateless') return 0.2;
-  if (statePolicy === 'keep_last_error') return 0.55;
-  if (statePolicy === 'keep_run_summary') return 0.75;
-  return 0;
+  return baseContextFullRisk(statePolicy);
 }
 
 // ==================== Loop Simulation ====================
@@ -1144,36 +1149,6 @@ function feedbackRework(
   reworkTokens += ACTION_COST.RUN_TEST;
 
   return { rescued, reworkSteps, reworkTokens };
-}
-
-// ==================== Check Cross-Cut Failures (internal) ====================
-
-function checkCrossCutFailureInternal(
-  harness: HarnessConfig,
-  steps: TraceStep[],
-  memoryUsed: number,
-  coderEditCount: number,
-  rng: SeededRng
-): FailureReason | 'NONE' {
-  const stepCount = steps.length;
-  const memoryCapacity = harness.memory_capacity;
-
-  // MEMORY_STACK_OVERFLOW: stepCount >= 3 AND memoryCapacity <= 3 AND memory >= cap
-  if (stepCount >= 3 && memoryCapacity <= 3 && memoryUsed >= memoryCapacity) {
-    if (rng.chance(0.3)) return 'MEMORY_STACK_OVERFLOW';
-  }
-
-  // FILE_CORROSION: not has_state_persistence AND coderEdits >= 2
-  if (!harness.has_state_persistence && coderEditCount >= 2) {
-    if (rng.chance(0.4)) return 'FILE_CORROSION';
-  }
-
-  // HALLUCINATION: not has_tool_registry
-  if (!harness.has_tool_registry) {
-    if (rng.chance(0.3)) return 'HALLUCINATION';
-  }
-
-  return 'NONE';
 }
 
 // ==================== Default Graph ====================

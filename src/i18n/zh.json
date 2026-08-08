@@ -27,21 +27,8 @@
     "architecture": "架构"
   },
   "shell": {
-    "run": "运行",
     "enterFactory": "进入 Harness 工程 →",
     "backToLab": "← 返回实验室"
-  },
-  "diagnosis": {
-    "002": {
-      "rootCause": "模型被问及其训练截止日期之后的信息，编造了一个看似合理但错误的答案。",
-      "missingCapability": "事实检索——模型无法知道未训练过的内容。需要实时数据访问或事实验证。",
-      "recommendedFix": "对于事实性问题，添加检索工具或设定知识截止预期。模型在超出知识边界时会自信地产生幻觉。"
-    },
-    "generic": {
-      "rootCause": "agent 在执行过程中遇到了意外失败。",
-      "missingCapability": "检查运行时跟踪以确定哪个步骤失败，以及哪个工程能力可以预防它。",
-      "recommendedFix": "检查事件时间线找到失败点，然后添加相应的 harness 维度或 loop 配置。"
-    }
   },
   "exp": {
     "000NextToken": {
@@ -64,60 +51,6 @@
       "title": "推理 ≠ 执行",
       "desc": "模型自信地报告操作已完成——但实际上什么都没发生。模型输出只是提议，不是执行。"
     }
-  },
-  "concepts": {
-    "tokenGeneration": "Token 生成",
-    "tokenGenerationDesc": "LLM 逐 token 生成文本，而非一次性生成。每个 token 从概率分布中采样。",
-    "probabilityDistribution": "概率分布",
-    "probabilityDistributionDesc": "每一步模型输出所有可能的下一个 token 的概率，然后采样其中之一。",
-    "hallucination": "幻觉",
-    "hallucinationDesc": "当被问及训练数据之外的信息时，模型会编造看似合理但错误的答案。",
-    "knowledgeCutoff": "知识截止",
-    "knowledgeCutoffDesc": "模型有一个训练截止日期，无法知道该日期之后的事件或事实。",
-    "contextWindow": "上下文窗口",
-    "contextWindowDesc": "模型一次可以处理的文本总量（token），包括系统提示、记忆和用户输入。",
-    "attention": "注意力",
-    "attentionDesc": "模型对输入上下文的不同部分赋予不同的权重——某些部分对每个 token 更重要。",
-    "temperature": "温度",
-    "temperatureDesc": "控制 token 选择的随机性：0 = 确定性（始终相同输出），1+ = 逐渐更随机。",
-    "sampling": "采样",
-    "samplingDesc": "从概率分布中选择下一个 token 的过程，受温度影响。",
-    "determinism": "确定性",
-    "determinismDesc": "使用 temperature=0 和固定种子时，LLM 对相同输入产生完全相同的输出。",
-    "toolContract": "工具契约",
-    "toolContractDesc": "工具必须有明确的类型化输入/输出。没有注册表，模型会发明不存在的 API。",
-    "retryMechanism": "重试机制",
-    "retryMechanismDesc": "一种结构化的方式，在失败后根据前一次的反馈再次尝试。",
-    "executionIsolation": "执行隔离",
-    "executionIsolationDesc": "在沙盒中运行代码可防止破坏性操作损坏宿主环境。",
-    "capabilityVsPermission": "能力 vs 权限",
-    "capabilityVsPermissionDesc": "有能力不等于有权限。许可列表控制代理实际可以做什么。",
-    "versioning": "版本控制",
-    "versioningDesc": "跟踪工作区文件的变更可防止编辑互相覆盖。",
-    "freshness": "时效性",
-    "freshnessDesc": "代理必须在行动前重新读取当前状态。过时的观察导致错误决策。",
-    "contextLimits": "上下文限制",
-    "contextLimitsDesc": "每个模型都有最大上下文大小。超出限制会导致信息丢失或溢出。",
-    "evidenceBasedStop": "基于证据的停止",
-    "evidenceBasedStopDesc": "当实际证据（测试、模式检查）通过时停止——绝不依赖'感觉完成了'。",
-    "statePolicy": "状态策略",
-    "statePolicyDesc": "控制代理在循环迭代之间携带什么信息——无状态、保留最后错误、或完整摘要。",
-    "loopNecessity": "循环的必要性",
-    "loopNecessityDesc": "没有循环，代理在第一次失败后就退出了。循环支持重试和恢复。",
-    "verificationLoop": "验证循环",
-    "verificationLoopDesc": "在接受工具输出之前检查其是否符合预期结果的循环。",
-    "boundaryGuard": "边界守卫",
-    "boundaryGuardDesc": "Token 或迭代上限，防止失控循环消耗无限资源。",
-    "recoveryPath": "恢复路径",
-    "recoveryPathDesc": "控制图中的每个失败状态都必须有恢复路径。死胡同失败会导致死锁。",
-    "topologyBasics": "拓扑基础",
-    "topologyBasicsDesc": "节点的连接方式——链式、并行或反馈——决定控制流和失败行为。",
-    "parallelism": "并行性",
-    "parallelismDesc": "多个代理同时工作可以互相抢救失败。",
-    "feedbackEdges": "反馈边",
-    "feedbackEdgesDesc": "循环边启用重做周期——评审、修改、重复。",
-    "recoveryDesign": "恢复设计",
-    "recoveryDesignDesc": "设计图时确保每条失败边都指向恢复节点，而非死胡同。"
   },
   "factory": {
     "runSimulation": "运行模拟（100次）",
@@ -233,8 +166,6 @@
     "title": "循环栈",
     "template": "循环栈模板",
     "single": "单一循环",
-    "dual": "双循环",
-    "factory": "Agent 工厂循环",
     "singleHint": "单一循环就是第三关的循环——其行为由 Loop 面板决定。选择双循环或工厂循环来运行预设的循环栈模板。",
     "lockedNote": "预设项——点击字段了解其存在原因",
     "inner": "内层（验证）",
@@ -305,8 +236,6 @@
     "live": "实时",
     "tokens": "Token",
     "liveSimulationFailed": "实时模拟失败",
-    "whyFailed": "为什么会失败？",
-    "showHint": "需要提示？",
     "topology": {
       "single": "拓扑：单节点",
       "chain": "拓扑：链式",
@@ -401,22 +330,6 @@
     "title": "运行时位置",
     "empty": "暂无轨迹。"
   },
-  "realityViewer": {
-    "title": "现实对照",
-    "empty": "运行实验以对比代理信念与现实。",
-    "noSnapshots": "此跟踪中没有可用的状态快照。",
-    "agentBelief": "代理信念",
-    "reality": "现实",
-    "differences": "跨所有步骤的差异",
-    "noDifferences": "未发现差异——代理信念与现实一致。",
-    "agentAssumed": "代理假设了此内容",
-    "agentMissed": "代理遗漏了此内容",
-    "contextManager": "上下文管理器",
-    "statePersistence": "状态持久化",
-    "on": "开",
-    "off": "关",
-    "harnessHint": "上方显示了 Harness 状态——启用上下文管理器和状态持久化可缩小现实差距。"
-  },
   "architect": {
     "edgeCondition": "边条件",
     "graphOptions": "图选项",
@@ -433,11 +346,8 @@
   },
   "stage0": {
     "modelLayer": "🧠 模型层",
-    "modelLayerDesc": "Stage 0 概念 — 这类失败为什么在模型层面存在：",
     "engineeringLayer": "🔧 工程层",
-    "engineeringLayerDesc": "本次运行出了什么问题：",
     "fixLayer": "✅ 修复",
-    "fixLayerDesc": "如何在你的架构中修复它：",
     "modelLayerConcepts": {
       "HALLUCINATION": "LLM 是概率模型，不是数据库。没有工具接口时，模型会发明看似合理但不存在的 API。",
       "TOOL_FAILURE": "LLM 输出是提议，不是执行。真实工具可能返回垃圾数据——模型本身无法验证接收到的内容。",
@@ -454,29 +364,10 @@
       "UNSAFE_EXECUTION": "LLM 输出没有执行边界。生成的 'rm -rf /' 对模型来说只是文本——但对宿主是灾难性的。"
     }
   },
-  "stack": {
-    "layer": {
-      "model": {
-        "question": "能思考吗?"
-      },
-      "tool": {
-        "question": "能安全、有权地动手吗?"
-      },
-      "workspace": {
-        "question": "改动有版本、可回滚吗?"
-      },
-      "memory": {
-        "question": "装得下、不溢出吗?"
-      },
-      "observation": {
-        "question": "看得准、不陈旧吗?"
-      },
-      "loop_discipline": {
-        "question": "会迭代、会基于证据停吗?"
-      },
-      "execution": {
-        "question": "跑得完、走得通吗?"
-      }
-    }
+  "realityViewer": {
+    "title": "现实查看器",
+    "empty": "运行实验以查看 Agent 信念与现实对比",
+    "noSnapshots": "此实验没有记录状态快照",
+    "harnessHint": "提示：启用 Harness 维度以减少差异"
   }
 }

@@ -31,7 +31,7 @@ export const ACTION_COST: Record<TraceAction, number> = {
  * Context-overflow risk based on state_policy.
  * From engine.py: _context_full_risk
  */
-function contextFullRisk(statePolicy: LoopConfig['state_policy']): number {
+export function contextFullRisk(statePolicy: LoopConfig['state_policy']): number {
   if (statePolicy === 'stateless') return 0.2;
   if (statePolicy === 'keep_last_error') return 0.55;
   if (statePolicy === 'keep_run_summary') return 0.75;

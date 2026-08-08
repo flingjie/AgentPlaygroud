@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Brain, Globe, AlertTriangle, X } from 'lucide-react';
 import { useExperimentStore } from '../stores/experimentStore';
-import type { DiffEntry } from './DiffHighlighter';
+import type { DiffEntry } from '../types/events';
 import type { StateSnapshot } from '../types/events';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

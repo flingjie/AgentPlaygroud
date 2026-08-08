@@ -21,7 +21,7 @@ const ACTION_TO_EVENT: Record<TraceAction, AgentEventType> = {
 /**
  * Convert a legacy TraceStep to a new AgentEvent.
  */
-export function stepToEvent(
+function stepToEvent(
   step: TraceStep,
   nodeId: string,
   timestamp: number,
@@ -46,7 +46,7 @@ export function stepToEvent(
  * Build a StateSnapshot at a given step, reflecting the agent's belief
  * vs reality based on the events so far.
  */
-export function buildStateSnapshot(
+function buildStateSnapshot(
   step: number,
   goal: string,
   events: AgentEvent[],
@@ -85,7 +85,7 @@ export function buildStateSnapshot(
 /**
  * Build a ContextSnapshot capturing what the agent "sees" at a given step.
  */
-export function buildContextSnapshot(
+function buildContextSnapshot(
   step: number,
   harness: HarnessConfig,
   memoryUsed: number,
@@ -115,7 +115,7 @@ export function buildContextSnapshot(
  * Build an EnvironmentSnapshot reflecting the file system, test results,
  * and available tools at a given step.
  */
-export function buildEnvironmentSnapshot(
+function buildEnvironmentSnapshot(
   step: number,
   harness: HarnessConfig,
 ): EnvironmentSnapshot {

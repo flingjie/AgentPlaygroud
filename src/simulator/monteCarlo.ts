@@ -1,6 +1,5 @@
 import type { MonteCarloResult, SimConfig } from '../types';
-import type { TraceMonteCarloResult } from '../types/events';
-import { simulateRun, simulateRunV2 } from './runtimeSimulator';
+import { simulateRun } from './runtimeSimulator';
 import { deriveRunSeed } from './rng';
 
 /**
@@ -41,32 +40,5 @@ export function simulateMonteCarlo(
     failure_distribution: failureDistribution,
     sample_traces: sampleTraces,
     runs: n,
-  };
-}
-
-// ==================== V2 Wrapper ====================
-
-/**
- * Run N deterministic Monte Carlo simulations and return V2 Trace results.
- * Same baseSeed + runs always produces an identical result object.
- */
-export function simulateMonteCarloV2(
-  config: SimConfig,
-  seed: number,
-  runs: number = 100,
-): TraceMonteCarloResult {
-  const result = simulateMonteCarlo(config, seed, runs);
-
-  // Convert sample traces to V2 format — re-simulate with the same seeds
-  const v2Traces = result.sample_traces.map((t) =>
-    simulateRunV2(config, t.seed ?? seed),
-  );
-
-  return {
-    successRate: result.success_rate,
-    avgTokens: result.avg_tokens,
-    failureDistribution: result.failure_distribution,
-    sampleTraces: v2Traces,
-    runs: result.runs,
   };
 }

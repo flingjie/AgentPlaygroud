@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import en from '../en';
 import zh from '../zh';
-import { LEARNING_CONCEPTS, conceptById } from '../../../experiments/concepts';
-import { ALL_EXPERIMENTS, experimentById } from '../../../experiments/registry';
+import { ALL_EXPERIMENTS } from '../../../experiments/registry';
 
 const SCENARIO_IDS = ['000', '001', '002', '003', '004'];
 
@@ -78,29 +77,6 @@ describe('Stage 0 content integrity', () => {
         zh.scenarios[scenarioId],
         `No zh content for experiment ${exp.id}`,
       ).toBeDefined();
-    }
-  });
-
-  // ── Concept references ──
-
-  it('all learningConcepts in registry experiments reference valid concepts', () => {
-    const stage0Exps = ALL_EXPERIMENTS.filter((e) => e.stage === 0);
-    for (const exp of stage0Exps) {
-      for (const conceptId of exp.learningConcepts) {
-        const concept = conceptById(conceptId);
-        expect(
-          concept,
-          `Experiment ${exp.id} references unknown concept "${conceptId}"`,
-        ).toBeDefined();
-      }
-    }
-  });
-
-  it('all concept IDs in the concepts list are valid', () => {
-    for (const concept of LEARNING_CONCEPTS) {
-      expect(concept.id).toBeTruthy();
-      expect(concept.titleKey).toBeTruthy();
-      expect(concept.descriptionKey).toBeTruthy();
     }
   });
 

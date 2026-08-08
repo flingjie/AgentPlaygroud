@@ -1,29 +1,14 @@
-import type { AgentEvent, ContextSnapshot, EnvironmentSnapshot, Trace, TraceMonteCarloResult } from './events';
+import type { AgentEvent, ContextSnapshot, EnvironmentSnapshot } from './events';
 
 // ── Learning Stages ─────────────────────────────────────────────────────────
 
 export type LearningStage = 0 | 1 | 2 | 3;
 
-export const STAGE_LABELS: Record<LearningStage, string> = {
-  0: 'Model Engineering',
-  1: 'Harness Engineering',
-  2: 'Loop Engineering',
-  3: 'Graph Engineering',
-};
-
-export interface LearningConcept {
-  id: string;
-  stage: LearningStage;
-  titleKey: string;
-  descriptionKey: string;
-  prerequisites: string[];
-}
-
 // ── Expected Failure ────────────────────────────────────────────────────────
 
 export interface ExpectedFailure {
-  reason: string; // FailureReason value
-  rootCauseKey: string; // i18n key
+  reason: string;
+  rootCauseKey: string;
   missingCapabilityKey: string;
   recommendedFixKey: string;
 }
@@ -45,13 +30,4 @@ export interface ExperimentConfig {
   harnessConfig: {
     availableDims: string[];
   };
-}
-
-// ── Experiment Result ───────────────────────────────────────────────────────
-
-export interface ExperimentResult {
-  experimentId: string;
-  trace: Trace | null;
-  monteCarlo: TraceMonteCarloResult | null;
-  completedAt: number | null;
 }

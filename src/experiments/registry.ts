@@ -768,8 +768,3 @@ export function experimentsByStage(stage: number): ExperimentConfig[] {
 export function experimentById(id: string): ExperimentConfig | undefined {
   return ALL_EXPERIMENTS.find((e) => e.id === id);
 }
-
-export function getStageCount(): number {
-  const stages = new Set(ALL_EXPERIMENTS.map((e) => e.stage));
-  return stages.size;
-}

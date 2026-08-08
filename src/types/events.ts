@@ -68,6 +68,17 @@ export interface Trace {
   environmentSnapshots: EnvironmentSnapshot[];
 }
 
+// ── Diff (agent belief vs reality) ───────────────────────────────────────────
+
+export type DiffKind = 'match' | 'mismatch' | 'belief_only' | 'reality_only';
+
+export interface DiffEntry {
+  key: string;
+  kind: DiffKind;
+  beliefValue: unknown;
+  realityValue: unknown;
+}
+
 // ── Monte Carlo ─────────────────────────────────────────────────────────────
 
 export interface TraceMonteCarloResult {
