@@ -7,9 +7,11 @@ import type { StageGroup } from '../components/StageMap';
 export default function HomePage() {
   const stages = useMemo<StageGroup[]>(() => {
     const groups: Record<StageId, Scenario[]> = {
+      llm: [],
       harness: [],
       loop: [],
       graph: [],
+      reliability: [],
     };
     for (const s of SCENARIOS) {
       groups[s.def.stage].push(s);

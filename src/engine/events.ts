@@ -71,6 +71,21 @@ const FAILURE_STORY: Record<FailureId, {
     failure: { en: 'No node moves and the task stalls forever', zh: '没有节点推进，任务永远卡住' },
     mitigation: { en: 'Graph Orchestration broke the cycle and Human Gate approved the next transition', zh: 'Graph Orchestration 打破循环，Human Gate 批准下一步转移' },
   },
+  'evaluation-gap': {
+    setup: { en: 'Agent ships a fix without running evals', zh: 'Agent 未跑评估就提交修复' },
+    failure: { en: 'Regression slips through because no harness caught it', zh: '没有夹具拦截，回归漏到线上' },
+    mitigation: { en: 'Evaluation Harness ran the benchmark suite before merge', zh: 'Evaluation Harness 在合并前跑完基准测试' },
+  },
+  'no-observability': {
+    setup: { en: 'Agent runs in production with no tracing', zh: 'Agent 在生产环境无追踪地运行' },
+    failure: { en: 'Incident root cause is invisible in logs and metrics', zh: '日志与指标中看不到根因' },
+    mitigation: { en: 'Observability Stack surfaced spans, logs, and alerts', zh: 'Observability Stack 暴露链路、日志与告警' },
+  },
+  'no-replay': {
+    setup: { en: 'Agent fails intermittently with no recorded trace', zh: 'Agent 间歇失败且无录制轨迹' },
+    failure: { en: 'Engineers cannot reproduce the failure from memory alone', zh: '工程师无法凭记忆复现故障' },
+    mitigation: { en: 'Deterministic Replay reproduced the exact execution path', zh: 'Deterministic Replay 复现了精确执行路径' },
+  },
 };
 
 export type EventKind = 'trigger' | 'thought' | 'action' | 'failure' | 'mitigation' | 'verdict';

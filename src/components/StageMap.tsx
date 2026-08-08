@@ -7,9 +7,11 @@ import type { StageId, Scenario } from '../content/schema';
 const STAGE_ORDER: StageId[] = ['harness', 'loop', 'graph'];
 
 const STAGE_COLORS: Record<StageId, string> = {
+  llm: 'border-l-rose-500',
   harness: 'border-l-sky-500',
   loop: 'border-l-amber-500',
   graph: 'border-l-violet-500',
+  reliability: 'border-l-emerald-500',
 };
 
 export type StageGroup = { id: StageId; scenarios: Scenario[] };

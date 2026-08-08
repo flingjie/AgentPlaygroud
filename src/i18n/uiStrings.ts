@@ -14,6 +14,10 @@ export const ui = {
     { en: 'Understand Harness / Loop / Graph', zh: '理解 Harness / Loop / Graph' },
   ],
   aboutStages: {
+    llm: {
+      en: 'Make the model trustworthy',
+      zh: '让模型可信',
+    },
     harness: {
       en: 'Make it work',
       zh: '能工作',
@@ -26,23 +30,33 @@ export const ui = {
       en: 'Make it complex',
       zh: '做复杂',
     },
+    reliability: {
+      en: 'Make it operable',
+      zh: '可运维',
+    },
   },
   aboutCoreLoop: { en: 'Core Loop', zh: '核心教学循环' },
   aboutThreeStages: { en: 'Three Stages', zh: '三个阶段' },
   aboutKeywords: {
+    llm: { en: 'Prompt · Grounding · Hallucination · Eval', zh: 'Prompt · Grounding · Hallucination · Eval' },
     harness: { en: 'Tool · Memory · Context · Workspace · Permission', zh: 'Tool · Memory · Context · Workspace · Permission' },
     loop: { en: 'Trigger · Evidence · Feedback · Stop · Retry', zh: 'Trigger · Evidence · Feedback · Stop · Retry' },
     graph: { en: 'Node · Edge · Branch · Recovery · Human', zh: 'Node · Edge · Branch · Recovery · Human' },
+    reliability: { en: 'Eval · Observability · Replay · SLO', zh: 'Eval · Observability · Replay · SLO' },
   },
   stages: {
+    llm: { en: 'LLM Engineering', zh: 'LLM 工程' },
     harness: { en: 'Harness Engineering', zh: 'Harness 工程' },
     loop: { en: 'Loop Engineering', zh: 'Loop 工程' },
     graph: { en: 'Graph Engineering', zh: 'Graph 工程' },
+    reliability: { en: 'Reliability Engineering', zh: '可靠性工程' },
   },
   stageTaglines: {
+    llm: { en: 'Make the model reliable', zh: '让模型输出可靠' },
     harness: { en: 'Make the agent work', zh: '让 Agent 能工作' },
     loop: { en: 'Make the agent finish reliably', zh: '让 Agent 可靠完成' },
     graph: { en: 'Make the agent run complex flows', zh: '让 Agent 支撑复杂流程' },
+    reliability: { en: 'Make the agent production-ready', zh: '让 Agent 可上线运维' },
   },
   runBaseline: { en: 'Run Baseline Experiment', zh: '运行基线实验' },
   runAgain: { en: 'Re-run with Capabilities', zh: '注入能力后重跑' },

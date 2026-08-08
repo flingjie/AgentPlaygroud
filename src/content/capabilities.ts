@@ -65,4 +65,16 @@ export const CAPABILITIES: Record<CapabilityId, { name: LocalizedText; desc: Loc
     name: { zh: '人工关卡', en: 'Human Gate' },
     desc: { zh: '关键节点人工确认', en: 'Human confirmation at critical decision points' },
   },
+  'evaluation-harness': {
+    name: { zh: '评估夹具', en: 'Evaluation Harness' },
+    desc: { zh: '自动化回归与基准测试夹具', en: 'Automated regression and benchmark test harness' },
+  },
+  'observability-stack': {
+    name: { zh: '可观测性栈', en: 'Observability Stack' },
+    desc: { zh: '日志、指标、链路追踪与告警', en: 'Logs, metrics, tracing, and alerting' },
+  },
+  'deterministic-replay': {
+    name: { zh: '确定性回放', en: 'Deterministic Replay' },
+    desc: { zh: '录制并重放 Agent 执行轨迹', en: 'Record and replay agent execution traces' },
+  },
 };
