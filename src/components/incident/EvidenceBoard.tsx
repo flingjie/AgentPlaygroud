@@ -24,11 +24,11 @@ export function EvidenceBoard({ evidences, viewedIds, onView }: EvidenceBoardPro
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 -mx-4 sm:mx-0 px-4 sm:px-0">
       <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         {pick(ui.evidence)}
       </h3>
-      <div className="max-h-96 overflow-y-auto space-y-2 pr-1">
+      <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto space-y-2 pr-1">
         {evidences.map((ev) => {
           const isExpanded = expanded.has(ev.id);
           return (
