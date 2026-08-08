@@ -42,7 +42,8 @@ describe('App shell', () => {
 
   it('renders home page in Chinese by default', () => {
     renderApp();
-    expect(screen.getByText('Harness 工程')).toBeDefined();
+    expect(screen.getByText('Agent 事故模拟实验室')).toBeDefined();
+    expect(screen.getByText('Loop 工程')).toBeDefined();
   });
 
   it('switches to English and shows English stage name', () => {
@@ -50,32 +51,23 @@ describe('App shell', () => {
     act(() => {
       screen.getByTestId('switch-en').click();
     });
-    expect(screen.getByText('Harness Engineering')).toBeDefined();
+    expect(screen.getByText('Loop Engineering')).toBeDefined();
   });
 
-  it('unlocks the next scenario after the first is completed', () => {
-    useProgress.setState({
-      completed: ['scenario-001'],
-      inventory: ['context-injection', 'tool-registry'],
-    });
+  it('renders the only incident as a playable map item', () => {
     renderApp();
-    expect(screen.getByRole('link', { name: '工具故障' })).toBeDefined();
-    expect(screen.getByText('非安全执行')).toBeDefined();
-  });
-
-  it('shows visible unlock hint on locked scenarios', () => {
-    renderApp();
-    const hints = screen.getAllByTestId('unlock-hint');
-    expect(hints.length).toBeGreaterThan(0);
-    hints.forEach((hint) => {
-      expect(hint.textContent?.trim().length).toBeGreaterThan(0);
-    });
-  });
-
-  it('renders the updated app title and temporary INC-010 home banner', () => {
-    renderApp();
-    expect(screen.getByText('Agent 事故模拟实验室')).toBeDefined();
     expect(screen.getByText('INC-010 虚假完成：从未运行的 Auth 修复')).toBeDefined();
-    expect(screen.getByRole('link', { name: /开始诊断/ })).toBeDefined();
+    const link = screen.getByRole('link', { name: /INC-010/ });
+    expect(link.getAttribute('href')).toBe('#/incident/inc-010');
+  });
+
+  it('marks the incident as completed after it is closed', () => {
+    useProgress.setState({
+      completed: ['inc-010'],
+      inventory: ['evidence-loop'],
+    });
+    renderApp();
+    expect(screen.getByText(/已完成/)).toBeDefined();
+    expect(screen.queryByRole('link', { name: /INC-010/ })).toBeNull();
   });
 });
