@@ -1,0 +1,41 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import type { CapabilityId, ScenarioDef } from '../content/schema';
+import { SCENARIOS } from '../content/scenarios';
+
+interface ProgressState {
+  completed: string[];
+  inventory: CapabilityId[];
+  isUnlocked: (s: ScenarioDef) => boolean;
+  isCompleted: (id: string) => boolean;
+  completeScenario: (s: ScenarioDef) => void;
+}
+
+export const useProgress = create<ProgressState>()(
+  persist(
+    (set, get) => ({
+      completed: [],
+      inventory: [],
+      isUnlocked: (s) => {
+        if (s.order === 1) return true;
+        const prev = SCENARIOS.find((x) => x.def.order === s.order - 1);
+        return prev ? get().isCompleted(prev.def.id) : false;
+      },
+      isCompleted: (id) => get().completed.includes(id),
+      completeScenario: (s) => {
+        set((state) => {
+          if (state.completed.includes(s.id)) return state;
+          const additions = s.unlocks.filter((u) => !state.inventory.includes(u));
+          return {
+            completed: [...state.completed, s.id],
+            inventory: [...state.inventory, ...additions],
+          };
+        });
+      },
+    }),
+    {
+      name: 'aes-progress',
+      partialize: (state) => ({ completed: state.completed, inventory: state.inventory }),
+    },
+  ),
+);
