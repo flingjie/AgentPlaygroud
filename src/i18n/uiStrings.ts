@@ -23,6 +23,8 @@ export const ui = {
   complete: { en: 'Complete & Export Pattern', zh: '完成实验 · 导出 Pattern' },
   completed: { en: 'Completed', zh: '已完成' },
   locked: { en: 'Locked', zh: '未解锁' },
+  lockedHint: { en: 'Complete the previous scenario to unlock.', zh: '完成上一个场景后即可解锁。' },
+  newBadge: { en: 'NEW', zh: '新' },
   unlockedPatterns: { en: 'Pattern Library', zh: 'Pattern 库' },
   mission: { en: 'Mission', zh: '实验目标' },
   explanation: { en: 'Why it works', zh: '设计原理' },
