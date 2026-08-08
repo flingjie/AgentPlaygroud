@@ -18,7 +18,7 @@ export default function AboutPage() {
       </div>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Core Loop</h2>
+        <h2 className="text-lg font-semibold">{pick(ui.aboutCoreLoop)}</h2>
         <ol className="relative border-l-2 border-zinc-200 dark:border-zinc-800 ml-3 space-y-6">
           {ui.aboutLoop.map((step, index) => (
             <li key={index} className="pl-6">
@@ -32,7 +32,7 @@ export default function AboutPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Three Stages</h2>
+        <h2 className="text-lg font-semibold">{pick(ui.aboutThreeStages)}</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {STAGE_ORDER.map((id) => (
             <div

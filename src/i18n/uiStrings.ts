@@ -27,6 +27,8 @@ export const ui = {
       zh: '做复杂',
     },
   },
+  aboutCoreLoop: { en: 'Core Loop', zh: '核心教学循环' },
+  aboutThreeStages: { en: 'Three Stages', zh: '三个阶段' },
   aboutKeywords: {
     harness: { en: 'Tool · Memory · Context · Workspace · Permission', zh: 'Tool · Memory · Context · Workspace · Permission' },
     loop: { en: 'Trigger · Evidence · Feedback · Stop · Retry', zh: 'Trigger · Evidence · Feedback · Stop · Retry' },
