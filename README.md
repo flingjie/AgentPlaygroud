@@ -1,42 +1,14 @@
 # Agent Incident Simulator
 
-A hands-on, bilingual simulator for learning how to respond to AI agent incidents.
+[English](./README.en.md)
 
-Play through 16 progressive incident tickets (INC-000…015) across five engineering layers: LLM, Harness, Loop, Graph, and Reliability. Investigate the scene, diagnose the root cause, choose interventions, run a deterministic Monte Carlo verification, and close the ticket to unlock the next stage.
+一个用于学习如何响应 AI Agent 事故的交互式模拟器。
 
-Live: https://flingjie.github.io/AgentPlaygroud/
-
-## Local Development
-
-```bash
-npm install
-npm run dev
-npm run test
-npm run build
-```
-
-## Deployment
-
-GitHub Actions builds and deploys the `dist` folder to GitHub Pages on every push to `main`.
-
-## Tech Stack
-
-- React 19 + TypeScript 5
-- React Router 7 (HashRouter)
-- Tailwind CSS 4
-- Zustand (progress state)
-- Vite 7
-- Vitest + Testing Library
-
----
-
-# Agent Incident Simulator（中文）
-
-一个用于学习如何响应 AI Agent 事故的双语交互模拟器。
+![Agent Incident Simulator](./docs/assets/agent-playground.png)
 
 包含 16 个渐进式事故工单（INC-000…015），涵盖 LLM、Harness、Loop、Graph、Reliability 五层工程。调查现场、诊断根因、选择干预方案、运行确定性 Monte Carlo 验证，并关闭工单以解锁下一阶段。
 
-在线预览：https://flingjie.github.io/AgentPlaygroud/
+**在线预览：** https://flingjie.github.io/AgentPlaygroud/
 
 ## 本地开发
 
