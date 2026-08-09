@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { I18nProvider } from '../../i18n/I18nProvider';
 import { getIncident } from '../../content/incidents';
@@ -6,7 +7,12 @@ import { useProgress } from '../../state/progressStore';
 import { useInvestigation } from '../../state/investigationStore';
 import { IncidentShell } from './IncidentShell';
 
-const renderWithI18n = (ui: React.ReactNode) => render(<I18nProvider>{ui}</I18nProvider>);
+const renderWithI18n = (ui: React.ReactNode) =>
+  render(
+    <MemoryRouter>
+      <I18nProvider>{ui}</I18nProvider>
+    </MemoryRouter>,
+  );
 
 describe('IncidentShell with INC-010', () => {
   beforeEach(() => {
@@ -42,8 +48,10 @@ describe('IncidentShell with INC-010', () => {
     expect((screen.getByTestId('close-incident') as HTMLButtonElement).disabled).toBe(false);
     fireEvent.click(screen.getByTestId('close-incident'));
 
-    // Closed phase
+    // Closed phase — next incident CTA
     expect(useProgress.getState().isCompleted('inc-010')).toBe(true);
+    const next = screen.getByTestId('next-incident');
+    expect(next.getAttribute('href')).toBe('/incident/inc-011');
   });
 
   it('advances with a wrong hypothesis and shows the feedback banner', () => {

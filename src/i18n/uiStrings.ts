@@ -71,6 +71,8 @@ export const ui = {
   unlockHint: { en: 'Close the previous incident to unlock.', zh: '关闭上一个事故后即可解锁。' },
   emptyPatterns: { en: 'Close incidents to collect patterns.', zh: '关闭事故以收集 Pattern。' },
   allComplete: { en: 'All incidents closed — view your Pattern Library', zh: '恭喜关闭全部事故！查看你的 Pattern 库' },
+  nextIncident: { en: 'Next Incident', zh: '下一个事故' },
+  incidentClosed: { en: 'Incident closed', zh: '事故已关闭' },
   newBadge: { en: 'NEW', zh: '新' },
   unlockedPatterns: { en: 'Pattern Library', zh: 'Pattern 库' },
   mission: { en: 'Mission', zh: '实验目标' },

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { Incident, LocalizedText } from '../../content/schema';
+import { INCIDENTS } from '../../content/incidents';
 import { usePick } from '../../i18n/I18nProvider';
 import { ui } from '../../i18n/uiStrings';
 import { useInvestigation } from '../../state/investigationStore';
@@ -42,6 +44,7 @@ export function IncidentShell({ incident }: IncidentShellProps) {
   }, [resetInvestigation, incident.def.id]);
 
   const alreadyCompleted = isCompleted(incident.def.id);
+  const nextIncident = INCIDENTS.find((i) => i.def.order === incident.def.order + 1);
 
   function handleStartDiagnosis() {
     setPhase('diagnose');
@@ -110,12 +113,30 @@ export function IncidentShell({ incident }: IncidentShellProps) {
   const canClose = canCloseIncident(incident.content.interventions, selectedInterventionIds, verified);
 
   if (phase === 'closed' || alreadyCompleted) {
+    const closedSummary = phase === 'closed' ? retrospective : incident.content.patternSummary;
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/20 p-4">
-          <h3 className="font-semibold text-emerald-800 dark:text-emerald-200">{pick(ui.closeIncident)}</h3>
-          <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">{pick(retrospective)}</p>
+          <h3 className="font-semibold text-emerald-800 dark:text-emerald-200">{pick(ui.incidentClosed)}</h3>
+          <p className="text-sm text-emerald-700 dark:text-emerald-300 mt-1">{pick(closedSummary)}</p>
         </div>
+        {nextIncident ? (
+          <Link
+            to={`/incident/${nextIncident.def.id}`}
+            data-testid="next-incident"
+            className="inline-flex items-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 dark:bg-sky-600 dark:hover:bg-sky-500 transition"
+          >
+            {pick(ui.nextIncident)} → {pick(nextIncident.content.title)}
+          </Link>
+        ) : (
+          <Link
+            to="/patterns"
+            data-testid="all-complete"
+            className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 transition"
+          >
+            {pick(ui.allComplete)} →
+          </Link>
+        )}
       </div>
     );
   }
